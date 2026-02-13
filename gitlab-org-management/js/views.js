@@ -464,7 +464,8 @@ const Views = {
                         Components.dropdown('projectCreation', [
                             { value: 'owner', label: 'Owners' },
                             { value: 'maintainer', label: 'Maintainers and above' },
-                            { value: 'developer', label: 'Developers and above' }
+                            { value: 'developer', label: 'Developers and above' },
+                            { value: 'noone', label: 'No one' }
                         ], group.projectCreationLevel)
                     )}
                     ${Components.formField('branchProtection', 'Default branch protection',
@@ -1914,6 +1915,7 @@ const Views = {
         const u = AppState.getUserById(user.id);
         if (u) u.secondaryEmails = user.secondaryEmails;
         Components.showToast(`Email ${email} removed`, 'success');
+        AppState.notify();
         Router.refresh();
     },
 
@@ -1922,6 +1924,7 @@ const Views = {
         const u = AppState.getUserById(AppState.currentUser.id);
         if (u) u.twoFactorEnabled = AppState.currentUser.twoFactorEnabled;
         Components.showToast(`Two-factor authentication ${AppState.currentUser.twoFactorEnabled ? 'enabled' : 'disabled'} (simulated)`, 'success');
+        AppState.notify();
         Router.refresh();
     },
 

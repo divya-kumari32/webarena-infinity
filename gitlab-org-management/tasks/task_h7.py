@@ -25,7 +25,7 @@ def verify(server_url: str) -> tuple[bool, str]:
     if not share:
         return False, "No project share found from Analytics Platform to design-system."
 
-    if share.get("maxRole") != "Reporter":
+    if share.get("maxRole", {}).get("name") != "Reporter":
         return False, f"Expected maxRole 'Reporter', got '{share.get('maxRole')}'."
 
     expires_at = share.get("expiresAt", "")

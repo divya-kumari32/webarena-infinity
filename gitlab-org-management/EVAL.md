@@ -24,6 +24,11 @@ The difficulty level should be determined by:
 
 Take these factors into account when defining and categorizing tasks.
 
+When authoring hard tasks, consider evenly splitting between two categories:
+
+- **Multi-step**: Require completing two distinct operations in sequence, often on different pages. Tests the agent's ability to chain actions and navigate between contexts.
+- **Deep-constraint**: A single logical operation that is challenging due to deep navigation, multiple interacting form controls, cross-scope boundaries, or custom UI components (date pickers, comma-separated inputs). Tests precision and UI manipulation.
+
 The number of tasks per difficulty level will be decided separately. Task design should prioritize coverage and variety of workflows.
 
 ## Agent Constraints
@@ -41,7 +46,21 @@ The agent **cannot**:
 - Directly manipulate `localStorage`, `AppState`, or any internal state
 - Make HTTP requests to API endpoints
 
-All tasks must be completable through the UI alone.
+## Authoring Guidelines
+
+Each task must be **completable through the UI alone** by the current user. Before finalizing a task, verify the following:
+
+**Permissions and seed data.** Trace the full permission chain: (1) what UI action does the task require? (2) what permission check does the application enforce? (3) does the current user have that role/permission in the seed data? If not, update the seed data to grant the necessary access. Missing permissions cause the UI to hide buttons or reject actions, making the task impossible regardless of agent capability.
+
+**Task-data alignment.** Task instructions reference specific entities (users, groups, emails, etc.) by name. Ensure:
+- The entity exists in seed data with the exact name used in the instruction.
+- The entity is reachable — e.g., a user referenced in "add member" must not already be a member (direct or inherited) of the target, or the UI will filter them out.
+- UI filtering won't exclude it — modals often filter out existing members, inherited members, or entities that don't meet certain criteria.
+
+**UI-verifier alignment.** Every value a verifier expects must be achievable through the UI:
+- If a verifier checks for a specific dropdown value, that value must exist as a dropdown option.
+- Task instructions must use the exact label text visible in the UI, not paraphrased versions.
+- If the UI and verifier use different names for the same concept, one or both must be fixed.
 
 ## Task Schema
 
@@ -84,7 +103,7 @@ Before writing verifiers, you must determine:
 
 For this specific website, the data store is the browser's `localStorage`, which is not directly accessible from Python. A state synchronization mechanism has been implemented (see below).
 
-## Verification Architecture (This Website)
+## Verification Architecture
 
 ### State Sync: Browser → Server
 
@@ -172,6 +191,37 @@ def verify(server_url: str) -> tuple[bool, str]:
    Verifiers should check these side effects where relevant.
 
 5. **Handle ID unpredictability**: New entities get auto-incremented IDs. Verifiers should search by name/path rather than hardcoding IDs.
+
+### Verification Patterns
+
+| Pattern | Description |
+|---------|-------------|
+| Entity existence (by name) | Search by name/path, not by ID (IDs are auto-incremented) |
+| Entity absence | Confirm deletion or removal succeeded |
+| Property match | Check specific field values after update |
+| Side effect check | Verify implicit consequences (e.g., creating a group also creates an Owner membership) |
+| Membership with constraints | Check role, membership type, and optional expiry date |
+| Relationship check | Verify parent-child or share relationships between entities |
+| Multi-condition | Multiple independent checks must all pass |
+| State sync | Verify that the same data is consistent across multiple representations (e.g., `currentUser` and `users[]` array) |
+
+### Verifier Conventions
+
+These conventions prevent common bugs in verifier code:
+
+**1. Dereference structured fields.** If the application stores enum-like values as objects (e.g., `role: {id: 50, name: "Owner", level: 50}`), the serialized JSON preserves the full structure. Verifiers must dereference to the primitive:
+
+```python
+# Correct — role is an object after JSON serialization
+membership.get("role", {}).get("name") == "Developer"
+
+# Wrong — object != string, always False
+membership.get("role") == "Developer"
+```
+
+**2. Use canonical field names.** Verifiers must use the exact property names from the application's state model, not abbreviated names from form field IDs or UI labels. Cross-reference against the data schema.
+
+**3. Account for persistence timing.** Verifiers read state from a server API. If the application has separate in-memory state and server-side persistence, every mutation handler must persist state before the verifier reads it. A missed persistence call means the verifier sees stale data.
 
 ## State Reset
 

@@ -25,7 +25,7 @@ def verify(server_url: str) -> tuple[bool, str]:
     owner_membership = [
         m
         for m in state["groupMemberships"]
-        if m["groupId"] == group_id and m["userId"] == 1 and m["role"] == "Owner"
+        if m["groupId"] == group_id and m["userId"] == 1 and m["role"]["name"] == "Owner"
     ]
     if not owner_membership:
         return False, "Current user (alex.morgan) is not an Owner of the new group."

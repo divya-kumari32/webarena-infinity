@@ -32,7 +32,7 @@ def verify(server_url: str) -> tuple[bool, str]:
             for m in state["groupMemberships"]
             if m["groupId"] == group["id"]
             and m["userId"] == 1
-            and m["role"] == "Owner"
+            and m["role"]["name"] == "Owner"
         ),
         None,
     )

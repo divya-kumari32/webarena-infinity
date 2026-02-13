@@ -402,6 +402,7 @@ const Router = {
                         const u = AppState.getUserById(AppState.currentUser.id);
                         if (u) u.username = newUsername;
                         Components.showToast('Username changed. URL redirects have been created.', 'success');
+                        AppState.notify();
                         Router.refresh();
                     },
                     { confirmLabel: 'Change username' }
@@ -437,6 +438,7 @@ const Router = {
                 if (u) u.secondaryEmails = AppState.currentUser.secondaryEmails;
 
                 Components.showToast(`Email ${email} added. Confirmation email sent (simulated).`, 'success');
+                AppState.notify();
                 Router.refresh();
             });
         }

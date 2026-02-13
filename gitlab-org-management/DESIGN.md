@@ -290,7 +290,8 @@ All application data **must persist across page reloads** using browser-local st
 - **Load on startup**: On page load, the application must check for saved state in `localStorage` and restore it. If no saved state exists, fall back to the initial seed data
 - **Seed data as default**: The hardcoded mock data serves as the initial seed. Once the user makes any change, the persisted version takes precedence
 - **Reset capability**: Provide a mechanism to clear persisted state and restore the original seed data
-- **Serialization safety**: Data must survive JSON round-tripping. Objects referenced by identity (e.g., role constants) must be compared by value (e.g., `.level`, `.name`), not by reference
+- **Serialization safety**: Data must survive JSON round-tripping. Objects referenced by identity (e.g., role constants) must be compared by value (e.g., `.level`, `.name`), not by reference. See "Structured Data Serialization" below for details
+- **Notify on every mutation path**: Every code path that modifies state must trigger persistence — not just centralized mutation methods but also inline handlers (e.g., toggling a boolean on `currentUser`). A missed persistence call means external verifiers see stale data
 
 #### What to Persist
 - All entity collections (users, groups, projects, organizations)
@@ -324,7 +325,41 @@ function loadState() {
 }
 ```
 
-### 11. Implementation Checklist
+### 11. Structured Data Serialization
+
+When state objects contain **nested references** (e.g., enum-like constants, configuration objects), the serialized (JSON) representation preserves the full structure. External consumers of the API (verifiers, tests, integrations) must account for this.
+
+#### The Problem
+
+```javascript
+// Roles defined as structured objects:
+const ROLES = {
+    OWNER: { id: 50, name: 'Owner', level: 50 },
+    DEVELOPER: { id: 30, name: 'Developer', level: 30 },
+};
+
+// A record references the object:
+{ userId: 1, role: ROLES.OWNER, ... }
+```
+
+When serialized to JSON, `role` becomes `{"id": 50, "name": "Owner", "level": 50}` — **not** the string `"Owner"`. Any external code comparing `role == "Owner"` will always fail.
+
+#### The Rule
+
+**Never compare structured fields against plain strings.** Always dereference to the primitive value:
+
+```python
+# Correct
+record["role"]["name"] == "Owner"
+record.get("maxRole", {}).get("name") == "Reporter"
+
+# Wrong — always False after serialization
+record["role"] == "Owner"
+```
+
+This applies to any field that stores an object reference rather than a scalar value.
+
+### 12. Implementation Checklist
 
 - [ ] Replace native UI elements with custom components  
 - [ ] Populate realistic, diverse data  
@@ -340,3 +375,5 @@ function loadState() {
 - [ ] Persist all data to `localStorage` on every mutation
 - [ ] Restore persisted state on page load
 - [ ] Provide a reset-to-seed-data mechanism
+- [ ] Every inline state mutation calls the persistence/notify function
+- [ ] External consumers (verifiers, tests) dereference structured objects — never compare to strings

@@ -25,7 +25,7 @@ def verify(server_url: str) -> tuple[bool, str]:
     if not share:
         return False, "No group share found from 'Open Source' to 'Product Development'."
 
-    if share.get("maxRole") != "Reporter":
+    if share.get("maxRole", {}).get("name") != "Reporter":
         return False, f"Expected maxRole 'Reporter', got '{share.get('maxRole')}'."
 
     return True, "Open Source group invited to Product Development with Reporter max role."

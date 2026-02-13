@@ -38,7 +38,7 @@ def verify(server_url: str) -> tuple[bool, str]:
     if not share:
         return False, "No project share found from Product Development to 'community-tools'."
 
-    if share.get("maxRole") != "Developer":
+    if share.get("maxRole", {}).get("name") != "Developer":
         return False, f"Expected maxRole 'Developer', got '{share.get('maxRole')}'."
 
     return True, "Project 'community-tools' created in Open Source and shared with Product Development (Developer access)."

@@ -48,7 +48,7 @@ const CURRENT_USER = {
     username: 'alex.morgan',
     name: 'Alex Morgan',
     email: 'alex.morgan@example.com',
-    secondaryEmails: ['alex.m@personal.io'],
+    secondaryEmails: ['alex.personal@email.com'],
     publicEmail: '',
     commitEmail: 'alex.morgan@example.com',
     privateCommitEmail: '1-alex.morgan@users.noreply.gitlab.com',
@@ -662,7 +662,7 @@ const GROUP_MEMBERSHIPS = [
 
     // Product Development (id:2) — direct members
     { groupId: 2, userId: 2, role: ROLES.OWNER, membershipType: 'direct', source: null, expiresAt: null, addedBy: 1, addedAt: '2021-06-15T10:30:00Z' },
-    { groupId: 2, userId: 1, role: ROLES.MAINTAINER, membershipType: 'direct', source: null, expiresAt: null, addedBy: 2, addedAt: '2021-06-20T09:00:00Z' },
+    { groupId: 2, userId: 1, role: ROLES.OWNER, membershipType: 'direct', source: null, expiresAt: null, addedBy: 2, addedAt: '2021-06-20T09:00:00Z' },
     { groupId: 2, userId: 6, role: ROLES.DEVELOPER, membershipType: 'direct', source: null, expiresAt: null, addedBy: 2, addedAt: '2023-02-15T10:00:00Z' },
     { groupId: 2, userId: 4, role: ROLES.DEVELOPER, membershipType: 'direct', source: null, expiresAt: '2025-06-30T00:00:00Z', addedBy: 2, addedAt: '2023-06-15T09:00:00Z' },
     { groupId: 2, userId: 12, role: ROLES.DEVELOPER, membershipType: 'direct', source: null, expiresAt: null, addedBy: 2, addedAt: '2024-03-05T10:00:00Z' },
@@ -671,6 +671,9 @@ const GROUP_MEMBERSHIPS = [
     { groupId: 3, userId: 1, role: ROLES.OWNER, membershipType: 'direct', source: null, expiresAt: null, addedBy: 1, addedAt: '2022-01-10T08:00:00Z' },
     { groupId: 3, userId: 5, role: ROLES.MAINTAINER, membershipType: 'direct', source: null, expiresAt: null, addedBy: 1, addedAt: '2022-08-10T15:00:00Z' },
     { groupId: 3, userId: 7, role: ROLES.DEVELOPER, membershipType: 'direct', source: null, expiresAt: null, addedBy: 1, addedAt: '2023-11-05T09:00:00Z' },
+
+    // Archived Projects (id:5) — direct members
+    { groupId: 5, userId: 1, role: ROLES.OWNER, membershipType: 'direct', source: null, expiresAt: null, addedBy: 1, addedAt: '2023-06-01T10:00:00Z' },
 
     // Security (id:4) — direct members
     { groupId: 4, userId: 1, role: ROLES.OWNER, membershipType: 'direct', source: null, expiresAt: null, addedBy: 1, addedAt: '2021-08-01T09:00:00Z' },

@@ -27,12 +27,12 @@ def verify(server_url: str) -> tuple[bool, str]:
         errors.append(f"name: expected 'Monitoring & Observability', got '{group.get('name')}'")
 
     # Check subgroup creation setting
-    if group.get("subgroupCreation") != "owners":
-        errors.append(f"subgroupCreation: expected 'owners', got '{group.get('subgroupCreation')}'")
+    if group.get("subgroupCreationLevel") != "owner":
+        errors.append(f"subgroupCreationLevel: expected 'owner', got '{group.get('subgroupCreationLevel')}'")
 
     # Check project creation setting
-    if group.get("projectCreation") != "noone":
-        errors.append(f"projectCreation: expected 'noone', got '{group.get('projectCreation')}'")
+    if group.get("projectCreationLevel") != "noone":
+        errors.append(f"projectCreationLevel: expected 'noone', got '{group.get('projectCreationLevel')}'")
 
     # Check disable mentions
     if group.get("disableMentions") is not True:

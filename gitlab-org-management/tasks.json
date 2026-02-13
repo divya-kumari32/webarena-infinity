@@ -56,7 +56,7 @@
   {
     "id": "task_m2",
     "difficulty": "medium",
-    "instruction": "Add Yuki Tanaka as a Developer to the 'CI/CD' group.",
+    "instruction": "Add Emma Wilson as a Developer to the 'CI/CD' group.",
     "verify": "tasks/task_m2.py"
   },
   {
@@ -128,7 +128,7 @@
   {
     "id": "task_h6",
     "difficulty": "hard",
-    "instruction": "In the 'Observability' group, change the name to 'Monitoring & Observability', set subgroup creation to 'Owners only', project creation to 'No one', and enable the 'Disable email mentions' option.",
+    "instruction": "In the 'Observability' group, change the name to 'Monitoring & Observability', set subgroup creation to 'Owners only', project creation to 'No one', and enable the 'Disable group mentions' option.",
     "verify": "tasks/task_h6.py"
   },
   {

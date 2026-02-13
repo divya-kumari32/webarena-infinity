@@ -39,7 +39,7 @@ def verify(server_url: str) -> tuple[bool, str]:
     if not sofia_membership:
         return False, "Sofia Petrov does not have a direct membership in web-frontend."
 
-    if sofia_membership.get("role") != "Developer":
+    if sofia_membership.get("role", {}).get("name") != "Developer":
         return False, f"Expected Sofia Petrov's role to be 'Developer', got '{sofia_membership.get('role')}'."
 
     return True, "Liam O'Shea removed and Sofia Petrov added as Developer to web-frontend."

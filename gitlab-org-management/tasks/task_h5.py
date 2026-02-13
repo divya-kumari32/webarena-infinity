@@ -26,7 +26,7 @@ def verify(server_url: str) -> tuple[bool, str]:
     if not membership:
         return False, "Omar Hassan does not have a direct membership in Terraform Modules."
 
-    if membership.get("role") != "Maintainer":
+    if membership.get("role", {}).get("name") != "Maintainer":
         return False, f"Expected role 'Maintainer', got '{membership.get('role')}'."
 
     expires_at = membership.get("expiresAt", "")

@@ -24,7 +24,7 @@ def verify(server_url: str) -> tuple[bool, str]:
     if not membership:
         return False, "James Chen has no membership in the Terraform Modules group."
 
-    if membership.get("role") != "Owner":
+    if membership.get("role", {}).get("name") != "Owner":
         return False, f"Expected role 'Owner', got '{membership.get('role')}'."
 
     return True, "James Chen's role in Terraform Modules changed to Owner."

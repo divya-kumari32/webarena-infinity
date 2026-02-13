@@ -36,7 +36,7 @@ def verify(server_url: str) -> tuple[bool, str]:
     if not membership:
         return False, "Priya Sharma does not have a direct membership in 'Threat Intelligence'."
 
-    if membership.get("role") != "Developer":
+    if membership.get("role", {}).get("name") != "Developer":
         return False, f"Expected Priya Sharma's role to be 'Developer', got '{membership.get('role')}'."
 
     return True, "Subgroup 'Threat Intelligence' created under Security with Priya Sharma as Developer."

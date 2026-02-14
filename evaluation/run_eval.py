@@ -24,11 +24,11 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from dotenv import load_dotenv
 
-from browser_use import BrowserSession
 from browser_use.llm.anthropic.chat import ChatAnthropic
 from browser_use.llm.google.chat import ChatGoogle
 from browser_use.llm.openai.chat import ChatOpenAI
 
+from agents import BrowserUseAgent
 from report import generate_report
 from server import start_server, stop_server, wait_for_server
 from tasks import (
@@ -36,7 +36,6 @@ from tasks import (
     filter_tasks,
     load_tasks,
     run_task,
-    seed_first_load,
 )
 
 load_dotenv()
@@ -130,11 +129,16 @@ async def main():
 
     try:
         llm = MODELS[args.model]()
-        session = BrowserSession(headless=True, keep_alive=True)
+        agent = BrowserUseAgent(
+            llm,
+            use_vision=args.use_vision,
+            max_steps=args.max_steps,
+            timeout=TASK_TIMEOUT,
+        )
 
-        # Seed first load — direct navigation, no LLM needed
+        # Seed first load
         print(f"  {DIM}Capturing seed state...{RESET}", end=" ", flush=True)
-        await seed_first_load(server_url, session)
+        await agent.setup(server_url)
         print(f"{GREEN}done{RESET}\n")
 
         total = len(tasks)
@@ -154,13 +158,10 @@ async def main():
             try:
                 result = await run_task(
                     task=task,
-                    llm=llm,
-                    session=session,
+                    agent_runner=agent,
                     server_url=server_url,
                     web_app_dir=web_app_dir,
                     task_dir=task_dir,
-                    max_steps=args.max_steps,
-                    use_vision=args.use_vision,
                 )
                 if result["passed"]:
                     print(f"{BG_GREEN}{WHITE}{BOLD} PASS {RESET} {DIM}{result['elapsed']}s  {result['steps']} steps{RESET}")
@@ -203,10 +204,7 @@ async def main():
                 results.append(result)
 
         # Close browser
-        try:
-            await session.kill()
-        except Exception:
-            pass
+        await agent.teardown()
 
     finally:
         signal.signal(signal.SIGINT, original_sigint)

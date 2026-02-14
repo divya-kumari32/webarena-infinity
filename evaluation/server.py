@@ -16,8 +16,8 @@ def start_server(web_app_dir: str, port: int) -> subprocess.Popen:
     )
 
 
-def wait_for_server(port: int, timeout: int = 10) -> bool:
-    url = f"http://localhost:{port}/"
+def wait_for_server(port: int, host: str = "localhost", timeout: int = 10) -> bool:
+    url = f"http://{host}:{port}/"
     deadline = time.time() + timeout
     while time.time() < deadline:
         try:

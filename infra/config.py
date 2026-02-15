@@ -25,13 +25,21 @@ PIPELINE_DONE_QUEUE_URL = os.environ.get("PIPELINE_DONE_QUEUE_URL", "")
 MAX_ITERATIONS = int(os.environ.get("MAX_ITERATIONS", "3"))  # K=3 audit loops
 TOTAL_ENVS = int(os.environ.get("TOTAL_ENVS", "100"))
 ENVS_PER_GENERATOR = int(os.environ.get("ENVS_PER_GENERATOR", "10"))
+PARALLEL_WORKERS = int(os.environ.get("PARALLEL_WORKERS", "5"))  # parallel envs per instance
 
 # ---------------------------------------------------------------------------
 # Server configuration
 # ---------------------------------------------------------------------------
 SERVERS_PER_ENV = 8          # one server per eval worker (mutable state isolation)
 BASE_PORT = 8001             # first server port
-MAX_PORT = BASE_PORT + SERVERS_PER_ENV - 1  # 8008
+# Each parallel worker gets its own port range:
+#   worker 0: 8001-8008, worker 1: 8009-8016, etc.
+MAX_PORT = BASE_PORT + (PARALLEL_WORKERS * SERVERS_PER_ENV) - 1
+
+# ---------------------------------------------------------------------------
+# Worktree
+# ---------------------------------------------------------------------------
+WORKTREE_DIR = os.environ.get("WORKTREE_DIR", "/home/ec2-user/mirror-mirror-workers")
 
 # ---------------------------------------------------------------------------
 # Paths

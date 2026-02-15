@@ -109,11 +109,12 @@ SG_AGENT=$(aws ec2 create-security-group \
 aws ec2 authorize-security-group-ingress --group-id "$SG_AGENT" --protocol tcp --port 22 --source-group "$SG_CTRL" --region "$REGION" > /dev/null
 echo "SG agent tester: $SG_AGENT"
 
-# Cross-SG rules: agent testers can reach env generator web servers on 8001-8008
+# Cross-SG rules: agent testers can reach env generator web servers
+# 5 parallel workers × 8 ports each = ports 8001-8040
 aws ec2 authorize-security-group-ingress \
-  --group-id "$SG_ENV" --protocol tcp --port 8001-8008 \
+  --group-id "$SG_ENV" --protocol tcp --port 8001-8040 \
   --source-group "$SG_AGENT" --region "$REGION" > /dev/null
-echo "Added rule: sg-agent → sg-env TCP 8001-8008"
+echo "Added rule: sg-agent → sg-env TCP 8001-8040"
 
 echo "=== Creating SQS Queues ==="
 

@@ -110,6 +110,7 @@ su - ec2-user -c 'git config --global user.email "mirror-mirror-bot@example.com"
 su - ec2-user -c 'git config --global user.name "mirror-mirror-bot"'
 
 mkdir -p /tmp/mirror-mirror-logs
+chown ec2-user:ec2-user /tmp/mirror-mirror-logs
 COMMON_EOF
 
 # --- Env Generator user-data (installs everything but does NOT start worker) ---

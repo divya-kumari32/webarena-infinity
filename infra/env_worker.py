@@ -78,6 +78,10 @@ def _handle_signal(signum, frame):
 # Git helpers (worktree-aware)
 # ---------------------------------------------------------------------------
 
+# Lock for git operations on the main repo — git doesn't handle concurrency
+_git_lock = multiprocessing.Lock()
+
+
 def git(*args: str, cwd: str = REPO_DIR) -> subprocess.CompletedProcess:
     cmd = ["git", *args]
     return subprocess.run(cmd, cwd=cwd, capture_output=True, text=True, check=True)
@@ -91,15 +95,17 @@ def setup_worktree(worker_id: int, env_id: str) -> str:
     worktree_path = os.path.join(WORKTREE_DIR, f"worker-{worker_id}")
     branch = f"{BRANCH_PREFIX}{env_id.removeprefix(BRANCH_PREFIX)}"
 
-    # Fetch the branch
-    git("fetch", GIT_REMOTE, branch)
+    with _git_lock:
+        # Fetch the branch
+        git("fetch", GIT_REMOTE, branch)
 
-    if os.path.isdir(worktree_path):
-        # Remove existing worktree and re-create for the new branch
-        git("worktree", "remove", "--force", worktree_path)
+        if os.path.isdir(worktree_path):
+            # Remove existing worktree and re-create for the new branch
+            git("worktree", "remove", "--force", worktree_path)
 
-    git("worktree", "add", worktree_path, branch)
-    git("reset", "--hard", f"{GIT_REMOTE}/{branch}", cwd=worktree_path)
+        git("worktree", "add", worktree_path, branch)
+        git("reset", "--hard", f"{GIT_REMOTE}/{branch}", cwd=worktree_path)
+
     return worktree_path
 
 
@@ -107,10 +113,11 @@ def remove_worktree(worker_id: int) -> None:
     """Clean up a worker's worktree."""
     worktree_path = os.path.join(WORKTREE_DIR, f"worker-{worker_id}")
     if os.path.isdir(worktree_path):
-        try:
-            git("worktree", "remove", "--force", worktree_path)
-        except subprocess.CalledProcessError:
-            pass
+        with _git_lock:
+            try:
+                git("worktree", "remove", "--force", worktree_path)
+            except subprocess.CalledProcessError:
+                pass
 
 
 def commit_and_push(worktree_path: str, env_id: str, message: str) -> None:

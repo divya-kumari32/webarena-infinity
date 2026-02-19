@@ -18,6 +18,7 @@ import json
 import logging
 import multiprocessing
 import os
+import shlex
 import signal
 import subprocess
 import sys
@@ -212,17 +213,20 @@ def stop_servers(procs: list[subprocess.Popen]) -> None:
 # ---------------------------------------------------------------------------
 
 
+LIVE_LOG_DIR = os.path.join(LOG_DIR, "live")
+
+
 def run_claude_code(
-    prompt: str, app_dir: str, timeout: int = 3600
+    prompt: str, app_dir: str, worker_id: int = 0, timeout: int = 3600
 ) -> subprocess.CompletedProcess:
-    cmd = [
-        "claude",
-        "--print",
-        "--dangerously-skip-permissions",
-        prompt,
-    ]
+    log_path = os.path.join(LIVE_LOG_DIR, f"env-W{worker_id}-claude.log")
+    os.makedirs(os.path.dirname(log_path), exist_ok=True)
+    cmd = (
+        f"claude --print --dangerously-skip-permissions {shlex.quote(prompt)}"
+        f" 2>&1 | tee -a {shlex.quote(log_path)}"
+    )
     return subprocess.run(
-        cmd,
+        ["bash", "-c", cmd],
         cwd=app_dir,
         capture_output=True,
         text=True,
@@ -230,7 +234,7 @@ def run_claude_code(
     )
 
 
-def generate_environment(env_id: str, docs_source: str, worktree_path: str) -> bool:
+def generate_environment(env_id: str, docs_source: str, worktree_path: str, worker_id: int = 0) -> bool:
     app_dir = os.path.join(worktree_path, "apps", env_id)
     os.makedirs(app_dir, exist_ok=True)
 
@@ -242,7 +246,7 @@ def generate_environment(env_id: str, docs_source: str, worktree_path: str) -> b
         docs_source=docs_source,
     )
 
-    result = run_claude_code(prompt, app_dir)
+    result = run_claude_code(prompt, app_dir, worker_id=worker_id)
     if result.returncode != 0:
         log.error("[%s] Claude Code failed: %s", env_id, result.stderr[-500:])
         return False
@@ -279,7 +283,7 @@ def run_sanity_check(env_id: str, worktree_path: str) -> bool:
 # ---------------------------------------------------------------------------
 
 
-def run_audit(env_id: str, iteration: int, worktree_path: str) -> bool:
+def run_audit(env_id: str, iteration: int, worktree_path: str, worker_id: int = 0) -> bool:
     app_dir = os.path.join(worktree_path, "apps", env_id)
     results_dir = os.path.join(app_dir, "results")
 
@@ -309,7 +313,7 @@ def run_audit(env_id: str, iteration: int, worktree_path: str) -> bool:
         max_iterations=str(MAX_ITERATIONS),
     )
 
-    result = run_claude_code(prompt, app_dir)
+    result = run_claude_code(prompt, app_dir, worker_id=worker_id)
     if result.returncode != 0:
         log.error("[%s] Audit failed: %s", env_id, result.stderr[-500:])
         return False
@@ -397,7 +401,7 @@ def process_env(
     try:
         # Generate (only on first iteration)
         if start_iteration == 1:
-            if not generate_environment(env_id, docs_source, worktree_path):
+            if not generate_environment(env_id, docs_source, worktree_path, worker_id=worker_id):
                 log.error("%s Generation failed", tag)
                 send_message(
                     PIPELINE_DONE_QUEUE_URL,
@@ -469,11 +473,11 @@ def process_env(
 
             # Audit
             if iteration < MAX_ITERATIONS:
-                if not run_audit(env_id, iteration, worktree_path):
+                if not run_audit(env_id, iteration, worktree_path, worker_id=worker_id):
                     log.info("%s No changes needed, done at iter %d", tag, iteration)
                     break
             else:
-                run_audit(env_id, iteration, worktree_path)
+                run_audit(env_id, iteration, worktree_path, worker_id=worker_id)
 
         # Signal completion
         send_message(

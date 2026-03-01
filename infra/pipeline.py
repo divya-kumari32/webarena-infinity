@@ -126,7 +126,8 @@ def run_claude(
         "claude",
         "--print",
         "--dangerously-skip-permissions",
-        "--permission-mode", "plan",
+        "--permission-mode",
+        "plan",
         "--verbose",
         prompt,
     ]
@@ -201,11 +202,16 @@ def run_eval(
     cmd = [
         sys.executable,
         str(REPO_DIR / "evaluation" / "run_eval_parallel.py"),
-        "--web-app", str(app_dir),
-        "--task-suite", task_suite,
-        "--model", model,
-        "--workers", str(workers),
-        "--repetitions", str(repetitions),
+        "--web-app",
+        str(app_dir),
+        "--task-suite",
+        task_suite,
+        "--model",
+        model,
+        "--workers",
+        str(workers),
+        "--repetitions",
+        str(repetitions),
         "--failed-only",
     ]
 
@@ -605,7 +611,9 @@ def build_hardening_analysis(app_dir: Path) -> str:
 
     lines = []
     lines.append(f"Overall pass rate: {data.get('pass_rate', 0)}%")
-    lines.append(f"Total tasks: {data.get('total', 0)}, Passed: {data.get('passed', 0)}")
+    lines.append(
+        f"Total tasks: {data.get('total', 0)}, Passed: {data.get('passed', 0)}"
+    )
     lines.append(f"(from eval run: {best_dir.name})")
     lines.append("")
 
@@ -640,7 +648,9 @@ def build_hardening_analysis(app_dir: Path) -> str:
                 hard_fails.append(f"  {tid} ({diff}): {msg}")
 
         if easy_wins:
-            lines.append("Easy wins (passed in <=10 steps — agent found these trivial):")
+            lines.append(
+                "Easy wins (passed in <=10 steps — agent found these trivial):"
+            )
             lines.extend(easy_wins[:20])
             lines.append("")
 
@@ -650,7 +660,9 @@ def build_hardening_analysis(app_dir: Path) -> str:
             lines.append("")
 
     # Point at the parent results/ dir so Claude can browse all runs
-    lines.append(f"Results directory (browse history.json across all runs): {results_root}")
+    lines.append(
+        f"Results directory (browse history.json across all runs): {results_root}"
+    )
     lines.append("")
     # List available run dirs for reference
     run_dirs = sorted(
@@ -705,7 +717,7 @@ def main() -> None:
     parser.add_argument(
         "--max-iterations",
         type=int,
-        default=5,
+        default=3,
         help="Max eval-audit loops per phase (default: 5)",
     )
     parser.add_argument(
@@ -764,7 +776,7 @@ def main() -> None:
     parser.add_argument(
         "--audit-every",
         type=int,
-        default=0,
+        default=3,
         help="Run audit-fix loop every N hardening rounds (default: 0 = no audit during hardening)",
     )
     parser.add_argument(
@@ -813,7 +825,9 @@ def main() -> None:
     if args.resume:
         state = load_state(args.app_name)
         if state is None:
-            log.error("--resume specified but no state file found for %s", args.app_name)
+            log.error(
+                "--resume specified but no state file found for %s", args.app_name
+            )
             sys.exit(1)
 
         resume_phase = state["step"]
@@ -833,7 +847,10 @@ def main() -> None:
             if saved_val is not None and saved_val != current_val:
                 log.warning(
                     "Arg mismatch: saved %s=%s, current %s=%s",
-                    key, saved_val, key, current_val,
+                    key,
+                    saved_val,
+                    key,
+                    current_val,
                 )
 
         # Discard any partial changes from the crashed run
@@ -890,7 +907,9 @@ def main() -> None:
                 **{"app-name": args.app_name},
             )
             if rc != 0:
-                log.error("Phase 2a FAILED: function task generation returned rc=%d", rc)
+                log.error(
+                    "Phase 2a FAILED: function task generation returned rc=%d", rc
+                )
                 sys.exit(1)
 
             ok, output = run_sanity_check(app_dir, "function")
@@ -921,7 +940,11 @@ def main() -> None:
                 save_state(args.app_name, "phase_2b", iteration=iteration, args=args)
 
                 results_dir = run_eval(
-                    app_dir, "function-tasks", args.model, args.workers, args.repetitions,
+                    app_dir,
+                    "function-tasks",
+                    args.model,
+                    args.workers,
+                    args.repetitions,
                     resume=(args.resume and iteration == start_iter),
                 )
                 results = parse_results(results_dir)
@@ -1012,7 +1035,11 @@ def main() -> None:
                 save_state(args.app_name, "phase_3b", iteration=iteration, args=args)
 
                 results_dir = run_eval(
-                    app_dir, "tasks", args.model, args.workers, args.repetitions,
+                    app_dir,
+                    "tasks",
+                    args.model,
+                    args.workers,
+                    args.repetitions,
                     resume=(args.resume and iteration == start_iter),
                 )
                 results = parse_results(results_dir)
@@ -1084,14 +1111,13 @@ def main() -> None:
             )
 
             # --- 4a: Analyze + Generate ---
-            skip_4a = (
-                resume_phase == "phase_4b"
-                and round_num == hardening_start_round
-            )
+            skip_4a = resume_phase == "phase_4b" and round_num == hardening_start_round
             if not skip_4a:
                 save_state(
-                    args.app_name, "phase_4a",
-                    iteration=round_num * 100, args=args,
+                    args.app_name,
+                    "phase_4a",
+                    iteration=round_num * 100,
+                    args=args,
                 )
 
                 # Snapshot current task IDs before generation
@@ -1157,16 +1183,19 @@ def main() -> None:
             # Use this round's new_ids (set in 4a), or fall back to all
             # unaudited IDs when resuming directly into 4b.
             round_ids = new_ids if not skip_4a else unaudited_ids
-            task_id_filter = (
-                ",".join(sorted(round_ids)) if round_ids else None
-            )
+            task_id_filter = ",".join(sorted(round_ids)) if round_ids else None
             save_state(
-                args.app_name, "phase_4b",
-                iteration=round_num * 100 + 1, args=args,
+                args.app_name,
+                "phase_4b",
+                iteration=round_num * 100 + 1,
+                args=args,
             )
 
             results_dir = run_eval(
-                app_dir, "tasks", args.model, args.workers,
+                app_dir,
+                "tasks",
+                args.model,
+                args.workers,
                 args.repetitions,
                 task_id_filter=task_id_filter,
             )
@@ -1181,16 +1210,18 @@ def main() -> None:
 
             # --- Audit if this is an audit round ---
             is_last_round = round_num == args.hardening_rounds
-            is_audit_round = (
-                args.audit_every > 0
-                and (round_num % args.audit_every == 0 or is_last_round)
+            is_audit_round = args.audit_every > 0 and (
+                round_num % args.audit_every == 0 or is_last_round
             )
 
             if is_audit_round and unaudited_ids:
                 # Eval ALL hardening tasks for audit baseline
                 audit_filter = ",".join(sorted(unaudited_ids))
                 results_dir = run_eval(
-                    app_dir, "tasks", args.model, args.workers,
+                    app_dir,
+                    "tasks",
+                    args.model,
+                    args.workers,
                     args.repetitions,
                     task_id_filter=audit_filter,
                 )
@@ -1214,8 +1245,10 @@ def main() -> None:
                             max_iterations,
                         )
                         save_state(
-                            args.app_name, "phase_4b",
-                            iteration=round_num * 100 + iteration, args=args,
+                            args.app_name,
+                            "phase_4b",
+                            iteration=round_num * 100 + iteration,
+                            args=args,
                         )
 
                         run_claude(
@@ -1239,7 +1272,10 @@ def main() -> None:
 
                         # Re-eval all hardening tasks
                         results_dir = run_eval(
-                            app_dir, "tasks", args.model, args.workers,
+                            app_dir,
+                            "tasks",
+                            args.model,
+                            args.workers,
                             args.repetitions,
                             task_id_filter=audit_filter,
                         )
@@ -1259,13 +1295,14 @@ def main() -> None:
             if args.target_pass_rate is not None:
                 log.info("Running full suite eval to check overall pass rate")
                 full_results_dir = run_eval(
-                    app_dir, "tasks", args.model, args.workers,
+                    app_dir,
+                    "tasks",
+                    args.model,
+                    args.workers,
                     args.repetitions,
                 )
                 full_results = parse_results(full_results_dir)
-                log.info(
-                    "Full suite pass rate: %.1f%%", full_results["pass_rate"]
-                )
+                log.info("Full suite pass rate: %.1f%%", full_results["pass_rate"])
                 if full_results["pass_rate"] <= args.target_pass_rate:
                     log.info(
                         "Target pass rate reached (%.1f%% <= %.1f%%) — stopping hardening",
@@ -1291,7 +1328,10 @@ def main() -> None:
         if func_tasks_file.exists():
             log.info("Phase 5: Evaluating function tasks")
             func_results_dir = run_eval(
-                app_dir, "function-tasks", args.model, args.workers,
+                app_dir,
+                "function-tasks",
+                args.model,
+                args.workers,
                 args.repetitions,
             )
             func_results = parse_results(func_results_dir)
@@ -1307,7 +1347,10 @@ def main() -> None:
         if tasks_file.exists():
             log.info("Phase 5: Evaluating real tasks (full suite)")
             real_results_dir = run_eval(
-                app_dir, "tasks", args.model, args.workers,
+                app_dir,
+                "tasks",
+                args.model,
+                args.workers,
                 args.repetitions,
             )
             real_results = parse_results(real_results_dir)
@@ -1338,6 +1381,7 @@ def main() -> None:
         # upload_results.py lives in the same directory as this script
         sys.path.insert(0, str(SCRIPT_DIR))
         from upload_results import upload_results as _upload_results
+
         success = _upload_results(app_dir, args.s3_bucket, args.app_name)
         if success:
             region = os.environ.get("AWS_REGION", "us-east-1")

@@ -13,7 +13,7 @@
 set -euo pipefail
 
 # --- Defaults ---
-INSTANCE_TYPE="m5.xlarge"
+INSTANCE_TYPE="m5.4xlarge"
 KEY_PAIR="${KEY_PAIR_NAME:-}"
 REGION="${AWS_REGION:-us-east-1}"
 SG_ID=""

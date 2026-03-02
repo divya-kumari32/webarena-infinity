@@ -1142,6 +1142,299 @@ def solve_task_h60(state):
     find_theme(state, "Craft")["role"] = "main"
 
 
+def solve_task_h61(state):
+    """Count active accel methods (4) → Shop Promise min=4, max=7, threshold=$55. Deactivate PayPal."""
+    count = sum(
+        1 for m in state["paymentMethods"]
+        if m.get("type") == "accelerated" and m.get("isActive") is True
+    )
+    state["shopPromise"]["isActive"] = True
+    state["shopPromise"]["estimatedDeliveryDays"]["min"] = count
+    state["shopPromise"]["estimatedDeliveryDays"]["max"] = count + 3
+    state["shopPromise"]["freeShippingThreshold"] = 55
+    find_payment_method(state, "PayPal")["isActive"] = False
+
+
+def solve_task_h62(state):
+    """Move Activewear→No checkout, Outerwear→Gift cards, enable checkout on both."""
+    no_checkout = find_template(state, "Dawn", "Product - No checkout buttons")
+    gift_cards = find_template(state, "Dawn", "Product - Gift cards")
+    for p in state["products"]:
+        if p.get("productType") == "Activewear":
+            p["templateId"] = no_checkout["id"]
+        elif p.get("productType") == "Outerwear":
+            p["templateId"] = gift_cards["id"]
+    no_checkout["showAcceleratedCheckout"] = True
+    gift_cards["showAcceleratedCheckout"] = True
+
+
+def solve_task_h63(state):
+    """Dawn button bg=Sense primaryText, text=Sense primaryBg, accent=Ride accent."""
+    sense = find_theme(state, "Sense")
+    ride = find_theme(state, "Ride")
+    dawn = find_theme(state, "Dawn")
+    dawn["settings"]["colors"]["accentButtonBg"] = sense["settings"]["colors"]["primaryText"]
+    dawn["settings"]["colors"]["accentButtonText"] = sense["settings"]["colors"]["primaryBg"]
+    dawn["settings"]["colors"]["accentColor"] = ride["settings"]["colors"]["accentColor"]
+
+
+def solve_task_h64(state):
+    """Gift cards template: checkout+buy text. Dawn button colors #059669/#FFFFFF."""
+    gift_cards = find_template(state, "Dawn", "Product - Gift cards")
+    gift_cards["showAcceleratedCheckout"] = True
+    gift_cards["buyButtonText"] = "Send as gift"
+    dawn = find_theme(state, "Dawn")
+    dawn["settings"]["colors"]["accentButtonBg"] = "#059669"
+    dawn["settings"]["colors"]["accentButtonText"] = "#FFFFFF"
+
+
+def solve_task_h65(state):
+    """Product type with most active = Apparel. Create template, assign, disable default checkout."""
+    from collections import Counter
+    type_counts = Counter(
+        p["productType"] for p in state["products"] if p.get("status") == "active"
+    )
+    top_type = type_counts.most_common(1)[0][0]
+    dawn = find_theme(state, "Dawn")
+    tmpl_id = "tmpl_" + str(state["_nextTemplateId"])
+    state["_nextTemplateId"] += 1
+    state["templates"].append({
+        "id": tmpl_id,
+        "themeId": dawn["id"],
+        "name": "Product - Top Category",
+        "handle": "product.product---top-category",
+        "isDefault": False,
+        "isAlternate": True,
+        "showAcceleratedCheckout": True,
+        "showQuantitySelector": True,
+        "buyButtonText": "Shop now",
+        "createdAt": "2026-03-02T12:00:00Z"
+    })
+    for p in state["products"]:
+        if p.get("productType") == top_type and p.get("status") == "active":
+            p["templateId"] = tmpl_id
+    find_default_template(state, "Dawn")["showAcceleratedCheckout"] = False
+
+
+def solve_task_h66(state):
+    """Archive T-Shirt+Socks, move remaining active UTC to No checkout, enable+text."""
+    find_product(state, "Classic Cotton T-Shirt")["status"] = "archived"
+    find_product(state, "Bamboo Fiber Socks")["status"] = "archived"
+    no_checkout = find_template(state, "Dawn", "Product - No checkout buttons")
+    for p in state["products"]:
+        if p.get("vendor") == "Urban Thread Co." and p.get("status") == "active":
+            p["templateId"] = no_checkout["id"]
+    no_checkout["showAcceleratedCheckout"] = True
+    no_checkout["buyButtonText"] = "Quick buy"
+
+
+def solve_task_h67(state):
+    """Publish Ride, copy Taste colors, Ride fonts Oswald/Raleway/Oswald."""
+    for t in state["themes"]:
+        if t["role"] == "main":
+            t["role"] = "unpublished"
+    ride = find_theme(state, "Ride")
+    ride["role"] = "main"
+    taste = find_theme(state, "Taste")
+    for key in ["accentButtonBg", "accentButtonText", "primaryBg", "primaryText",
+                "secondaryBg", "secondaryText", "accentColor"]:
+        ride["settings"]["colors"][key] = taste["settings"]["colors"][key]
+    ride["settings"]["typography"]["headingFont"] = "Oswald"
+    ride["settings"]["typography"]["bodyFont"] = "Raleway"
+    ride["settings"]["typography"]["buttonFont"] = "Oswald"
+
+
+def solve_task_h68(state):
+    """Deactivate conflicting apps+attrs, Amazon Pay, Shop Promise 1-3/$40, Dawn green button."""
+    for app in state["installedApps"]:
+        if app.get("conflictsWithCheckout") is True:
+            app["isActive"] = False
+    for attr in state["cartAttributes"]:
+        if attr.get("conflictsWithCheckout") is True:
+            attr["isActive"] = False
+    find_payment_method(state, "Amazon Pay")["isActive"] = True
+    state["shopPromise"]["isActive"] = True
+    state["shopPromise"]["estimatedDeliveryDays"]["min"] = 1
+    state["shopPromise"]["estimatedDeliveryDays"]["max"] = 3
+    state["shopPromise"]["freeShippingThreshold"] = 40
+    dawn = find_theme(state, "Dawn")
+    dawn["settings"]["colors"]["accentButtonBg"] = "#16A34A"
+    dawn["settings"]["colors"]["accentButtonText"] = "#FFFFFF"
+
+
+def solve_task_h69(state):
+    """Cheapest Stride Lab variant product→featured, disable section checkout, Dawn button font Inter."""
+    stride_lab = [p for p in state["products"] if p.get("vendor") == "Stride Lab"]
+    min_price = float("inf")
+    cheapest = None
+    for p in stride_lab:
+        for v in p.get("variants", []):
+            price = float(v.get("price", 0))
+            if price < min_price:
+                min_price = price
+                cheapest = p
+    sec = find_section(state, "Dawn", "home", "featured_product")
+    sec["productId"] = cheapest["id"]
+    sec["showAcceleratedCheckout"] = False
+    find_theme(state, "Dawn")["settings"]["typography"]["buttonFont"] = "Inter"
+
+
+def solve_task_h70(state):
+    """Dawn dark theme colors + DM Serif Display/DM Sans fonts."""
+    dawn = find_theme(state, "Dawn")
+    dawn["settings"]["colors"]["primaryBg"] = "#0F172A"
+    dawn["settings"]["colors"]["primaryText"] = "#F8FAFC"
+    dawn["settings"]["colors"]["secondaryBg"] = "#1E293B"
+    dawn["settings"]["colors"]["secondaryText"] = "#94A3B8"
+    dawn["settings"]["typography"]["headingFont"] = "DM Serif Display"
+    dawn["settings"]["typography"]["bodyFont"] = "DM Sans"
+
+
+def solve_task_h71(state):
+    """Disable checkout on Craft/Sense/Ride templates. Craft heading=Inter, Sense heading=Poppins."""
+    craft = find_theme(state, "Craft")
+    sense = find_theme(state, "Sense")
+    ride = find_theme(state, "Ride")
+    target_ids = {craft["id"], sense["id"], ride["id"]}
+    for tmpl in state["templates"]:
+        if tmpl.get("themeId") in target_ids:
+            tmpl["showAcceleratedCheckout"] = False
+    craft["settings"]["typography"]["headingFont"] = "Inter"
+    sense["settings"]["typography"]["headingFont"] = "Poppins"
+
+
+def solve_task_h72(state):
+    """Compare-at products: higher price→Gift cards, lower→No checkout. Enable both."""
+    sweater = find_product(state, "Merino Wool Sweater")
+    blazer = find_product(state, "Linen Blend Blazer")
+    no_checkout = find_template(state, "Dawn", "Product - No checkout buttons")
+    gift_cards = find_template(state, "Dawn", "Product - Gift cards")
+    blazer["templateId"] = gift_cards["id"]
+    sweater["templateId"] = no_checkout["id"]
+    no_checkout["showAcceleratedCheckout"] = True
+    gift_cards["showAcceleratedCheckout"] = True
+
+
+def solve_task_h73(state):
+    """Deactivate setup-required accel methods, create template, move Stride Lab, Dawn font."""
+    for pm in state["paymentMethods"]:
+        if pm.get("type") == "accelerated" and pm.get("requiresSetup") is True:
+            pm["isActive"] = False
+    dawn = find_theme(state, "Dawn")
+    tmpl_id = "tmpl_" + str(state["_nextTemplateId"])
+    state["_nextTemplateId"] += 1
+    state["templates"].append({
+        "id": tmpl_id,
+        "themeId": dawn["id"],
+        "name": "Product - Streamlined",
+        "handle": "product.product---streamlined",
+        "isDefault": False,
+        "isAlternate": True,
+        "showAcceleratedCheckout": True,
+        "showQuantitySelector": True,
+        "buyButtonText": "Quick buy",
+        "createdAt": "2026-03-02T12:00:00Z"
+    })
+    for p in state["products"]:
+        if p.get("vendor") == "Stride Lab":
+            p["templateId"] = tmpl_id
+    dawn["settings"]["typography"]["buttonFont"] = "Raleway"
+
+
+def solve_task_h74(state):
+    """Deactivate CartHook+ReConvert (same reason), activate Privy, activate Amazon Pay."""
+    find_app(state, "CartHook")["isActive"] = False
+    find_app(state, "ReConvert")["isActive"] = False
+    find_app(state, "Privy")["isActive"] = True
+    find_payment_method(state, "Amazon Pay")["isActive"] = True
+
+
+def solve_task_h75(state):
+    """Dawn and Craft: heading=Merriweather, body=Lora, headingScale=115, bodyScale=95."""
+    for theme_name in ["Dawn", "Craft"]:
+        theme = find_theme(state, theme_name)
+        theme["settings"]["typography"]["headingFont"] = "Merriweather"
+        theme["settings"]["typography"]["bodyFont"] = "Lora"
+        theme["settings"]["typography"]["headingScale"] = 115
+        theme["settings"]["typography"]["bodyScale"] = 95
+
+
+def solve_task_h76(state):
+    """Activate archived Hoodie, move it + same-vendor Outerwear to No checkout, enable checkout."""
+    hoodie = find_product(state, "Heavyweight Hoodie")
+    hoodie["status"] = "active"
+    vendor = hoodie["vendor"]
+    no_checkout = find_template(state, "Dawn", "Product - No checkout buttons")
+    hoodie["templateId"] = no_checkout["id"]
+    for p in state["products"]:
+        if p.get("vendor") == vendor and p.get("productType") == "Outerwear":
+            p["templateId"] = no_checkout["id"]
+    no_checkout["showAcceleratedCheckout"] = True
+
+
+def solve_task_h77(state):
+    """Featured=Silk Scarf+enable checkout, default template text+qty changes."""
+    scarf = find_product(state, "Silk Blend Scarf")
+    sec = find_section(state, "Dawn", "home", "featured_product")
+    sec["productId"] = scarf["id"]
+    sec["showAcceleratedCheckout"] = True
+    default_tmpl = find_default_template(state, "Dawn")
+    default_tmpl["buyButtonText"] = "Add to collection"
+    default_tmpl["showQuantitySelector"] = False
+
+
+def solve_task_h78(state):
+    """Stride Lab lowest total inventory = Titanium Watch → draft, disable template checkout."""
+    watch = find_product(state, "Titanium Watch")
+    watch["status"] = "draft"
+    tmpl = next(t for t in state["templates"] if t["id"] == watch["templateId"])
+    tmpl["showAcceleratedCheckout"] = False
+
+
+def solve_task_h79(state):
+    """Daisy-chain: Craft heading→Ride, Ride body→Taste, Taste button→Sense. Sense scales=100."""
+    craft = find_theme(state, "Craft")
+    ride = find_theme(state, "Ride")
+    taste = find_theme(state, "Taste")
+    sense = find_theme(state, "Sense")
+    craft_heading = craft["settings"]["typography"]["headingFont"]
+    ride_body = ride["settings"]["typography"]["bodyFont"]
+    taste_button = taste["settings"]["typography"]["buttonFont"]
+    ride["settings"]["typography"]["headingFont"] = craft_heading
+    taste["settings"]["typography"]["bodyFont"] = ride_body
+    sense["settings"]["typography"]["buttonFont"] = taste_button
+    sense["settings"]["typography"]["headingScale"] = 100
+    sense["settings"]["typography"]["bodyScale"] = 100
+
+
+def solve_task_h80(state):
+    """Publish Taste, deactivate all accel except Shop Pay, create Taste template, activate+assign Beanie."""
+    for t in state["themes"]:
+        if t["role"] == "main":
+            t["role"] = "unpublished"
+    find_theme(state, "Taste")["role"] = "main"
+    for pm in state["paymentMethods"]:
+        if pm.get("type") == "accelerated" and pm.get("name") != "Shop Pay":
+            pm["isActive"] = False
+    taste = find_theme(state, "Taste")
+    tmpl_id = "tmpl_" + str(state["_nextTemplateId"])
+    state["_nextTemplateId"] += 1
+    state["templates"].append({
+        "id": tmpl_id,
+        "themeId": taste["id"],
+        "name": "Product - Essential",
+        "handle": "product.product---essential",
+        "isDefault": False,
+        "isAlternate": True,
+        "showAcceleratedCheckout": True,
+        "showQuantitySelector": True,
+        "buyButtonText": "Buy now",
+        "createdAt": "2026-03-02T12:00:00Z"
+    })
+    find_product(state, "Cashmere Beanie")["status"] = "active"
+    find_product(state, "Cashmere Beanie")["templateId"] = tmpl_id
+
+
 # ---- Solver registry ----
 
 SOLVERS = {
@@ -1245,6 +1538,26 @@ SOLVERS = {
     "task_h58": solve_task_h58,
     "task_h59": solve_task_h59,
     "task_h60": solve_task_h60,
+    "task_h61": solve_task_h61,
+    "task_h62": solve_task_h62,
+    "task_h63": solve_task_h63,
+    "task_h64": solve_task_h64,
+    "task_h65": solve_task_h65,
+    "task_h66": solve_task_h66,
+    "task_h67": solve_task_h67,
+    "task_h68": solve_task_h68,
+    "task_h69": solve_task_h69,
+    "task_h70": solve_task_h70,
+    "task_h71": solve_task_h71,
+    "task_h72": solve_task_h72,
+    "task_h73": solve_task_h73,
+    "task_h74": solve_task_h74,
+    "task_h75": solve_task_h75,
+    "task_h76": solve_task_h76,
+    "task_h77": solve_task_h77,
+    "task_h78": solve_task_h78,
+    "task_h79": solve_task_h79,
+    "task_h80": solve_task_h80,
 }
 
 

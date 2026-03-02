@@ -49,7 +49,7 @@ fi
 source "$LAUNCH_FILE"
 KEY_PAIR="${KEY_PAIR:-${KEY_PAIR_NAME:-}}"
 REGION="${REGION:-${AWS_REGION:-us-east-1}}"
-SSH_OPTS="-i $HOME/.ssh/${KEY_PAIR}.pem -o StrictHostKeyChecking=no -o ConnectTimeout=5 -o BatchMode=yes"
+SSH_OPTS="-i $HOME/.ssh/${KEY_PAIR}.pem -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=5"
 
 # --- Read manifest into lookup ---
 ENVS=()
@@ -104,7 +104,7 @@ for i in "${!IPS[@]}"; do
   printf "  %-30s " "$ENV_ID"
 
   # Skip if pipeline already running
-  ALREADY=$(ssh $SSH_OPTS "ec2-user@${IP}" 'pgrep -f "infra/pipeline.py" > /dev/null 2>&1 && echo yes || echo no' 2>/dev/null || echo "no")
+  ALREADY=$(ssh $SSH_OPTS "ec2-user@${IP}" 'pgrep -f "infra/pipeline[.]py" > /dev/null 2>&1 && echo yes || echo no' 2>/dev/null || echo "no")
   if [ "$ALREADY" = "yes" ]; then
     echo "already running"
     continue
@@ -136,7 +136,7 @@ for i in "${!IPS[@]}"; do
   DOCS="${DOCS_PATHS[$i]}"
 
   # Skip if already running
-  ALREADY=$(ssh $SSH_OPTS "ec2-user@${IP}" 'pgrep -f "infra/pipeline.py" > /dev/null 2>&1 && echo yes || echo no' 2>/dev/null || echo "no")
+  ALREADY=$(ssh $SSH_OPTS "ec2-user@${IP}" 'pgrep -f "infra/pipeline[.]py" > /dev/null 2>&1 && echo yes || echo no' 2>/dev/null || echo "no")
   if [ "$ALREADY" = "yes" ]; then
     echo "  SKIP $ENV_ID — already running"
     continue
@@ -159,9 +159,9 @@ for i in "${!IPS[@]}"; do
     --branch ${ENV_ID} \
     --push \
     --s3-bucket \$MM_S3_BUCKET \
-    > /tmp/mirror-mirror-logs/pipeline.log 2>&1 &"
+    > /tmp/mirror-mirror-logs/pipeline.log 2>&1 < /dev/null &"
 
-  ssh $SSH_OPTS "ec2-user@${IP}" "$PIPELINE_CMD" 2>/dev/null
+  ssh -n $SSH_OPTS "ec2-user@${IP}" "$PIPELINE_CMD" </dev/null
   echo "  STARTED $ENV_ID @ $IP"
 done
 

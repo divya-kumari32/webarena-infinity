@@ -88,15 +88,15 @@ check_batch_done() {
 
     # Check if pipeline process is still running
     PIPELINE_RUNNING=$(ssh -i "$HOME/.ssh/${KEY_PAIR}.pem" \
-      -o StrictHostKeyChecking=no -o ConnectTimeout=5 -o BatchMode=yes \
+      -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=5 -o BatchMode=yes \
       "ec2-user@${IP}" \
-      'pgrep -f "infra/pipeline.py" > /dev/null 2>&1 && echo yes || echo no' \
+      'pgrep -f "infra/pipeline[.]py" > /dev/null 2>&1 && echo yes || echo no' \
       2>/dev/null || echo "unreachable")
 
     if [ "$PIPELINE_RUNNING" = "yes" ]; then
       # Get current status for display
       STATUS=$(ssh -i "$HOME/.ssh/${KEY_PAIR}.pem" \
-        -o StrictHostKeyChecking=no -o ConnectTimeout=5 -o BatchMode=yes \
+        -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=5 -o BatchMode=yes \
         "ec2-user@${IP}" \
         'grep -E "(Phase|pass rate|complete|iteration)" /tmp/mirror-mirror-logs/pipeline.log 2>/dev/null | tail -1 | sed "s/^[0-9-]* [0-9:]* \[pipeline\] //"' \
         2>/dev/null || echo "unknown")

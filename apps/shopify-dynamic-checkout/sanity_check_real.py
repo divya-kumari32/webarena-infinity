@@ -607,6 +607,241 @@ def solve_task_h20(state):
     find_cart_attr(state, "Terms and conditions")["isActive"] = True
 
 
+# ---- Solve Functions (Hardening Round 1) ----
+
+def solve_task_h21(state):
+    """Featured product = highest variant price product, disable section checkout."""
+    max_price = 0
+    max_product_id = None
+    for p in state["products"]:
+        for v in p.get("variants", []):
+            price = float(v.get("price", 0))
+            if price > max_price:
+                max_price = price
+                max_product_id = p["id"]
+    sec = find_section(state, "Dawn", "home", "featured_product")
+    sec["productId"] = max_product_id
+    sec["showAcceleratedCheckout"] = False
+
+
+def solve_task_h22(state):
+    """Archive products with compare-at prices, move active Atelier to Dawn default."""
+    default_tmpl = find_default_template(state, "Dawn")
+    for p in state["products"]:
+        has_compare_at = any(v.get("compareAtPrice") is not None for v in p.get("variants", []))
+        if has_compare_at:
+            p["status"] = "archived"
+    for p in state["products"]:
+        if p["vendor"] == "Atelier Goods" and p["status"] == "active":
+            p["templateId"] = default_tmpl["id"]
+
+
+def solve_task_h23(state):
+    """Shop Promise: min=active accelerated count, max=2x, threshold=$100."""
+    count = sum(
+        1 for m in state["paymentMethods"]
+        if m.get("type") == "accelerated" and m.get("isActive") is True
+    )
+    state["shopPromise"]["isActive"] = True
+    state["shopPromise"]["estimatedDeliveryDays"]["min"] = count
+    state["shopPromise"]["estimatedDeliveryDays"]["max"] = count * 2
+    state["shopPromise"]["freeShippingThreshold"] = 100
+
+
+def solve_task_h24(state):
+    """Copy Vintage Revival heading/body fonts and accent color to Dawn."""
+    vintage = find_theme(state, "Vintage Revival")
+    dawn = find_theme(state, "Dawn")
+    dawn["settings"]["typography"]["headingFont"] = vintage["settings"]["typography"]["headingFont"]
+    dawn["settings"]["typography"]["bodyFont"] = vintage["settings"]["typography"]["bodyFont"]
+    dawn["settings"]["colors"]["accentColor"] = vintage["settings"]["colors"]["accentColor"]
+
+
+def solve_task_h25(state):
+    """Move products from vendor with exactly 2 active products to No checkout buttons."""
+    from collections import Counter
+    vendor_counts = Counter(
+        p["vendor"] for p in state["products"] if p.get("status") == "active"
+    )
+    target_vendor = next(v for v, c in vendor_counts.items() if c == 2)
+    tmpl = find_template(state, "Dawn", "Product - No checkout buttons")
+    for p in state["products"]:
+        if p["vendor"] == target_vendor and p["status"] == "active":
+            p["templateId"] = tmpl["id"]
+
+
+def solve_task_h26(state):
+    """Draft the current featured product, set Bamboo Socks as new featured, disable section checkout."""
+    sec = find_section(state, "Dawn", "home", "featured_product")
+    current_featured = next(p for p in state["products"] if p["id"] == sec["productId"])
+    current_featured["status"] = "draft"
+    bamboo = find_product(state, "Bamboo Fiber Socks")
+    sec["productId"] = bamboo["id"]
+    sec["showAcceleratedCheckout"] = False
+
+
+def solve_task_h27(state):
+    """Swap active/inactive status of two apps sharing same conflict reason."""
+    find_app(state, "ReConvert Upsell & Cross Sell")["isActive"] = False
+    find_app(state, "CartHook")["isActive"] = True
+
+
+def solve_task_h28(state):
+    """Publish Ride, set button bg to Dawn accent, activate Amazon Pay, buy button text."""
+    dawn_accent = find_theme(state, "Dawn")["settings"]["colors"]["accentColor"]
+    for t in state["themes"]:
+        if t["role"] == "main":
+            t["role"] = "unpublished"
+    find_theme(state, "Ride")["role"] = "main"
+    find_theme(state, "Ride")["settings"]["colors"]["accentButtonBg"] = dawn_accent
+    find_payment_method(state, "Amazon Pay")["isActive"] = True
+    find_template(state, "Ride", "Default product")["buyButtonText"] = "Buy it now"
+
+
+def solve_task_h29(state):
+    """Create 'Product - Active Gear' on Dawn, assign Activewear products."""
+    theme = find_theme(state, "Dawn")
+    tmpl_id = "tmpl_" + str(state["_nextTemplateId"])
+    state["_nextTemplateId"] += 1
+    state["templates"].append({
+        "id": tmpl_id,
+        "themeId": theme["id"],
+        "name": "Product - Active Gear",
+        "handle": "product.product---active-gear",
+        "isDefault": False,
+        "isAlternate": True,
+        "showAcceleratedCheckout": True,
+        "showQuantitySelector": True,
+        "buyButtonText": "Get moving",
+        "createdAt": "2026-03-02T12:00:00Z"
+    })
+    for p in state["products"]:
+        if p["productType"] == "Activewear":
+            p["templateId"] = tmpl_id
+
+
+def solve_task_h30(state):
+    """Activate draft Atelier products, move all Atelier to Gift cards, enable checkout."""
+    gift_cards = find_template(state, "Dawn", "Product - Gift cards")
+    for p in state["products"]:
+        if p["vendor"] == "Atelier Goods":
+            if p["status"] == "draft":
+                p["status"] = "active"
+            p["templateId"] = gift_cards["id"]
+    gift_cards["showAcceleratedCheckout"] = True
+
+
+def solve_task_h31(state):
+    """Move gift card product to Dawn default, disable checkout on default."""
+    gc_product = next(p for p in state["products"] if p.get("hasGiftCardRecipientFields") is True)
+    default_tmpl = find_default_template(state, "Dawn")
+    gc_product["templateId"] = default_tmpl["id"]
+    default_tmpl["showAcceleratedCheckout"] = False
+
+
+def solve_task_h32(state):
+    """Update Craft heading/body fonts, publish Craft."""
+    craft = find_theme(state, "Craft")
+    craft["settings"]["typography"]["headingFont"] = "Oswald"
+    craft["settings"]["typography"]["bodyFont"] = "Nunito"
+    for t in state["themes"]:
+        if t["role"] == "main":
+            t["role"] = "unpublished"
+    craft["role"] = "main"
+
+
+def solve_task_h33(state):
+    """Shop Promise 2-7 days, deactivate PayPal, activate Amazon, Dawn button red/white."""
+    state["shopPromise"]["isActive"] = True
+    state["shopPromise"]["estimatedDeliveryDays"]["min"] = 2
+    state["shopPromise"]["estimatedDeliveryDays"]["max"] = 7
+    find_payment_method(state, "PayPal")["isActive"] = False
+    find_payment_method(state, "Amazon Pay")["isActive"] = True
+    colors = find_theme(state, "Dawn")["settings"]["colors"]
+    colors["accentButtonBg"] = "#DC2626"
+    colors["accentButtonText"] = "#FFFFFF"
+
+
+def solve_task_h34(state):
+    """Move earliest No-checkout product to Gift cards, newest to default."""
+    no_checkout = find_template(state, "Dawn", "Product - No checkout buttons")
+    gift_cards = find_template(state, "Dawn", "Product - Gift cards")
+    default_tmpl = find_default_template(state, "Dawn")
+    nc_products = [p for p in state["products"] if p["templateId"] == no_checkout["id"]]
+    nc_products.sort(key=lambda p: p["createdAt"])
+    earliest = nc_products[0]
+    newest = nc_products[-1]
+    earliest["templateId"] = gift_cards["id"]
+    newest["templateId"] = default_tmpl["id"]
+
+
+def solve_task_h35(state):
+    """Copy colors from unpublished theme with highest heading scale to Dawn."""
+    unpublished = [t for t in state["themes"] if t.get("role") == "unpublished"]
+    highest = max(unpublished, key=lambda t: t["settings"]["typography"]["headingScale"])
+    dawn = find_theme(state, "Dawn")
+    for key in ["accentButtonBg", "accentButtonText", "primaryBg", "primaryText",
+                "secondaryBg", "secondaryText", "accentColor"]:
+        dawn["settings"]["colors"][key] = highest["settings"]["colors"][key]
+
+
+def solve_task_h36(state):
+    """Activate most recent Atelier product, move earliest to Gift cards."""
+    atelier = [p for p in state["products"] if p["vendor"] == "Atelier Goods"]
+    atelier.sort(key=lambda p: p["createdAt"])
+    earliest = atelier[0]
+    newest = atelier[-1]
+    newest["status"] = "active"
+    gift_cards = find_template(state, "Dawn", "Product - Gift cards")
+    earliest["templateId"] = gift_cards["id"]
+
+
+def solve_task_h37(state):
+    """Disable Craft Featured checkout, set button font Montserrat, publish Craft."""
+    craft = find_theme(state, "Craft")
+    find_template(state, "Craft", "Product - Featured")["showAcceleratedCheckout"] = False
+    craft["settings"]["typography"]["buttonFont"] = "Montserrat"
+    for t in state["themes"]:
+        if t["role"] == "main":
+            t["role"] = "unpublished"
+    craft["role"] = "main"
+
+
+def solve_task_h38(state):
+    """Enable checkout + change text on No checkout template, disable home section checkout."""
+    tmpl = find_template(state, "Dawn", "Product - No checkout buttons")
+    tmpl["showAcceleratedCheckout"] = True
+    tmpl["buyButtonText"] = "Quick add"
+    sec = find_section(state, "Dawn", "home", "featured_product")
+    sec["showAcceleratedCheckout"] = False
+
+
+def solve_task_h39(state):
+    """Deactivate restricted accelerated methods, activate unrestricted, threshold $50."""
+    for m in state["paymentMethods"]:
+        if m.get("type") != "accelerated":
+            continue
+        has_restriction = (
+            m.get("browserRestrictions") is not None or
+            (m.get("regionRestrictions") is not None and len(m.get("regionRestrictions", [])) > 0)
+        )
+        if has_restriction:
+            m["isActive"] = False
+        else:
+            m["isActive"] = True
+    state["shopPromise"]["freeShippingThreshold"] = 50
+
+
+def solve_task_h40(state):
+    """Swap: Dawn primaryText → Sense accentButtonBg, Sense accentColor → Dawn accentColor."""
+    dawn = find_theme(state, "Dawn")
+    sense = find_theme(state, "Sense")
+    dawn_primary_text = dawn["settings"]["colors"]["primaryText"]
+    sense_accent_color = sense["settings"]["colors"]["accentColor"]
+    sense["settings"]["colors"]["accentButtonBg"] = dawn_primary_text
+    dawn["settings"]["colors"]["accentColor"] = sense_accent_color
+
+
 # ---- Solver registry ----
 
 SOLVERS = {
@@ -670,6 +905,26 @@ SOLVERS = {
     "task_h18": solve_task_h18,
     "task_h19": solve_task_h19,
     "task_h20": solve_task_h20,
+    "task_h21": solve_task_h21,
+    "task_h22": solve_task_h22,
+    "task_h23": solve_task_h23,
+    "task_h24": solve_task_h24,
+    "task_h25": solve_task_h25,
+    "task_h26": solve_task_h26,
+    "task_h27": solve_task_h27,
+    "task_h28": solve_task_h28,
+    "task_h29": solve_task_h29,
+    "task_h30": solve_task_h30,
+    "task_h31": solve_task_h31,
+    "task_h32": solve_task_h32,
+    "task_h33": solve_task_h33,
+    "task_h34": solve_task_h34,
+    "task_h35": solve_task_h35,
+    "task_h36": solve_task_h36,
+    "task_h37": solve_task_h37,
+    "task_h38": solve_task_h38,
+    "task_h39": solve_task_h39,
+    "task_h40": solve_task_h40,
 }
 
 

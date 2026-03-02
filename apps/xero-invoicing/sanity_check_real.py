@@ -2311,13 +2311,615 @@ def solve_task_h60(state):
             ri["saveAs"] = "draft"
 
 
+# ===== HARD (Hardening Round 3) =====
+
+def solve_task_h61(state):
+    """Record $1,000 partial payment on INV-0047 (CloudNine's oldest unpaid; has active repeating + open CN)."""
+    inv = find_invoice(state, "INV-0047")
+    pay_id = f"pay_{state['_nextPaymentId']}"
+    state["_nextPaymentId"] += 1
+    inv["payments"].append({
+        "id": pay_id,
+        "date": "2026-03-02",
+        "amount": 1000.00,
+        "reference": "",
+        "accountId": "acc_090",
+    })
+    inv["amountPaid"] += 1000.00
+    inv["amountDue"] = inv["total"] - inv["amountPaid"]
+
+
+def solve_task_h62(state):
+    """Copy INV-0058 (highest-total draft) and submit the copy for approval."""
+    src = find_invoice(state, "INV-0058")
+    copy = deepcopy(src)
+    num = state["_nextInvoiceNum"]
+    copy["id"] = f"inv_{num:03d}"
+    copy["number"] = state["invoiceSettings"]["invoicePrefix"] + f"{num:04d}"
+    state["_nextInvoiceNum"] = num + 1
+    copy["status"] = "awaiting_approval"
+    copy["payments"] = []
+    copy["amountPaid"] = 0
+    copy["amountDue"] = copy["total"]
+    copy["sentAt"] = None
+    copy["notes"] = [{"date": "2026-03-02T12:00:00Z", "text": f"Copied from {src['number']}", "user": "Sarah Mitchell"}]
+    lid = state["_nextLineItemId"]
+    for li in copy["lineItems"]:
+        li["id"] = f"li_{lid}"
+        lid += 1
+    state["_nextLineItemId"] = lid
+    state["invoices"].append(copy)
+
+
+def solve_task_h63(state):
+    """Create draft quote for Greenfield Organics (smallest paid total) for 2 days PM."""
+    contact = find_contact(state, "Greenfield Organics")
+    num = state["_nextQuoteNum"]
+    lid = state["_nextLineItemId"]
+    subtotal = 2 * 1400.00
+    tax = subtotal * 0.10
+    total = subtotal + tax
+    quo = {
+        "id": f"quo_{num:03d}",
+        "number": state["invoiceSettings"]["quotePrefix"] + f"{num:04d}",
+        "contactId": contact["id"],
+        "status": "draft",
+        "date": "2026-03-02",
+        "expiryDate": "2026-04-01",
+        "reference": "",
+        "currency": "AUD",
+        "brandingThemeId": "theme_standard",
+        "taxMode": "exclusive",
+        "lineItems": [{
+            "id": f"li_{lid}",
+            "itemId": "item_003",
+            "description": "Project Management - Day Rate",
+            "quantity": 2,
+            "unitPrice": 1400.00,
+            "discountPercent": 0,
+            "accountId": "acc_200",
+            "taxRateId": "tax_gst",
+            "trackingRegion": "",
+            "trackingDept": "",
+        }],
+        "subtotal": subtotal,
+        "taxTotal": tax,
+        "total": total,
+        "title": "",
+        "summary": "",
+        "terms": "",
+        "notes": [{"date": "2026-03-02T12:00:00Z", "text": "Quote created", "user": "Sarah Mitchell"}],
+        "sentAt": None,
+        "isInvoiced": False,
+    }
+    state["quotes"].append(quo)
+    state["_nextQuoteNum"] = num + 1
+    state["_nextLineItemId"] = lid + 1
+
+
+def solve_task_h64(state):
+    """Edit INV-0049 (only awaiting_payment + inclusive + Simple Clean): switch to exclusive + Professional Services."""
+    inv = find_invoice(state, "INV-0049")
+    inv["taxMode"] = "exclusive"
+    inv["brandingThemeId"] = "theme_professional"
+
+
+def solve_task_h65(state):
+    """Create CN for CloudNine (most unpaid invoices) for 1 month hosting, approve."""
+    contact = find_contact(state, "CloudNine Analytics")
+    num = state["_nextCreditNoteNum"]
+    lid = state["_nextLineItemId"]
+    subtotal = 299.00
+    tax = subtotal * 0.10
+    total = subtotal + tax
+    cn = {
+        "id": f"cn_{num:03d}",
+        "number": state["invoiceSettings"]["creditNotePrefix"] + f"{num:04d}",
+        "contactId": contact["id"],
+        "status": "awaiting_payment",
+        "date": "2026-03-02",
+        "reference": "",
+        "currency": "AUD",
+        "brandingThemeId": "theme_standard",
+        "taxMode": "exclusive",
+        "lineItems": [{
+            "id": f"li_{lid}",
+            "itemId": "item_004",
+            "description": "Cloud Hosting - Monthly",
+            "quantity": 1,
+            "unitPrice": 299.00,
+            "discountPercent": 0,
+            "accountId": "acc_200",
+            "taxRateId": "tax_gst",
+            "trackingRegion": "",
+            "trackingDept": "",
+        }],
+        "subtotal": subtotal,
+        "taxTotal": tax,
+        "total": total,
+        "remainingCredit": total,
+        "allocations": [],
+        "refunds": [],
+        "notes": [{"date": "2026-03-02T12:00:00Z", "text": "Credit note created", "user": "Sarah Mitchell"}],
+    }
+    state["creditNotes"].append(cn)
+    state["_nextCreditNoteNum"] = num + 1
+    state["_nextLineItemId"] = lid + 1
+
+
+def solve_task_h66(state):
+    """Void INV-0053 (smallest awaiting_payment), delete all draft invoices."""
+    voided = find_invoice(state, "INV-0053")
+    voided["status"] = "voided"
+    voided["amountDue"] = 0
+    for inv in state["invoices"]:
+        if inv["status"] == "draft":
+            inv["status"] = "deleted"
+
+
+def solve_task_h67(state):
+    """Edit rep_004 (Vanguard Security, Perth WA): theme to Retail, frequency to quarterly."""
+    ri = find_repeating(state, "rep_004")
+    ri["brandingThemeId"] = "theme_retail"
+    ri["frequency"] = "quarterly"
+
+
+def solve_task_h68(state):
+    """Create draft CN for Stellar Education (same contact/line items as QU-0027, the only invoiced quote)."""
+    contact = find_contact(state, "Stellar Education Services")
+    num = state["_nextCreditNoteNum"]
+    lid = state["_nextLineItemId"]
+    subtotal = 3 * 2200.00
+    tax = 0
+    total = subtotal + tax
+    cn = {
+        "id": f"cn_{num:03d}",
+        "number": state["invoiceSettings"]["creditNotePrefix"] + f"{num:04d}",
+        "contactId": contact["id"],
+        "status": "draft",
+        "date": "2026-03-02",
+        "reference": "",
+        "currency": "AUD",
+        "brandingThemeId": "theme_standard",
+        "taxMode": "exclusive",
+        "lineItems": [{
+            "id": f"li_{lid}",
+            "itemId": "item_006",
+            "description": "On-site Training - Per Day",
+            "quantity": 3,
+            "unitPrice": 2200.00,
+            "discountPercent": 0,
+            "accountId": "acc_200",
+            "taxRateId": "tax_gst_free",
+            "trackingRegion": "",
+            "trackingDept": "",
+        }],
+        "subtotal": subtotal,
+        "taxTotal": tax,
+        "total": total,
+        "remainingCredit": total,
+        "allocations": [],
+        "refunds": [],
+        "notes": [{"date": "2026-03-02T12:00:00Z", "text": "Credit note created", "user": "Sarah Mitchell"}],
+    }
+    state["creditNotes"].append(cn)
+    state["_nextCreditNoteNum"] = num + 1
+    state["_nextLineItemId"] = lid + 1
+
+
+def solve_task_h69(state):
+    """Copy INV-0066 (only NZD invoice), edit copy: currency=AUD, theme=Standard."""
+    src = find_invoice(state, "INV-0066")
+    copy = deepcopy(src)
+    num = state["_nextInvoiceNum"]
+    copy["id"] = f"inv_{num:03d}"
+    copy["number"] = state["invoiceSettings"]["invoicePrefix"] + f"{num:04d}"
+    state["_nextInvoiceNum"] = num + 1
+    copy["status"] = "draft"
+    copy["currency"] = "AUD"
+    copy["brandingThemeId"] = "theme_standard"
+    copy["payments"] = []
+    copy["amountPaid"] = 0
+    copy["amountDue"] = copy["total"]
+    copy["sentAt"] = None
+    copy["notes"] = [{"date": "2026-03-02T12:00:00Z", "text": f"Copied from {src['number']}", "user": "Sarah Mitchell"}]
+    lid = state["_nextLineItemId"]
+    for li in copy["lineItems"]:
+        li["id"] = f"li_{lid}"
+        lid += 1
+    state["_nextLineItemId"] = lid
+    state["invoices"].append(copy)
+
+
+def solve_task_h70(state):
+    """Create 'Express' branding theme, then update rep_001 (Greenfield) to use it."""
+    tid = state["_nextThemeId"]
+    state["_nextThemeId"] = tid + 1
+    theme = {
+        "id": f"theme_{tid}",
+        "name": "Express",
+        "isDefault": False,
+        "logoUrl": "",
+        "paymentTerms": "Due on receipt",
+        "termsAndConditions": "",
+        "showTaxNumber": True,
+        "showPaymentAdvice": True,
+    }
+    state["brandingThemes"].append(theme)
+
+    ri = find_repeating(state, "rep_001")
+    ri["brandingThemeId"] = f"theme_{tid}"
+
+
+def solve_task_h71(state):
+    """Turn off item code display, set default tax mode to none, create invoice for Fresh Start Catering."""
+    state["invoiceSettings"]["showItemCode"] = False
+    state["invoiceSettings"]["defaultTaxMode"] = "none"
+
+    contact = find_contact(state, "Fresh Start Catering Co")
+    num = state["_nextInvoiceNum"]
+    lid = state["_nextLineItemId"]
+    subtotal = 500.00
+    tax = subtotal * 0.10
+    total = subtotal + tax
+    inv = {
+        "id": f"inv_{num:03d}",
+        "number": state["invoiceSettings"]["invoicePrefix"] + f"{num:04d}",
+        "contactId": contact["id"],
+        "status": "draft",
+        "date": "2026-03-02",
+        "dueDate": "2026-04-01",
+        "reference": "",
+        "currency": "AUD",
+        "brandingThemeId": "theme_standard",
+        "taxMode": "exclusive",
+        "lineItems": [{
+            "id": f"li_{lid}",
+            "itemId": "item_014",
+            "description": "Initial Setup Fee",
+            "quantity": 1,
+            "unitPrice": 500.00,
+            "discountPercent": 0,
+            "accountId": "acc_200",
+            "taxRateId": "tax_gst",
+            "trackingRegion": "",
+            "trackingDept": "",
+        }],
+        "subtotal": subtotal,
+        "taxTotal": tax,
+        "total": total,
+        "amountDue": total,
+        "amountPaid": 0,
+        "payments": [],
+        "notes": [{"date": "2026-03-02T12:00:00Z", "text": "Invoice created", "user": "Sarah Mitchell"}],
+        "sentAt": None,
+        "title": "",
+        "summary": "",
+    }
+    state["invoices"].append(inv)
+    state["_nextInvoiceNum"] = num + 1
+    state["_nextLineItemId"] = lid + 1
+
+
+def solve_task_h72(state):
+    """Pay INV-0046, create new invoice for Baxter (8hr dev, Professional Services), submit for approval."""
+    inv = find_invoice(state, "INV-0046")
+    pay_id = f"pay_{state['_nextPaymentId']}"
+    state["_nextPaymentId"] += 1
+    amount = inv["amountDue"]
+    inv["payments"].append({
+        "id": pay_id,
+        "date": "2026-03-02",
+        "amount": amount,
+        "reference": "",
+        "accountId": "acc_090",
+    })
+    inv["amountPaid"] = inv["total"]
+    inv["amountDue"] = 0
+    inv["status"] = "paid"
+
+    contact = find_contact(state, "Baxter & Associates Legal")
+    num = state["_nextInvoiceNum"]
+    lid = state["_nextLineItemId"]
+    subtotal = 8 * 185.00
+    tax = subtotal * 0.10
+    total = subtotal + tax
+    new_inv = {
+        "id": f"inv_{num:03d}",
+        "number": state["invoiceSettings"]["invoicePrefix"] + f"{num:04d}",
+        "contactId": contact["id"],
+        "status": "awaiting_approval",
+        "date": "2026-03-02",
+        "dueDate": "2026-04-01",
+        "reference": "",
+        "currency": "AUD",
+        "brandingThemeId": "theme_professional",
+        "taxMode": "exclusive",
+        "lineItems": [{
+            "id": f"li_{lid}",
+            "itemId": "item_001",
+            "description": "Software Development - Hourly Rate",
+            "quantity": 8,
+            "unitPrice": 185.00,
+            "discountPercent": 0,
+            "accountId": "acc_200",
+            "taxRateId": "tax_gst",
+            "trackingRegion": "",
+            "trackingDept": "",
+        }],
+        "subtotal": subtotal,
+        "taxTotal": tax,
+        "total": total,
+        "amountDue": total,
+        "amountPaid": 0,
+        "payments": [],
+        "notes": [{"date": "2026-03-02T12:00:00Z", "text": "Invoice created", "user": "Sarah Mitchell"}],
+        "sentAt": None,
+        "title": "",
+        "summary": "",
+    }
+    state["invoices"].append(new_inv)
+    state["_nextInvoiceNum"] = num + 1
+    state["_nextLineItemId"] = lid + 1
+
+
+def solve_task_h73(state):
+    """Record $3,000 payment on INV-0055 (latest-dated Q1-reference invoice awaiting payment)."""
+    inv = find_invoice(state, "INV-0055")
+    pay_id = f"pay_{state['_nextPaymentId']}"
+    state["_nextPaymentId"] += 1
+    inv["payments"].append({
+        "id": pay_id,
+        "date": "2026-03-02",
+        "amount": 3000.00,
+        "reference": "",
+        "accountId": "acc_090",
+    })
+    inv["amountPaid"] += 3000.00
+    inv["amountDue"] = inv["total"] - inv["amountPaid"]
+
+
+def solve_task_h74(state):
+    """Decline QU-0024 (most expensive sent quote), create invoice for Atlas Engineering (5hr consulting), approve."""
+    quo = find_quote(state, "QU-0024")
+    quo["status"] = "declined"
+
+    contact = find_contact(state, "Atlas Engineering Consultants")
+    num = state["_nextInvoiceNum"]
+    lid = state["_nextLineItemId"]
+    subtotal = 5 * 250.00
+    tax = subtotal * 0.10
+    total = subtotal + tax
+    inv = {
+        "id": f"inv_{num:03d}",
+        "number": state["invoiceSettings"]["invoicePrefix"] + f"{num:04d}",
+        "contactId": contact["id"],
+        "status": "awaiting_payment",
+        "date": "2026-03-02",
+        "dueDate": "2026-04-01",
+        "reference": "",
+        "currency": "AUD",
+        "brandingThemeId": "theme_standard",
+        "taxMode": "exclusive",
+        "lineItems": [{
+            "id": f"li_{lid}",
+            "itemId": "item_002",
+            "description": "Consulting Services - Per Hour",
+            "quantity": 5,
+            "unitPrice": 250.00,
+            "discountPercent": 0,
+            "accountId": "acc_260",
+            "taxRateId": "tax_gst",
+            "trackingRegion": "",
+            "trackingDept": "",
+        }],
+        "subtotal": subtotal,
+        "taxTotal": tax,
+        "total": total,
+        "amountDue": total,
+        "amountPaid": 0,
+        "payments": [],
+        "notes": [{"date": "2026-03-02T12:00:00Z", "text": "Invoice created", "user": "Sarah Mitchell"}],
+        "sentAt": None,
+        "title": "",
+        "summary": "",
+    }
+    state["invoices"].append(inv)
+    state["_nextInvoiceNum"] = num + 1
+    state["_nextLineItemId"] = lid + 1
+
+
+def solve_task_h75(state):
+    """Toggle Professional Services theme settings, then create+send quote for Sapphire Bay (security audit)."""
+    theme = find_theme(state, "theme_professional")
+    theme["showTaxNumber"] = False
+    theme["showPaymentAdvice"] = False
+
+    contact = find_contact(state, "Sapphire Bay Resort")
+    num = state["_nextQuoteNum"]
+    lid = state["_nextLineItemId"]
+    subtotal = 5500.00
+    tax = subtotal * 0.10
+    total = subtotal + tax
+    quo = {
+        "id": f"quo_{num:03d}",
+        "number": state["invoiceSettings"]["quotePrefix"] + f"{num:04d}",
+        "contactId": contact["id"],
+        "status": "sent",
+        "date": "2026-03-02",
+        "expiryDate": "2026-04-01",
+        "reference": "",
+        "currency": "AUD",
+        "brandingThemeId": "theme_standard",
+        "taxMode": "exclusive",
+        "lineItems": [{
+            "id": f"li_{lid}",
+            "itemId": "item_009",
+            "description": "Security Audit - Fixed Fee",
+            "quantity": 1,
+            "unitPrice": 5500.00,
+            "discountPercent": 0,
+            "accountId": "acc_260",
+            "taxRateId": "tax_gst",
+            "trackingRegion": "",
+            "trackingDept": "",
+        }],
+        "subtotal": subtotal,
+        "taxTotal": tax,
+        "total": total,
+        "title": "",
+        "summary": "",
+        "terms": "",
+        "notes": [{"date": "2026-03-02T12:00:00Z", "text": "Quote created", "user": "Sarah Mitchell"}],
+        "sentAt": "2026-03-02T12:00:00Z",
+        "isInvoiced": False,
+    }
+    state["quotes"].append(quo)
+    state["_nextQuoteNum"] = num + 1
+    state["_nextLineItemId"] = lid + 1
+
+
+def solve_task_h76(state):
+    """Record $1,000 on each of the 3 largest-balance overdue invoices."""
+    overdue_numbers = ["INV-0047", "INV-0045", "INV-0046"]
+    for inv_num in overdue_numbers:
+        inv = find_invoice(state, inv_num)
+        pay_id = f"pay_{state['_nextPaymentId']}"
+        state["_nextPaymentId"] += 1
+        inv["payments"].append({
+            "id": pay_id,
+            "date": "2026-03-02",
+            "amount": 1000.00,
+            "reference": "",
+            "accountId": "acc_090",
+        })
+        inv["amountPaid"] += 1000.00
+        inv["amountDue"] = inv["total"] - inv["amountPaid"]
+
+
+def solve_task_h77(state):
+    """Edit QU-0025 (only draft quote): set tax mode to exclusive, then send."""
+    quo = find_quote(state, "QU-0025")
+    quo["taxMode"] = "exclusive"
+    quo["status"] = "sent"
+    quo["sentAt"] = "2026-03-02T12:00:00Z"
+
+
+def solve_task_h78(state):
+    """Accept QU-0029, convert to invoice, approve, record $5,000 partial payment."""
+    quo = find_quote(state, "QU-0029")
+    quo["status"] = "accepted"
+
+    num = state["_nextInvoiceNum"]
+    lid = state["_nextLineItemId"]
+    line_items = deepcopy(quo["lineItems"])
+    for li in line_items:
+        li["id"] = f"li_{lid}"
+        lid += 1
+    inv = {
+        "id": f"inv_{num:03d}",
+        "number": state["invoiceSettings"]["invoicePrefix"] + f"{num:04d}",
+        "contactId": quo["contactId"],
+        "status": "awaiting_payment",
+        "date": "2026-03-02",
+        "dueDate": "2026-04-01",
+        "reference": quo["reference"],
+        "currency": quo["currency"],
+        "brandingThemeId": quo["brandingThemeId"],
+        "taxMode": quo["taxMode"],
+        "lineItems": line_items,
+        "subtotal": quo["subtotal"],
+        "taxTotal": quo["taxTotal"],
+        "total": quo["total"],
+        "amountDue": quo["total"],
+        "amountPaid": 0,
+        "payments": [],
+        "notes": [{"date": "2026-03-02T12:00:00Z", "text": "Invoice created", "user": "Sarah Mitchell"}],
+        "sentAt": None,
+        "title": quo["title"],
+        "summary": quo["summary"],
+    }
+    state["invoices"].append(inv)
+    state["_nextInvoiceNum"] = num + 1
+    state["_nextLineItemId"] = lid
+    quo["isInvoiced"] = True
+
+    # Record $5,000 partial payment
+    pay_id = f"pay_{state['_nextPaymentId']}"
+    state["_nextPaymentId"] += 1
+    inv["payments"].append({
+        "id": pay_id,
+        "date": "2026-03-02",
+        "amount": 5000.00,
+        "reference": "",
+        "accountId": "acc_090",
+    })
+    inv["amountPaid"] = 5000.00
+    inv["amountDue"] = inv["total"] - 5000.00
+
+
+def solve_task_h79(state):
+    """Disable 14-day overdue reminder, enable 30-day one with new subject."""
+    rem_14 = find_reminder(state, "after", 14)
+    rem_14["enabled"] = False
+
+    rem_30 = find_reminder(state, "after", 30)
+    rem_30["enabled"] = True
+    rem_30["subject"] = "Urgent: Invoice {InvoiceNumber} requires immediate payment"
+
+
+def solve_task_h80(state):
+    """Create monthly repeating invoice for Horizon Media: 16hr design + 4hr consulting, draft, April 2026."""
+    contact = find_contact(state, "Horizon Media & Advertising")
+    rid = state["_nextRepeatId"]
+    state["_nextRepeatId"] = rid + 1
+    ri = {
+        "id": f"rep_{rid:03d}",
+        "contactId": contact["id"],
+        "status": "draft",
+        "frequency": "monthly",
+        "startDate": "2026-04-01",
+        "nextDate": "2026-04-01",
+        "endDate": "",
+        "currency": "AUD",
+        "brandingThemeId": "theme_standard",
+        "taxMode": "exclusive",
+        "saveAs": "draft",
+        "lineItems": [
+            {
+                "id": f"rli_{rid * 10}",
+                "itemId": "item_007",
+                "description": "UI/UX Design - Hourly Rate",
+                "quantity": 16,
+                "unitPrice": 165.00,
+                "accountId": "acc_200",
+                "taxRateId": "tax_gst",
+            },
+            {
+                "id": f"rli_{rid * 10 + 1}",
+                "itemId": "item_002",
+                "description": "Consulting Services - Per Hour",
+                "quantity": 4,
+                "unitPrice": 250.00,
+                "accountId": "acc_260",
+                "taxRateId": "tax_gst",
+            },
+        ],
+        "dueDate": {"type": "daysAfterInvoice", "days": 30},
+        "reference": "",
+        "emailSubject": "",
+        "emailBody": "",
+    }
+    state["repeatingInvoices"].append(ri)
+
+
 # ---------------------------------------------------------------------------
 # Solver registry
 # ---------------------------------------------------------------------------
 
 SOLVERS = {}
 for _prefix in ("e", "m", "h"):
-    for _i in range(1, 61):
+    for _i in range(1, 81):
         _key = f"task_{_prefix}{_i}"
         _fn = globals().get(f"solve_{_key}")
         if _fn:

@@ -1,0 +1,17 @@
+{
+  "step": "phase_2b",
+  "iteration": 1,
+  "last_good_commit": "e3e0a23cdd1816c6bb905ba373da2faa91baac76",
+  "app_name": "linear-account-settings",
+  "timestamp": "2026-03-02T05:07:15",
+  "pipeline_args": {
+    "model": "gemini",
+    "workers": 8,
+    "repetitions": 3,
+    "max_iterations": 3,
+    "docs_path": "apps/user-manuals/linear/02-account",
+    "hardening_rounds": 3,
+    "tasks_per_round": 20,
+    "target_pass_rate": null
+  }
+}

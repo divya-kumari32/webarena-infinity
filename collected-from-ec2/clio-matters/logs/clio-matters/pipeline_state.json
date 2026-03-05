@@ -1,0 +1,17 @@
+{
+  "step": "phase_4b",
+  "iteration": 301,
+  "last_good_commit": "ef8250cd030d145e79189565cd391324728d6f4f",
+  "app_name": "clio-matters",
+  "timestamp": "2026-03-02T10:57:04",
+  "pipeline_args": {
+    "model": "gemini",
+    "workers": 8,
+    "repetitions": 3,
+    "max_iterations": 3,
+    "docs_path": "apps/user-manuals/clio/all-categories/matters",
+    "hardening_rounds": 3,
+    "tasks_per_round": 20,
+    "target_pass_rate": null
+  }
+}

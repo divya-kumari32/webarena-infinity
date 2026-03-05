@@ -1,0 +1,17 @@
+{
+  "step": "phase_5",
+  "iteration": 0,
+  "last_good_commit": "a4d3b9d226bbb24e5c4a000f31c4d4f26fa11566",
+  "app_name": "shopify-dynamic-checkout",
+  "timestamp": "2026-03-02T11:09:35",
+  "pipeline_args": {
+    "model": "gemini",
+    "workers": 8,
+    "repetitions": 3,
+    "max_iterations": 3,
+    "docs_path": "apps/user-manuals/shopify/dynamic-checkout",
+    "hardening_rounds": 3,
+    "tasks_per_round": 20,
+    "target_pass_rate": null
+  }
+}

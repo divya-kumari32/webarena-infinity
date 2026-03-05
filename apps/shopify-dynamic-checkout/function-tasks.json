@@ -1,0 +1,277 @@
+[
+  {
+    "id": "task_1",
+    "instruction": "Publish the 'Craft' theme so it becomes the live theme for the store.",
+    "verify": "function-tasks/task_1.py"
+  },
+  {
+    "id": "task_2",
+    "instruction": "Disable accelerated checkout buttons on the Dawn theme's 'Default product' template.",
+    "verify": "function-tasks/task_2.py"
+  },
+  {
+    "id": "task_3",
+    "instruction": "Enable accelerated checkout buttons on the Craft theme's 'Default product' template.",
+    "verify": "function-tasks/task_3.py"
+  },
+  {
+    "id": "task_4",
+    "instruction": "Activate the Amazon Pay payment method.",
+    "verify": "function-tasks/task_4.py"
+  },
+  {
+    "id": "task_5",
+    "instruction": "Deactivate the Shop Pay payment method.",
+    "verify": "function-tasks/task_5.py"
+  },
+  {
+    "id": "task_6",
+    "instruction": "Enable Shop Promise for the store.",
+    "verify": "function-tasks/task_6.py"
+  },
+  {
+    "id": "task_7",
+    "instruction": "Disable the 'Gift wrapping' cart attribute.",
+    "verify": "function-tasks/task_7.py"
+  },
+  {
+    "id": "task_8",
+    "instruction": "Enable the 'Terms and conditions' cart attribute.",
+    "verify": "function-tasks/task_8.py"
+  },
+  {
+    "id": "task_9",
+    "instruction": "Deactivate the Currency Converter Plus app.",
+    "verify": "function-tasks/task_9.py"
+  },
+  {
+    "id": "task_10",
+    "instruction": "Activate the CartHook Post Purchase Offers app.",
+    "verify": "function-tasks/task_10.py"
+  },
+  {
+    "id": "task_11",
+    "instruction": "Change the status of the product 'Cashmere Beanie' from draft to active.",
+    "verify": "function-tasks/task_11.py"
+  },
+  {
+    "id": "task_12",
+    "instruction": "Change the status of the product 'Classic Cotton T-Shirt' to draft.",
+    "verify": "function-tasks/task_12.py"
+  },
+  {
+    "id": "task_13",
+    "instruction": "Assign the 'Leather Crossbody Bag' product to the Dawn theme's 'Default product' template.",
+    "verify": "function-tasks/task_13.py"
+  },
+  {
+    "id": "task_14",
+    "instruction": "Assign the 'Canvas Sneakers' product to the Dawn theme's 'Product - No checkout buttons' template.",
+    "verify": "function-tasks/task_14.py"
+  },
+  {
+    "id": "task_15",
+    "instruction": "Create a new alternate template named 'Product - Premium' on the Dawn theme.",
+    "verify": "function-tasks/task_15.py"
+  },
+  {
+    "id": "task_16",
+    "instruction": "Delete the alternate template 'Product - Gift cards' from the Dawn theme.",
+    "verify": "function-tasks/task_16.py"
+  },
+  {
+    "id": "task_17",
+    "instruction": "Change the accent button background color of the Dawn theme to '#FF5733'.",
+    "verify": "function-tasks/task_17.py"
+  },
+  {
+    "id": "task_18",
+    "instruction": "Change the primary background color and primary text color of the Dawn theme to '#F0F0F0' and '#333333' respectively.",
+    "verify": "function-tasks/task_18.py"
+  },
+  {
+    "id": "task_19",
+    "instruction": "Change the heading font of the Dawn theme to 'Playfair Display'.",
+    "verify": "function-tasks/task_19.py"
+  },
+  {
+    "id": "task_20",
+    "instruction": "Change the body font and button font of the Dawn theme to 'Roboto'.",
+    "verify": "function-tasks/task_20.py"
+  },
+  {
+    "id": "task_21",
+    "instruction": "Set the heading scale of the Dawn theme to 120 and the body scale to 90.",
+    "verify": "function-tasks/task_21.py"
+  },
+  {
+    "id": "task_22",
+    "instruction": "Disable the quantity selector on the Dawn theme's 'Default product' template.",
+    "verify": "function-tasks/task_22.py"
+  },
+  {
+    "id": "task_23",
+    "instruction": "Disable accelerated checkout on the featured product section on the Dawn theme's Home page in the theme editor.",
+    "verify": "function-tasks/task_23.py"
+  },
+  {
+    "id": "task_24",
+    "instruction": "Deactivate both the PayPal and Google Pay payment methods.",
+    "verify": "function-tasks/task_24.py"
+  },
+  {
+    "id": "task_25",
+    "instruction": "Activate the Venmo payment method.",
+    "verify": "function-tasks/task_25.py"
+  },
+  {
+    "id": "task_26",
+    "instruction": "Publish the 'Sense' theme so it replaces the current live theme.",
+    "verify": "function-tasks/task_26.py"
+  },
+  {
+    "id": "task_27",
+    "instruction": "Change the status of the product 'Heavyweight Hoodie – Oversized Fit' from archived to active.",
+    "verify": "function-tasks/task_27.py"
+  },
+  {
+    "id": "task_28",
+    "instruction": "Archive the product 'Hand-Poured Soy Candle Set'.",
+    "verify": "function-tasks/task_28.py"
+  },
+  {
+    "id": "task_29",
+    "instruction": "Enable accelerated checkout on the Craft theme's 'Product - Featured' template, and also enable it on the Craft theme's 'Default product' template.",
+    "verify": "function-tasks/task_29.py"
+  },
+  {
+    "id": "task_30",
+    "instruction": "Create a new alternate template named 'Product - Express Checkout' on the Craft theme.",
+    "verify": "function-tasks/task_30.py"
+  },
+  {
+    "id": "task_31",
+    "instruction": "Disable the 'Delivery date' cart attribute.",
+    "verify": "function-tasks/task_31.py"
+  },
+  {
+    "id": "task_32",
+    "instruction": "Deactivate the Oberlo Dropshipping app.",
+    "verify": "function-tasks/task_32.py"
+  },
+  {
+    "id": "task_33",
+    "instruction": "Deactivate the ReConvert Upsell & Cross Sell app.",
+    "verify": "function-tasks/task_33.py"
+  },
+  {
+    "id": "task_34",
+    "instruction": "Change the accent color of the Dawn theme to '#E11D48'.",
+    "verify": "function-tasks/task_34.py"
+  },
+  {
+    "id": "task_35",
+    "instruction": "Change the secondary background color and secondary text color of the Dawn theme to '#E5E7EB' and '#374151' respectively.",
+    "verify": "function-tasks/task_35.py"
+  },
+  {
+    "id": "task_36",
+    "instruction": "Change the accent button text color of the Dawn theme to '#000000'.",
+    "verify": "function-tasks/task_36.py"
+  },
+  {
+    "id": "task_37",
+    "instruction": "Assign the 'Digital Gift Card' product to the 'Product - No checkout buttons' template on the Dawn theme.",
+    "verify": "function-tasks/task_37.py"
+  },
+  {
+    "id": "task_38",
+    "instruction": "Set the body font of the Dawn theme to 'Merriweather' and the heading font to 'DM Serif Display'.",
+    "verify": "function-tasks/task_38.py"
+  },
+  {
+    "id": "task_39",
+    "instruction": "Deactivate all accelerated payment methods (Shop Pay, Apple Pay, Google Pay, and PayPal).",
+    "verify": "function-tasks/task_39.py"
+  },
+  {
+    "id": "task_40",
+    "instruction": "Activate the Privy Pop Ups & Email app.",
+    "verify": "function-tasks/task_40.py"
+  },
+  {
+    "id": "task_41",
+    "instruction": "Publish the 'Ride' theme so it becomes the live theme.",
+    "verify": "function-tasks/task_41.py"
+  },
+  {
+    "id": "task_42",
+    "instruction": "Delete the 'Product - No checkout buttons' template from the Dawn theme.",
+    "verify": "function-tasks/task_42.py"
+  },
+  {
+    "id": "task_43",
+    "instruction": "Create a new alternate template named 'Product - Limited Edition' on the Dawn theme, then enable accelerated checkout on it.",
+    "verify": "function-tasks/task_43.py"
+  },
+  {
+    "id": "task_44",
+    "instruction": "Assign the 'Titanium Watch – Miyota Movement' product to the Dawn theme's 'Product - Gift cards' template.",
+    "verify": "function-tasks/task_44.py"
+  },
+  {
+    "id": "task_45",
+    "instruction": "Deactivate the Apple Pay payment method.",
+    "verify": "function-tasks/task_45.py"
+  },
+  {
+    "id": "task_46",
+    "instruction": "Change the status of the product 'Merino Wool Sweater' to archived.",
+    "verify": "function-tasks/task_46.py"
+  },
+  {
+    "id": "task_47",
+    "instruction": "Enable the quantity selector on the Dawn theme's 'Product - Gift cards' template.",
+    "verify": "function-tasks/task_47.py"
+  },
+  {
+    "id": "task_48",
+    "instruction": "Disable both the 'Gift wrapping' and 'Delivery date' cart attributes.",
+    "verify": "function-tasks/task_48.py"
+  },
+  {
+    "id": "task_49",
+    "instruction": "Deactivate the Currency Converter Plus app and the ReConvert Upsell & Cross Sell app.",
+    "verify": "function-tasks/task_49.py"
+  },
+  {
+    "id": "task_50",
+    "instruction": "Change all three font settings (heading, body, and button) of the Dawn theme to 'Montserrat'.",
+    "verify": "function-tasks/task_50.py"
+  },
+  {
+    "id": "task_51",
+    "instruction": "Change the accent button background color of the Dawn theme to '#2563EB' and the accent button text color to '#FFFFFF'.",
+    "verify": "function-tasks/task_51.py"
+  },
+  {
+    "id": "task_52",
+    "instruction": "Enable the 'Terms and conditions' cart attribute and disable the 'Gift wrapping' cart attribute.",
+    "verify": "function-tasks/task_52.py"
+  },
+  {
+    "id": "task_53",
+    "instruction": "Navigate to the Craft theme and enable accelerated checkout on its 'Default product' template, then publish the Craft theme.",
+    "verify": "function-tasks/task_53.py"
+  },
+  {
+    "id": "task_54",
+    "instruction": "Assign the 'Silk Blend Scarf' product to the Dawn theme's 'Default product' template.",
+    "verify": "function-tasks/task_54.py"
+  },
+  {
+    "id": "task_55",
+    "instruction": "Activate the Amazon Pay and Venmo payment methods.",
+    "verify": "function-tasks/task_55.py"
+  }
+]

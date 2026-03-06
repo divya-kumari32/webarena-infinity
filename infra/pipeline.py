@@ -129,6 +129,8 @@ def run_claude(
         "--permission-mode",
         "plan",
         "--verbose",
+        "--effort",
+        "high",
         prompt,
     ]
 

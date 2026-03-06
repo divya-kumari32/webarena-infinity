@@ -1,0 +1,606 @@
+#!/usr/bin/env python3
+"""
+Sanity check for Linear Account Settings real-task verifiers.
+
+For each task, directly constructs the expected end-state (bypassing the agent),
+then runs the verifier and asserts it returns True.
+
+Usage:
+    python3 sanity_check_real.py                      # All tasks, sequential
+    python3 sanity_check_real.py --workers N           # N parallel environments
+    python3 sanity_check_real.py --task-id <id>        # Single task (for debugging)
+    python3 sanity_check_real.py --port <base>         # Custom base port
+"""
+import argparse
+import importlib.util
+import json
+import os
+import socket
+import subprocess
+import sys
+import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from pathlib import Path
+
+import requests
+
+APP_DIR = Path(__file__).resolve().parent
+TASKS_FILE = APP_DIR / "real-tasks.json"
+
+# JS snippet to evaluate data.js and emit the seed state as JSON
+_SEED_STATE_JS = """
+const fs = require('fs');
+const vm = require('vm');
+const code = fs.readFileSync(process.argv[1], 'utf8');
+vm.runInThisContext(code);
+
+const state = {
+    _seedVersion: SEED_DATA_VERSION,
+    currentUser: JSON.parse(JSON.stringify(CURRENT_USER)),
+    workspaces: JSON.parse(JSON.stringify(WORKSPACES)),
+    connectedAccounts: JSON.parse(JSON.stringify(CONNECTED_ACCOUNTS)),
+    preferences: JSON.parse(JSON.stringify(PREFERENCES)),
+    notificationSettings: JSON.parse(JSON.stringify(NOTIFICATION_SETTINGS)),
+    sessions: JSON.parse(JSON.stringify(SESSIONS)),
+    passkeys: JSON.parse(JSON.stringify(PASSKEYS)),
+    apiKeys: JSON.parse(JSON.stringify(API_KEYS)),
+    authorizedApps: JSON.parse(JSON.stringify(AUTHORIZED_APPS)),
+    _nextApiKeyId: 10,
+    _nextPasskeyId: 10
+};
+process.stdout.write(JSON.stringify(state));
+"""
+
+
+# ── helpers ──────────────────────────────────────────────────────────
+
+def find_entity(entities, **kwargs):
+    for e in entities:
+        if all(e.get(k) == v for k, v in kwargs.items()):
+            return e
+    raise ValueError(f"Entity not found: {kwargs}")
+
+
+# ── solve functions ──────────────────────────────────────────────────
+
+# Easy tasks
+
+def solve_task_e1(state):
+    """Switch the interface to dark mode."""
+    state["preferences"]["interfaceTheme"] = "Dark"
+
+def solve_task_e2(state):
+    """Turn off the emoji conversion for text emoticons."""
+    state["preferences"]["convertTextEmojis"] = False
+
+def solve_task_e3(state):
+    """Disable desktop notifications."""
+    state["notificationSettings"]["desktop"]["enabled"] = False
+
+def solve_task_e4(state):
+    """Change the username to 'amorgan'."""
+    state["currentUser"]["username"] = "amorgan"
+
+def solve_task_e5(state):
+    """Turn on auto-assign when creating issues."""
+    state["preferences"]["autoAssignOnCreate"] = True
+
+def solve_task_e6(state):
+    """Stop receiving changelog notifications."""
+    state["notificationSettings"]["receiveChangelogs"] = False
+
+def solve_task_e7(state):
+    """Set the default home view to My Issues."""
+    state["preferences"]["defaultHomeView"] = "My Issues"
+
+def solve_task_e8(state):
+    """Remove the YubiKey passkey."""
+    state["passkeys"] = [p for p in state["passkeys"] if p["name"] != "YubiKey 5C NFC"]
+
+def solve_task_e9(state):
+    """Revoke the Zapier integration."""
+    state["authorizedApps"] = [a for a in state["authorizedApps"] if a["name"] != "Zapier"]
+
+def solve_task_e10(state):
+    """Increase the font size to Large."""
+    state["preferences"]["fontSize"] = "Large"
+
+def solve_task_e11(state):
+    """Disconnect the Figma account."""
+    state["connectedAccounts"] = [a for a in state["connectedAccounts"] if a["provider"] != "Figma"]
+
+def solve_task_e12(state):
+    """Turn off the desktop app notification badge."""
+    state["preferences"]["desktopNotificationBadge"] = False
+
+def solve_task_e13(state):
+    """Enable Slack notifications."""
+    state["notificationSettings"]["slack"]["enabled"] = True
+
+def solve_task_e14(state):
+    """Revoke the Mobile App Testing API key."""
+    state["apiKeys"] = [k for k in state["apiKeys"] if k["label"] != "Mobile App Testing"]
+
+def solve_task_e15(state):
+    """Disable spell check."""
+    state["preferences"]["enableSpellCheck"] = False
+
+def solve_task_e16(state):
+    """Set Sunday as the first day of the week."""
+    state["preferences"]["firstDayOfWeek"] = "Sunday"
+
+def solve_task_e17(state):
+    """Enable the pointer cursor."""
+    state["preferences"]["usePointerCursor"] = True
+
+def solve_task_e18(state):
+    """Turn off the open in desktop app setting."""
+    state["preferences"]["openInDesktopApp"] = False
+
+def solve_task_e19(state):
+    """Opt in to product update communications."""
+    state["notificationSettings"]["receiveProductUpdates"] = True
+
+def solve_task_e20(state):
+    """Stop showing full names."""
+    state["preferences"]["displayFullNames"] = False
+
+# Medium tasks
+
+def solve_task_m1(state):
+    """Update name to 'Jordan Rivera' and username to 'jrivera'."""
+    state["currentUser"]["fullName"] = "Jordan Rivera"
+    state["currentUser"]["username"] = "jrivera"
+
+def solve_task_m2(state):
+    """Revoke Firefox on Windows session."""
+    state["sessions"] = [s for s in state["sessions"] if s["deviceName"] != "Firefox on Windows"]
+
+def solve_task_m3(state):
+    """Change email to 'alex.morgan@newcompany.com'."""
+    state["currentUser"]["email"] = "alex.morgan@newcompany.com"
+
+def solve_task_m4(state):
+    """Create a new API key labeled 'Staging Environment'."""
+    key_id = state.get("_nextApiKeyId", 10)
+    now = "2026-03-06T12:00:00.000Z"
+    state["apiKeys"].append({
+        "id": f"apikey_{key_id:02d}",
+        "label": "Staging Environment",
+        "keyPrefix": "lin_api_test",
+        "createdAt": now,
+        "lastUsedAt": None,
+        "expiresAt": None
+    })
+    state["_nextApiKeyId"] = key_id + 1
+
+def solve_task_m5(state):
+    """Register a new passkey called 'Windows Hello'."""
+    pk_id = state.get("_nextPasskeyId", 10)
+    now = "2026-03-06T12:00:00.000Z"
+    state["passkeys"].append({
+        "id": f"pk_{pk_id:02d}",
+        "name": "Windows Hello",
+        "createdAt": now,
+        "lastUsedAt": now,
+        "credentialType": "platform"
+    })
+    state["_nextPasskeyId"] = pk_id + 1
+
+def solve_task_m6(state):
+    """Turn off email status changes, turn on comments."""
+    state["notificationSettings"]["email"]["issueStatusChanged"] = False
+    state["notificationSettings"]["email"]["issueCommented"] = True
+
+def solve_task_m7(state):
+    """Dark - Contrast theme, Small font."""
+    state["preferences"]["interfaceTheme"] = "Dark - Contrast"
+    state["preferences"]["fontSize"] = "Small"
+
+def solve_task_m8(state):
+    """Leave Side Project Labs workspace."""
+    state["workspaces"] = [w for w in state["workspaces"] if w["name"] != "Side Project Labs"]
+
+def solve_task_m9(state):
+    """Disable mobile notifications."""
+    state["notificationSettings"]["mobile"]["enabled"] = False
+
+def solve_task_m10(state):
+    """Git attachment format to 'Title and repository', auto-assign on started."""
+    state["preferences"]["gitAttachmentFormat"] = "Title and repository"
+    state["preferences"]["autoAssignOnStarted"] = True
+
+def solve_task_m11(state):
+    """Revoke Notion Integration and Linear Exporter."""
+    state["authorizedApps"] = [a for a in state["authorizedApps"]
+                                if a["name"] not in ("Notion Integration", "Linear Exporter")]
+
+def solve_task_m12(state):
+    """Disconnect GitLab."""
+    state["connectedAccounts"] = [a for a in state["connectedAccounts"] if a["provider"] != "GitLab"]
+
+def solve_task_m13(state):
+    """Enable desktop cycle update notifications."""
+    state["notificationSettings"]["desktop"]["cycleUpdated"] = True
+
+def solve_task_m14(state):
+    """Turn off delay low priority outside hours."""
+    state["notificationSettings"]["email"]["delayLowPriorityOutsideHours"] = False
+
+def solve_task_m15(state):
+    """Stop auto-assign on git branch copy."""
+    state["preferences"]["onGitBranchCopyAutoAssign"] = False
+
+def solve_task_m16(state):
+    """Revoke Data Export Script and Slack Bot Integration API keys."""
+    state["apiKeys"] = [k for k in state["apiKeys"]
+                        if k["label"] not in ("Data Export Script", "Slack Bot Integration")]
+
+def solve_task_m17(state):
+    """Stop sending urgent email notifications immediately."""
+    state["notificationSettings"]["email"]["sendUrgentImmediately"] = False
+
+def solve_task_m18(state):
+    """Remove iPhone Face ID passkey."""
+    state["passkeys"] = [p for p in state["passkeys"] if p["name"] != "iPhone Face ID"]
+
+def solve_task_m19(state):
+    """Set home view to Inbox, first day to Wednesday."""
+    state["preferences"]["defaultHomeView"] = "Inbox"
+    state["preferences"]["firstDayOfWeek"] = "Wednesday"
+
+def solve_task_m20(state):
+    """Revoke the Linux session."""
+    state["sessions"] = [s for s in state["sessions"] if s["deviceName"] != "Chrome on Linux"]
+
+# Hard tasks
+
+def solve_task_h1(state):
+    """Light - Contrast theme, Small font, pointer cursor on, emoticons off."""
+    state["preferences"]["interfaceTheme"] = "Light - Contrast"
+    state["preferences"]["fontSize"] = "Small"
+    state["preferences"]["usePointerCursor"] = True
+    state["preferences"]["convertTextEmojis"] = False
+
+def solve_task_h2(state):
+    """Revoke all sessions except current."""
+    state["sessions"] = [s for s in state["sessions"] if s.get("isCurrent", False)]
+
+def solve_task_h3(state):
+    """Disconnect GitHub and GitLab."""
+    state["connectedAccounts"] = [a for a in state["connectedAccounts"]
+                                   if a["provider"] not in ("GitHub", "GitLab")]
+
+def solve_task_h4(state):
+    """Disable all notification channels."""
+    for channel in ("desktop", "mobile", "email", "slack"):
+        state["notificationSettings"][channel]["enabled"] = False
+
+def solve_task_h5(state):
+    """Revoke all authorized apps."""
+    state["authorizedApps"] = []
+
+def solve_task_h6(state):
+    """Change name to Sam Chen, username to schen, email to sam.chen@acmecorp.io."""
+    state["currentUser"]["fullName"] = "Sam Chen"
+    state["currentUser"]["username"] = "schen"
+    state["currentUser"]["email"] = "sam.chen@acmecorp.io"
+
+def solve_task_h7(state):
+    """Disable git automations, change format."""
+    state["preferences"]["onGitBranchCopyMoveToStarted"] = False
+    state["preferences"]["onGitBranchCopyAutoAssign"] = False
+    state["preferences"]["gitAttachmentFormat"] = "Title and repository"
+
+def solve_task_h8(state):
+    """Unsubscribe from all comms, disable email channel."""
+    state["notificationSettings"]["receiveChangelogs"] = False
+    state["notificationSettings"]["receiveDpaUpdates"] = False
+    state["notificationSettings"]["receiveProductUpdates"] = False
+    state["notificationSettings"]["email"]["enabled"] = False
+
+def solve_task_h9(state):
+    """Create 'GitHub Actions' API key, revoke 'CI/CD Pipeline'."""
+    state["apiKeys"] = [k for k in state["apiKeys"] if k["label"] != "CI/CD Pipeline"]
+    key_id = state.get("_nextApiKeyId", 10)
+    now = "2026-03-06T12:00:00.000Z"
+    state["apiKeys"].append({
+        "id": f"apikey_{key_id:02d}",
+        "label": "GitHub Actions",
+        "keyPrefix": "lin_api_test",
+        "createdAt": now,
+        "lastUsedAt": None,
+        "expiresAt": None
+    })
+    state["_nextApiKeyId"] = key_id + 1
+
+def solve_task_h10(state):
+    """Leave both non-admin workspaces."""
+    state["workspaces"] = [w for w in state["workspaces"] if w["role"] == "Admin"]
+
+def solve_task_h11(state):
+    """Minimal workspace preferences."""
+    state["preferences"]["interfaceTheme"] = "Dark"
+    state["preferences"]["fontSize"] = "Small"
+    state["preferences"]["defaultHomeView"] = "Inbox"
+    state["preferences"]["displayFullNames"] = False
+    state["preferences"]["convertTextEmojis"] = False
+    state["preferences"]["openInDesktopApp"] = False
+
+def solve_task_h12(state):
+    """Remove all passkeys."""
+    state["passkeys"] = []
+
+def solve_task_h13(state):
+    """Revoke all mobile device sessions."""
+    state["sessions"] = [s for s in state["sessions"] if s.get("deviceType") != "mobile"]
+
+def solve_task_h14(state):
+    """Auto-assign on create and started, home view to Current cycle."""
+    state["preferences"]["autoAssignOnCreate"] = True
+    state["preferences"]["autoAssignOnStarted"] = True
+    state["preferences"]["defaultHomeView"] = "Current cycle"
+
+def solve_task_h15(state):
+    """Disconnect Slack and Google, disable Slack notifications."""
+    state["connectedAccounts"] = [a for a in state["connectedAccounts"]
+                                   if a["provider"] not in ("Slack", "Google")]
+    state["notificationSettings"]["slack"]["enabled"] = False
+
+def solve_task_h16(state):
+    """Revoke all API keys with expiration dates."""
+    state["apiKeys"] = [k for k in state["apiKeys"] if k.get("expiresAt") is None]
+
+def solve_task_h17(state):
+    """Enable all desktop notification types."""
+    desktop = state["notificationSettings"]["desktop"]
+    desktop["enabled"] = True
+    desktop["issueAssigned"] = True
+    desktop["issueStatusChanged"] = True
+    desktop["issueCommented"] = True
+    desktop["issueMentioned"] = True
+    desktop["projectUpdated"] = True
+    desktop["cycleUpdated"] = True
+
+def solve_task_h18(state):
+    """Revoke all OAuth apps with write permissions."""
+    state["authorizedApps"] = [
+        a for a in state["authorizedApps"]
+        if not any("write" in p for p in a.get("permissions", []))
+    ]
+
+def solve_task_h19(state):
+    """Turn off all desktop application settings."""
+    state["preferences"]["openInDesktopApp"] = False
+    state["preferences"]["desktopNotificationBadge"] = False
+    state["preferences"]["enableSpellCheck"] = False
+
+def solve_task_h20(state):
+    """Revoke NY and Seattle sessions, add Security Key Backup passkey."""
+    state["sessions"] = [s for s in state["sessions"]
+                         if "New York" not in s.get("location", "")
+                         and "Seattle" not in s.get("location", "")]
+    pk_id = state.get("_nextPasskeyId", 10)
+    now = "2026-03-06T12:00:00.000Z"
+    state["passkeys"].append({
+        "id": f"pk_{pk_id:02d}",
+        "name": "Security Key Backup",
+        "createdAt": now,
+        "lastUsedAt": now,
+        "credentialType": "cross-platform"
+    })
+    state["_nextPasskeyId"] = pk_id + 1
+
+
+SOLVERS = {}
+for _difficulty in ("e", "m", "h"):
+    for _i in range(1, 21):
+        _task_id = f"task_{_difficulty}{_i}"
+        _fn_name = f"solve_task_{_difficulty}{_i}"
+        if _fn_name in globals():
+            SOLVERS[_task_id] = globals()[_fn_name]
+
+
+# ── server management ────────────────────────────────────────────────
+
+def generate_seed_state():
+    data_js = str(APP_DIR / "js" / "data.js")
+    result = subprocess.run(
+        ["node", "-e", _SEED_STATE_JS, data_js],
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        raise RuntimeError(f"Failed to generate seed state:\n{result.stderr}")
+    return json.loads(result.stdout)
+
+
+def seed_server(server_url, seed_state):
+    resp = requests.put(
+        f"{server_url}/api/state",
+        json=seed_state,
+        headers={"Content-Type": "application/json"},
+    )
+    if resp.status_code != 200:
+        raise RuntimeError(f"Failed to seed server: HTTP {resp.status_code}")
+
+
+def find_free_port(start=9000):
+    port = start
+    while port < start + 200:
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            try:
+                s.bind(("", port))
+                return port
+            except OSError:
+                port += 1
+    raise RuntimeError(f"No free port found in range {start}-{start+200}")
+
+
+def start_server(port):
+    proc = subprocess.Popen(
+        [sys.executable, "server.py", "--port", str(port)],
+        cwd=str(APP_DIR),
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+    for _ in range(30):
+        try:
+            requests.get(f"http://localhost:{port}/", timeout=1)
+            return proc
+        except (requests.ConnectionError, requests.Timeout):
+            time.sleep(0.2)
+    proc.kill()
+    raise RuntimeError(f"Server failed to start on port {port}")
+
+
+def stop_server(proc):
+    if proc and proc.poll() is None:
+        proc.terminate()
+        try:
+            proc.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+
+
+# ── task runner ──────────────────────────────────────────────────────
+
+def load_tasks():
+    with open(TASKS_FILE) as f:
+        return json.load(f)
+
+
+def load_verifier(verify_path):
+    full_path = APP_DIR / verify_path
+    spec = importlib.util.spec_from_file_location("verifier", str(full_path))
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module.verify
+
+
+def run_single_task(task, server_url):
+    task_id = task["id"]
+    solver = SOLVERS.get(task_id)
+    if not solver:
+        return task_id, False, f"No solver defined for {task_id}"
+
+    try:
+        # 1. Reset to seed state
+        resp = requests.post(f"{server_url}/api/reset")
+        if resp.status_code != 200:
+            return task_id, False, f"Reset failed: HTTP {resp.status_code}"
+
+        time.sleep(0.3)
+
+        # 2. Read seed state
+        resp = requests.get(f"{server_url}/api/state")
+        if resp.status_code != 200:
+            return task_id, False, f"Could not read state after reset: HTTP {resp.status_code}"
+        state = resp.json()
+
+        # 3. Apply the solve function
+        solver(state)
+
+        # 4. Write solved state back
+        resp = requests.put(
+            f"{server_url}/api/state",
+            json=state,
+            headers={"Content-Type": "application/json"},
+        )
+        if resp.status_code != 200:
+            return task_id, False, f"Could not write state: HTTP {resp.status_code}"
+
+        # 5. Run the verifier
+        verify_fn = load_verifier(task["verify"])
+        passed, message = verify_fn(server_url)
+        return task_id, passed, message
+
+    except Exception as e:
+        return task_id, False, f"Exception: {e}"
+
+
+def run_tasks_sequential(tasks, port, seed_state):
+    proc = start_server(port)
+    server_url = f"http://localhost:{port}"
+    results = []
+    try:
+        seed_server(server_url, seed_state)
+        for task in tasks:
+            result = run_single_task(task, server_url)
+            results.append(result)
+            status = "\033[32m  PASS\033[0m" if result[1] else "\033[31m  FAIL\033[0m"
+            print(f"{status}  {result[0]:12s}  {result[2]}")
+    finally:
+        stop_server(proc)
+    return results
+
+
+def run_tasks_parallel(tasks, workers, base_port, seed_state):
+    results = []
+
+    def worker_fn(task, port):
+        proc = start_server(port)
+        server_url = f"http://localhost:{port}"
+        try:
+            seed_server(server_url, seed_state)
+            return run_single_task(task, server_url)
+        finally:
+            stop_server(proc)
+
+    with ThreadPoolExecutor(max_workers=workers) as executor:
+        futures = {}
+        for i, task in enumerate(tasks):
+            port = base_port + i
+            future = executor.submit(worker_fn, task, port)
+            futures[future] = task["id"]
+
+        for future in as_completed(futures):
+            result = future.result()
+            results.append(result)
+            status = "\033[32m  PASS\033[0m" if result[1] else "\033[31m  FAIL\033[0m"
+            print(f"{status}  {result[0]:12s}  {result[2]}")
+
+    return results
+
+
+# ── main ─────────────────────────────────────────────────────────────
+
+def main():
+    parser = argparse.ArgumentParser(description="Linear Account Settings real-task sanity check")
+    parser.add_argument("--task-id", type=str, help="Run a single task by ID")
+    parser.add_argument("--workers", type=int, default=1, help="Number of parallel workers")
+    parser.add_argument("--port", type=int, default=9600, help="Base port for servers")
+    args = parser.parse_args()
+
+    tasks = load_tasks()
+    if args.task_id:
+        tasks = [t for t in tasks if t["id"] == args.task_id]
+        if not tasks:
+            print(f"Task '{args.task_id}' not found.")
+            sys.exit(1)
+
+    print("Generating seed state from JS data...")
+    seed_state = generate_seed_state()
+    print(f"Running {len(tasks)} task(s)...\n")
+
+    if args.workers <= 1:
+        port = find_free_port(args.port)
+        results = run_tasks_sequential(tasks, port, seed_state)
+    else:
+        results = run_tasks_parallel(tasks, args.workers, args.port, seed_state)
+
+    # Summary
+    passed = sum(1 for _, p, _ in results if p)
+    total = len(results)
+    failed = [tid for tid, p, _ in results if not p]
+
+    print(f"\n{passed}/{total} passed")
+    if failed:
+        print(f"Failed: {', '.join(failed)}")
+        sys.exit(1)
+    else:
+        sys.exit(0)
+
+
+if __name__ == "__main__":
+    main()

@@ -598,5 +598,125 @@
     "difficulty": "hard",
     "instruction": "Invert every notification channel's enabled state — enable the ones that are currently disabled and disable the ones that are currently enabled. Do not change any notification types.",
     "verify": "real-tasks/task_h60.py"
+  },
+  {
+    "id": "task_h61",
+    "difficulty": "hard",
+    "instruction": "Set your username to the URL key of the workspace with the most members, and change the first day of the week to the day your current session was signed in.",
+    "verify": "real-tasks/task_h61.py"
+  },
+  {
+    "id": "task_h62",
+    "difficulty": "hard",
+    "instruction": "Revoke every OAuth application whose number of permissions exactly equals the number of connected accounts that share your Linear account's email domain.",
+    "verify": "real-tasks/task_h62.py"
+  },
+  {
+    "id": "task_h63",
+    "difficulty": "hard",
+    "instruction": "Revoke the API key whose label contains the name of one of your connected account providers, then disconnect that provider's connected account.",
+    "verify": "real-tasks/task_h63.py"
+  },
+  {
+    "id": "task_h64",
+    "difficulty": "hard",
+    "instruction": "Revoke the non-current session running the browser with the lowest version number, then create an API key labeled with that session's city name.",
+    "verify": "real-tasks/task_h64.py"
+  },
+  {
+    "id": "task_h65",
+    "difficulty": "hard",
+    "instruction": "Revoke all read-only authorized applications (those without any write permissions), and create a new API key for each one you revoked, using the application's name as the label.",
+    "verify": "real-tasks/task_h65.py"
+  },
+  {
+    "id": "task_h66",
+    "difficulty": "hard",
+    "instruction": "For each notification channel: if it is currently enabled, disable it and turn on all six notification types; if it is currently disabled, enable it and turn off all six notification types.",
+    "verify": "real-tasks/task_h66.py"
+  },
+  {
+    "id": "task_h67",
+    "difficulty": "hard",
+    "instruction": "Disconnect the connected account that was linked on the same calendar date as your Linear account was created, then set the default home view to the option that comes last alphabetically.",
+    "verify": "real-tasks/task_h67.py"
+  },
+  {
+    "id": "task_h68",
+    "difficulty": "hard",
+    "instruction": "Count how many passkeys you have. Revoke that many of the most recently authorized OAuth applications.",
+    "verify": "real-tasks/task_h68.py"
+  },
+  {
+    "id": "task_h69",
+    "difficulty": "hard",
+    "instruction": "Revoke all non-current sessions that were signed in on a weekday, then register a passkey named after the day of the week your Linear account was created on.",
+    "verify": "real-tasks/task_h69.py"
+  },
+  {
+    "id": "task_h70",
+    "difficulty": "hard",
+    "instruction": "Revoke all OAuth applications that were authorized in an odd-numbered month, then disconnect all connected accounts that were linked in an even-numbered month.",
+    "verify": "real-tasks/task_h70.py"
+  },
+  {
+    "id": "task_h71",
+    "difficulty": "hard",
+    "instruction": "Among the enabled notification channels, set the one with the most notification types currently turned on to mentions-only, and set the one with the fewest types turned on to all-on. Leave other channels unchanged.",
+    "verify": "real-tasks/task_h71.py"
+  },
+  {
+    "id": "task_h72",
+    "difficulty": "hard",
+    "instruction": "Create an API key whose label is your role at the Acme Corp workspace followed by a dash and the total number of authorized OAuth applications (e.g., 'Role-N'), then revoke all OAuth applications that have both read and write permissions on issues.",
+    "verify": "real-tasks/task_h72.py"
+  },
+  {
+    "id": "task_h73",
+    "difficulty": "hard",
+    "instruction": "Disconnect all connected accounts whose account name is an email address, then revoke the authorized application whose name contains a period.",
+    "verify": "real-tasks/task_h73.py"
+  },
+  {
+    "id": "task_h74",
+    "difficulty": "hard",
+    "instruction": "Change your display name to your current username with only the first letter capitalized, then set the home view to Current cycle and enable both auto-assign settings.",
+    "verify": "real-tasks/task_h74.py"
+  },
+  {
+    "id": "task_h75",
+    "difficulty": "hard",
+    "instruction": "Revoke all API keys that were created in the same year as any of your passkeys were registered, then remove the most recently registered passkey.",
+    "verify": "real-tasks/task_h75.py"
+  },
+  {
+    "id": "task_h76",
+    "difficulty": "hard",
+    "instruction": "Enable all four notification channels, then turn off all notification types for the desktop and email channels, and turn on all notification types for the mobile and Slack channels.",
+    "verify": "real-tasks/task_h76.py"
+  },
+  {
+    "id": "task_h77",
+    "difficulty": "hard",
+    "instruction": "Revoke the API key that was created the earliest, then register a new passkey using that key's label as the passkey name.",
+    "verify": "real-tasks/task_h77.py"
+  },
+  {
+    "id": "task_h78",
+    "difficulty": "hard",
+    "instruction": "For each enabled notification channel: if it currently has more than 3 notification types turned on, set it to only comments and mentions; if it has 3 or fewer, turn on all six types. Do not modify disabled channels.",
+    "verify": "real-tasks/task_h78.py"
+  },
+  {
+    "id": "task_h79",
+    "difficulty": "hard",
+    "instruction": "Disconnect all connected accounts that have any write-level permission scope, revoke the most recently accessed OAuth application, and switch the interface theme to Light - Contrast.",
+    "verify": "real-tasks/task_h79.py"
+  },
+  {
+    "id": "task_h80",
+    "difficulty": "hard",
+    "instruction": "Perform a security audit: revoke all non-current sessions signed in more than 90 days ago, remove any passkeys not used in the last 7 days, and revoke any API keys not used in the last 7 days.",
+    "verify": "real-tasks/task_h80.py"
   }
 ]

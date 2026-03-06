@@ -780,9 +780,217 @@ def solve_task_h60(state):
         ch["enabled"] = not ch["enabled"]
 
 
+# Hardening round 3 tasks (h61-h80)
+
+def solve_task_h61(state):
+    """Username = URL key of most-member workspace, firstDayOfWeek = sign-in day."""
+    state["currentUser"]["username"] = "osc"
+    state["preferences"]["firstDayOfWeek"] = "Sunday"
+
+def solve_task_h62(state):
+    """Revoke OAuth apps with perm count = same-domain connected account count."""
+    state["authorizedApps"] = [a for a in state["authorizedApps"]
+                                if len(a.get("permissions", [])) != 4]
+
+def solve_task_h63(state):
+    """Revoke API key containing provider name, disconnect that provider."""
+    state["apiKeys"] = [k for k in state["apiKeys"]
+                        if k["label"] != "Slack Bot Integration"]
+    state["connectedAccounts"] = [a for a in state["connectedAccounts"]
+                                   if a["provider"] != "Slack"]
+
+def solve_task_h64(state):
+    """Revoke session with lowest browser version, create API key with city."""
+    state["sessions"] = [s for s in state["sessions"]
+                         if s["deviceName"] != "Linear Desktop on macOS"]
+    key_id = state.get("_nextApiKeyId", 10)
+    now = "2026-03-06T12:00:00.000Z"
+    state["apiKeys"].append({
+        "id": f"apikey_{key_id:02d}",
+        "label": "San Francisco",
+        "keyPrefix": "lin_api_test",
+        "createdAt": now,
+        "lastUsedAt": None,
+        "expiresAt": None
+    })
+    state["_nextApiKeyId"] = key_id + 1
+
+def solve_task_h65(state):
+    """Revoke read-only OAuth apps, create API key per revoked app."""
+    read_only = ["Notion Integration", "Linear Exporter", "Screenful"]
+    state["authorizedApps"] = [a for a in state["authorizedApps"]
+                                if a["name"] not in read_only]
+    key_id = state.get("_nextApiKeyId", 10)
+    now = "2026-03-06T12:00:00.000Z"
+    for label in read_only:
+        state["apiKeys"].append({
+            "id": f"apikey_{key_id:02d}",
+            "label": label,
+            "keyPrefix": "lin_api_test",
+            "createdAt": now,
+            "lastUsedAt": None,
+            "expiresAt": None
+        })
+        key_id += 1
+    state["_nextApiKeyId"] = key_id
+
+def solve_task_h66(state):
+    """Conditional channel toggle: enabled->disable+types on, disabled->enable+types off."""
+    types = ("issueAssigned", "issueStatusChanged", "issueCommented",
+             "issueMentioned", "projectUpdated", "cycleUpdated")
+    for channel in ("desktop", "mobile", "email", "slack"):
+        ch = state["notificationSettings"][channel]
+        was_enabled = ch["enabled"]
+        ch["enabled"] = not was_enabled
+        for t in types:
+            ch[t] = was_enabled
+
+def solve_task_h67(state):
+    """Disconnect account linked same day as account creation, home to last alphabetically."""
+    state["connectedAccounts"] = [a for a in state["connectedAccounts"]
+                                   if a["provider"] != "Google"]
+    state["preferences"]["defaultHomeView"] = "My Issues"
+
+def solve_task_h68(state):
+    """Count passkeys (3), revoke 3 most recently authorized OAuth apps."""
+    state["authorizedApps"] = [a for a in state["authorizedApps"]
+                                if a["name"] not in ("Screenful", "Marker.io", "Linear Exporter")]
+
+def solve_task_h69(state):
+    """Revoke weekday sessions, passkey named after account creation day."""
+    weekday_sessions = [
+        "Safari on iPhone", "Linear Desktop on macOS", "Firefox on Windows",
+        "Chrome on Linux", "Safari on iPad", "Edge on Windows"
+    ]
+    state["sessions"] = [s for s in state["sessions"]
+                         if s["deviceName"] not in weekday_sessions]
+    pk_id = state.get("_nextPasskeyId", 10)
+    now = "2026-03-06T12:00:00.000Z"
+    state["passkeys"].append({
+        "id": f"pk_{pk_id:02d}",
+        "name": "Saturday",
+        "createdAt": now,
+        "lastUsedAt": now,
+        "credentialType": "platform"
+    })
+    state["_nextPasskeyId"] = pk_id + 1
+
+def solve_task_h70(state):
+    """Revoke odd-month OAuth apps, disconnect even-month connected accounts."""
+    state["authorizedApps"] = [a for a in state["authorizedApps"]
+                                if a["name"] == "Marker.io"]
+    state["connectedAccounts"] = [a for a in state["connectedAccounts"]
+                                   if a["provider"] == "Figma"]
+
+def solve_task_h71(state):
+    """Most-types channel -> mentions-only; fewest-types channel -> all-on."""
+    types = ("issueAssigned", "issueStatusChanged", "issueCommented",
+             "issueMentioned", "projectUpdated", "cycleUpdated")
+    desktop = state["notificationSettings"]["desktop"]
+    for t in types:
+        desktop[t] = (t == "issueMentioned")
+    email = state["notificationSettings"]["email"]
+    for t in types:
+        email[t] = True
+
+def solve_task_h72(state):
+    """Create 'Admin-6' API key, revoke OAuth with read+write issues."""
+    key_id = state.get("_nextApiKeyId", 10)
+    now = "2026-03-06T12:00:00.000Z"
+    state["apiKeys"].append({
+        "id": f"apikey_{key_id:02d}",
+        "label": "Admin-6",
+        "keyPrefix": "lin_api_test",
+        "createdAt": now,
+        "lastUsedAt": None,
+        "expiresAt": None
+    })
+    state["_nextApiKeyId"] = key_id + 1
+    state["authorizedApps"] = [a for a in state["authorizedApps"]
+                                if a["name"] not in ("Raycast", "Zapier", "Marker.io")]
+
+def solve_task_h73(state):
+    """Disconnect email-address accounts, revoke OAuth with period in name."""
+    state["connectedAccounts"] = [a for a in state["connectedAccounts"]
+                                   if a["provider"] not in ("Figma", "Google")]
+    state["authorizedApps"] = [a for a in state["authorizedApps"]
+                                if a["name"] != "Marker.io"]
+
+def solve_task_h74(state):
+    """Display name = capitalized username, home = Current cycle, both auto-assigns."""
+    state["currentUser"]["fullName"] = "Alexmorgan"
+    state["preferences"]["defaultHomeView"] = "Current cycle"
+    state["preferences"]["autoAssignOnCreate"] = True
+    state["preferences"]["autoAssignOnStarted"] = True
+
+def solve_task_h75(state):
+    """Revoke API keys from 2025 (same year as passkeys), remove newest passkey."""
+    state["apiKeys"] = [k for k in state["apiKeys"] if k.get("createdAt", "") >= "2026-01-01"]
+    state["passkeys"] = [p for p in state["passkeys"] if p["name"] != "iPhone Face ID"]
+
+def solve_task_h76(state):
+    """All channels enabled; desktop+email types off; mobile+slack types on."""
+    types = ("issueAssigned", "issueStatusChanged", "issueCommented",
+             "issueMentioned", "projectUpdated", "cycleUpdated")
+    for channel in ("desktop", "mobile", "email", "slack"):
+        state["notificationSettings"][channel]["enabled"] = True
+    for channel in ("desktop", "email"):
+        for t in types:
+            state["notificationSettings"][channel][t] = False
+    for channel in ("mobile", "slack"):
+        for t in types:
+            state["notificationSettings"][channel][t] = True
+
+def solve_task_h77(state):
+    """Revoke earliest API key, passkey with its label."""
+    state["apiKeys"] = [k for k in state["apiKeys"]
+                        if k["label"] != "Monitoring Dashboard"]
+    pk_id = state.get("_nextPasskeyId", 10)
+    now = "2026-03-06T12:00:00.000Z"
+    state["passkeys"].append({
+        "id": f"pk_{pk_id:02d}",
+        "name": "Monitoring Dashboard",
+        "createdAt": now,
+        "lastUsedAt": now,
+        "credentialType": "platform"
+    })
+    state["_nextPasskeyId"] = pk_id + 1
+
+def solve_task_h78(state):
+    """Conditional: >3 types -> comments+mentions; <=3 -> all on. Skip disabled."""
+    types = ("issueAssigned", "issueStatusChanged", "issueCommented",
+             "issueMentioned", "projectUpdated", "cycleUpdated")
+    desktop = state["notificationSettings"]["desktop"]
+    for t in types:
+        desktop[t] = t in ("issueCommented", "issueMentioned")
+    mobile = state["notificationSettings"]["mobile"]
+    for t in types:
+        mobile[t] = t in ("issueCommented", "issueMentioned")
+    email = state["notificationSettings"]["email"]
+    for t in types:
+        email[t] = True
+
+def solve_task_h79(state):
+    """Disconnect write-scope accounts, revoke most-recent OAuth, Light-Contrast."""
+    state["connectedAccounts"] = [a for a in state["connectedAccounts"]
+                                   if a["provider"] != "Slack"]
+    state["authorizedApps"] = [a for a in state["authorizedApps"]
+                                if a["name"] != "Raycast"]
+    state["preferences"]["interfaceTheme"] = "Light - Contrast"
+
+def solve_task_h80(state):
+    """Security audit: revoke old sessions, unused passkeys, unused API keys."""
+    state["sessions"] = [s for s in state["sessions"]
+                         if s.get("signedInAt", "") >= "2025-12-06" or s.get("isCurrent")]
+    state["passkeys"] = [p for p in state["passkeys"]
+                         if p.get("lastUsedAt", "") >= "2026-02-27"]
+    state["apiKeys"] = [k for k in state["apiKeys"]
+                        if k.get("lastUsedAt", "") >= "2026-02-27"]
+
+
 SOLVERS = {}
 for _difficulty in ("e", "m", "h"):
-    for _i in range(1, 61):
+    for _i in range(1, 81):
         _task_id = f"task_{_difficulty}{_i}"
         _fn_name = f"solve_task_{_difficulty}{_i}"
         if _fn_name in globals():

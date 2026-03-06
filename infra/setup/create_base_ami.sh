@@ -210,6 +210,39 @@ with open('/home/ec2-user/.claude.json', 'r+') as f:
 print('Done: hasTrustDialogAccepted set')
 \""
 
+# --- Delete previous base AMI ---
+echo ""
+echo "=== Checking for previous base AMI ==="
+OLD_AMI_ID=$(aws ec2 describe-images \
+  --owners self \
+  --filters "Name=name,Values=${AMI_NAME_PREFIX}-*" "Name=state,Values=available" \
+  --query 'Images | sort_by(@, &CreationDate) | [-1].ImageId' \
+  --output text --region "$REGION" 2>/dev/null || true)
+
+if [ -n "$OLD_AMI_ID" ] && [ "$OLD_AMI_ID" != "None" ]; then
+  OLD_AMI_NAME=$(aws ec2 describe-images --image-ids "$OLD_AMI_ID" \
+    --query 'Images[0].Name' --output text --region "$REGION")
+  echo "  Found previous AMI: $OLD_AMI_ID ($OLD_AMI_NAME)"
+
+  # Get associated snapshots before deregistering
+  OLD_SNAP_IDS=$(aws ec2 describe-images --image-ids "$OLD_AMI_ID" \
+    --query 'Images[0].BlockDeviceMappings[*].Ebs.SnapshotId' \
+    --output text --region "$REGION")
+
+  echo "  Deregistering old AMI..."
+  aws ec2 deregister-image --image-id "$OLD_AMI_ID" --region "$REGION"
+
+  for SNAP_ID in $OLD_SNAP_IDS; do
+    if [ -n "$SNAP_ID" ] && [ "$SNAP_ID" != "None" ]; then
+      echo "  Deleting snapshot: $SNAP_ID"
+      aws ec2 delete-snapshot --snapshot-id "$SNAP_ID" --region "$REGION" || true
+    fi
+  done
+  echo "  Old AMI cleaned up."
+else
+  echo "  No previous base AMI found."
+fi
+
 # --- Create AMI ---
 AMI_NAME="${AMI_NAME_PREFIX}-$(date -u +%Y%m%d-%H%M%S)"
 echo ""
@@ -231,6 +264,21 @@ echo ""
 echo "=== AMI Ready ==="
 echo "  AMI ID:   $AMI_ID"
 echo "  AMI Name: $AMI_NAME"
+echo ""
+
+# --- Smoke test: verify Claude CLI works ---
+echo "=== Smoke-testing Claude CLI on instance ==="
+SMOKE_OUTPUT=$(ssh -i "$HOME/.ssh/${KEY_PAIR}.pem" -o StrictHostKeyChecking=no -o ConnectTimeout=10 \
+  "ec2-user@${PUBLIC_IP}" \
+  "cd /tmp && claude --dangerously-skip-permissions -p 'Reply with exactly: hello' --max-turns 1 2>&1" || true)
+
+echo "  Claude output: $SMOKE_OUTPUT"
+if echo "$SMOKE_OUTPUT" | grep -qi "hello"; then
+  echo "  Claude CLI smoke test PASSED"
+else
+  echo "  WARNING: Claude CLI smoke test FAILED — CLI may need re-authentication"
+  echo "  You may want to SSH in and run 'claude login' before using this AMI."
+fi
 echo ""
 
 # --- Terminate template instance ---

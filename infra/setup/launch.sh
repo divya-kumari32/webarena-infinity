@@ -363,7 +363,7 @@ echo "     cd ~/mirror-mirror && nohup \\\$HOME/venv/bin/python infra/pipeline.p
 echo "       --app-name ${env_id} --docs-path ${docs_path} \\\\"
 echo "       --model ${MODEL} --workers ${WORKERS} --repetitions ${REPETITIONS} \\\\"
 echo "       --max-iterations ${MAX_ITERATIONS} --branch ${env_id} \\\\"
-echo "       --push --s3-bucket \\\$MM_S3_BUCKET \\\\"
+echo "       --s3-bucket \\\$MM_S3_BUCKET \\\\"
 echo "       > /tmp/mirror-mirror-logs/pipeline.log 2>&1 &"
 NOTE_EOF
   fi

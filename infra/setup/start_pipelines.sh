@@ -169,7 +169,6 @@ for i in "${!IPS[@]}"; do
     --repetitions ${REPETITIONS} \
     --max-iterations ${MAX_ITERATIONS} \
     --branch ${ENV_ID} \
-    --push \
     --s3-bucket \$MM_S3_BUCKET \
     > /tmp/mirror-mirror-logs/pipeline.log 2>&1"
 

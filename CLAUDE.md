@@ -42,7 +42,7 @@ bash infra/setup/launch.sh --manifest infra/env_manifest.jsonl --model gemini
 #   claude login
 #   claude plugins install frontend-design
 #   nohup python infra/pipeline.py --app-name <env_id> --docs-path <docs> \
-#     --model gemini --workers 8 --push > /tmp/mirror-mirror-logs/pipeline.log 2>&1 &
+#     --model gemini --workers 8 > /tmp/mirror-mirror-logs/pipeline.log 2>&1 &
 
 # Monitor progress
 bash infra/setup/monitor.sh

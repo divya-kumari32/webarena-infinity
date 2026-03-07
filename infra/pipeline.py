@@ -415,8 +415,8 @@ def detect_changes(app_dir: str | Path) -> bool:
     return has_diff or has_untracked
 
 
-def commit_checkpoint(app_dir: str | Path, message: str) -> None:
-    """Stage app dir changes and commit with message."""
+def commit_checkpoint(app_dir: str | Path, message: str, *, push: bool = False) -> None:
+    """Stage app dir changes and commit with message. Optionally push."""
     app_dir = Path(app_dir)
     git("add", str(app_dir))
 
@@ -432,6 +432,9 @@ def commit_checkpoint(app_dir: str | Path, message: str) -> None:
 
     git("commit", "-m", message)
     log.info("Committed: %s", message)
+
+    if push:
+        git_push()
 
 
 def setup_branch(branch: str | None) -> None:
@@ -746,9 +749,9 @@ def main() -> None:
         help="Git branch to work on (created if needed; defaults to current branch)",
     )
     parser.add_argument(
-        "--push",
+        "--no-push",
         action="store_true",
-        help="Push branch to remote after completion",
+        help="Disable pushing to remote after each commit (pushes by default)",
     )
     parser.add_argument(
         "--resume",
@@ -790,6 +793,7 @@ def main() -> None:
         help="S3 bucket for results upload (default: MM_S3_BUCKET env var)",
     )
     args = parser.parse_args()
+    args.push_enabled = not args.no_push
 
     # Set up logging
     global log
@@ -813,7 +817,7 @@ def main() -> None:
     log.info("  tasks-per-round: %d", args.tasks_per_round)
     log.info("  target-pass-rate:%s", args.target_pass_rate or "disabled")
     log.info("  branch:          %s", args.branch or "(current)")
-    log.info("  push:            %s", args.push)
+    log.info("  push:            %s", args.push_enabled)
     log.info("  s3-bucket:       %s", args.s3_bucket or "(disabled)")
     log.info("  resume:          %s", args.resume)
     log.info("=" * 60)
@@ -885,7 +889,7 @@ def main() -> None:
             log.error("Phase 1 FAILED: app generation returned rc=%d", rc)
             sys.exit(1)
 
-        commit_checkpoint(app_dir, f"Generate app: {args.app_name}")
+        commit_checkpoint(app_dir, f"Generate app: {args.app_name}", push=args.push_enabled)
         log.info("Phase 1 complete: app generated")
     else:
         if args.skip_generation:
@@ -929,7 +933,7 @@ def main() -> None:
                     **{"app-name": args.app_name},
                 )
 
-            commit_checkpoint(app_dir, f"Generate function tasks: {args.app_name}")
+            commit_checkpoint(app_dir, f"Generate function tasks: {args.app_name}", push=args.push_enabled)
         else:
             log.info("Phase 2a: Skipped (resuming past this phase)")
 
@@ -987,6 +991,7 @@ def main() -> None:
                 commit_checkpoint(
                     app_dir,
                     f"Function task audit iter {iteration}: {args.app_name}",
+                    push=args.push_enabled,
                 )
 
         log.info("Phase 2 complete")
@@ -1024,7 +1029,7 @@ def main() -> None:
                     **{"app-name": args.app_name},
                 )
 
-            commit_checkpoint(app_dir, f"Generate real tasks: {args.app_name}")
+            commit_checkpoint(app_dir, f"Generate real tasks: {args.app_name}", push=args.push_enabled)
         else:
             log.info("Phase 3a: Skipped (resuming past this phase)")
 
@@ -1082,6 +1087,7 @@ def main() -> None:
                 commit_checkpoint(
                     app_dir,
                     f"Real task audit iter {iteration}: {args.app_name}",
+                    push=args.push_enabled,
                 )
 
         log.info("Phase 3 complete")
@@ -1182,6 +1188,7 @@ def main() -> None:
                 commit_checkpoint(
                     app_dir,
                     f"Hardening round {round_num}: {args.app_name}",
+                    push=args.push_enabled,
                 )
 
             # --- 4b: Eval new tasks from this round only ---
@@ -1273,6 +1280,7 @@ def main() -> None:
                         commit_checkpoint(
                             app_dir,
                             f"Hardening audit iter {iteration} (after round {round_num}): {args.app_name}",
+                            push=args.push_enabled,
                         )
 
                         # Re-eval all hardening tasks
@@ -1376,9 +1384,6 @@ def main() -> None:
 
     save_state(args.app_name, "done", args=args)
     clear_state(args.app_name)
-
-    if args.push:
-        git_push()
 
     # ── Upload results to S3 ─────────────────────────────────────────
     if args.s3_bucket:

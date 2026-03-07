@@ -1,1 +1,362 @@
-[]
+[
+  {
+    "id": "task_e1",
+    "difficulty": "easy",
+    "instruction": "Follow Spotify on Handshake.",
+    "verify": "real-tasks/task_e1.py"
+  },
+  {
+    "id": "task_e2",
+    "difficulty": "easy",
+    "instruction": "Stop following Stripe.",
+    "verify": "real-tasks/task_e2.py"
+  },
+  {
+    "id": "task_e3",
+    "difficulty": "easy",
+    "instruction": "Save the Microsoft Software Engineer Intern position.",
+    "verify": "real-tasks/task_e3.py"
+  },
+  {
+    "id": "task_e4",
+    "difficulty": "easy",
+    "instruction": "Remove the Meta ML Engineer Intern from your saved jobs.",
+    "verify": "real-tasks/task_e4.py"
+  },
+  {
+    "id": "task_e5",
+    "difficulty": "easy",
+    "instruction": "Sign up for the JPMorgan Markets & Trading Panel.",
+    "verify": "real-tasks/task_e5.py"
+  },
+  {
+    "id": "task_e6",
+    "difficulty": "easy",
+    "instruction": "Bookmark the Amazon AWS re:Invent post in the feed.",
+    "verify": "real-tasks/task_e6.py"
+  },
+  {
+    "id": "task_e7",
+    "difficulty": "easy",
+    "instruction": "Like Jordan Taylor's post about choosing a startup over Big Tech.",
+    "verify": "real-tasks/task_e7.py"
+  },
+  {
+    "id": "task_e8",
+    "difficulty": "easy",
+    "instruction": "Read the Apple Pathways message.",
+    "verify": "real-tasks/task_e8.py"
+  },
+  {
+    "id": "task_e9",
+    "difficulty": "easy",
+    "instruction": "Follow Goldman Sachs.",
+    "verify": "real-tasks/task_e9.py"
+  },
+  {
+    "id": "task_e10",
+    "difficulty": "easy",
+    "instruction": "Save the Palantir Forward Deployed Engineer Intern job.",
+    "verify": "real-tasks/task_e10.py"
+  },
+  {
+    "id": "task_e11",
+    "difficulty": "easy",
+    "instruction": "Register for the Google tech talk on building scalable ML systems.",
+    "verify": "real-tasks/task_e11.py"
+  },
+  {
+    "id": "task_e12",
+    "difficulty": "easy",
+    "instruction": "Read the message from Meta about ML Engineer Intern positions.",
+    "verify": "real-tasks/task_e12.py"
+  },
+  {
+    "id": "task_e13",
+    "difficulty": "easy",
+    "instruction": "Like the Anthropic post about AI safety internship applications.",
+    "verify": "real-tasks/task_e13.py"
+  },
+  {
+    "id": "task_e14",
+    "difficulty": "easy",
+    "instruction": "Follow Palantir Technologies.",
+    "verify": "real-tasks/task_e14.py"
+  },
+  {
+    "id": "task_e15",
+    "difficulty": "easy",
+    "instruction": "Bookmark Kevin O'Brien's post about preparing for FAANG interviews.",
+    "verify": "real-tasks/task_e15.py"
+  },
+  {
+    "id": "task_e16",
+    "difficulty": "easy",
+    "instruction": "Sign up for the Salesforce Futureforce cloud careers session.",
+    "verify": "real-tasks/task_e16.py"
+  },
+  {
+    "id": "task_e17",
+    "difficulty": "easy",
+    "instruction": "Remove the Amazon PM Intern job from your saved list.",
+    "verify": "real-tasks/task_e17.py"
+  },
+  {
+    "id": "task_e18",
+    "difficulty": "easy",
+    "instruction": "Mark Nathan Brooks's answer about transitioning from liberal arts to tech as helpful.",
+    "verify": "real-tasks/task_e18.py"
+  },
+  {
+    "id": "task_e19",
+    "difficulty": "easy",
+    "instruction": "Like the Microsoft Imagine Cup post.",
+    "verify": "real-tasks/task_e19.py"
+  },
+  {
+    "id": "task_e20",
+    "difficulty": "easy",
+    "instruction": "Follow Teach For America.",
+    "verify": "real-tasks/task_e20.py"
+  },
+  {
+    "id": "task_m1",
+    "difficulty": "medium",
+    "instruction": "Update your bio to say you're exploring opportunities in AI safety and alignment research.",
+    "verify": "real-tasks/task_m1.py"
+  },
+  {
+    "id": "task_m2",
+    "difficulty": "medium",
+    "instruction": "Add 'Machine Learning Engineer' to your preferred job roles in career interests and save.",
+    "verify": "real-tasks/task_m2.py"
+  },
+  {
+    "id": "task_m3",
+    "difficulty": "medium",
+    "instruction": "Post a question in the Q&A community asking about the best ways to prepare for product management interviews at top tech companies.",
+    "verify": "real-tasks/task_m3.py"
+  },
+  {
+    "id": "task_m4",
+    "difficulty": "medium",
+    "instruction": "Leave a comment on Jessica Park's post about her Meta return offer saying 'Congrats! Would love to hear more about your experience.'",
+    "verify": "real-tasks/task_m4.py"
+  },
+  {
+    "id": "task_m5",
+    "difficulty": "medium",
+    "instruction": "Schedule a resume review appointment for March 12, 2026 at 11:00 AM, in person.",
+    "verify": "real-tasks/task_m5.py"
+  },
+  {
+    "id": "task_m6",
+    "difficulty": "medium",
+    "instruction": "Change your career community to 'Science & Research' in career interests and save.",
+    "verify": "real-tasks/task_m6.py"
+  },
+  {
+    "id": "task_m7",
+    "difficulty": "medium",
+    "instruction": "Add 'Boston, MA' and 'Denver, CO' to your preferred locations in career interests and save.",
+    "verify": "real-tasks/task_m7.py"
+  },
+  {
+    "id": "task_m8",
+    "difficulty": "medium",
+    "instruction": "Remove 'Finance' from your preferred industries and add 'Consulting' instead in career interests. Save your changes.",
+    "verify": "real-tasks/task_m8.py"
+  },
+  {
+    "id": "task_m9",
+    "difficulty": "medium",
+    "instruction": "Update your LinkedIn URL to 'linkedin.com/in/maya-chen-cs'.",
+    "verify": "real-tasks/task_m9.py"
+  },
+  {
+    "id": "task_m10",
+    "difficulty": "medium",
+    "instruction": "Create a feed post sharing your favorite system design resources with the Handshake community.",
+    "verify": "real-tasks/task_m10.py"
+  },
+  {
+    "id": "task_m11",
+    "difficulty": "medium",
+    "instruction": "Answer the Q&A question about what to wear to a virtual career fair. Recommend business casual attire and testing your camera beforehand.",
+    "verify": "real-tasks/task_m11.py"
+  },
+  {
+    "id": "task_m12",
+    "difficulty": "medium",
+    "instruction": "Add a comment to your upcoming resume review appointment with Michael Okafor asking if he can also help with your LinkedIn headline.",
+    "verify": "real-tasks/task_m12.py"
+  },
+  {
+    "id": "task_m13",
+    "difficulty": "medium",
+    "instruction": "Remove 'Data Analytics' from your preferred job functions and add 'Research' instead. Save your career interests.",
+    "verify": "real-tasks/task_m13.py"
+  },
+  {
+    "id": "task_m14",
+    "difficulty": "medium",
+    "instruction": "Change your expected graduation date to 'August 2027' in career interests and save.",
+    "verify": "real-tasks/task_m14.py"
+  },
+  {
+    "id": "task_m15",
+    "difficulty": "medium",
+    "instruction": "Comment on the McKinsey campus presentation post asking what types of projects attendees can expect to hear about.",
+    "verify": "real-tasks/task_m15.py"
+  },
+  {
+    "id": "task_m16",
+    "difficulty": "medium",
+    "instruction": "Save both Anthropic job postings.",
+    "verify": "real-tasks/task_m16.py"
+  },
+  {
+    "id": "task_m17",
+    "difficulty": "medium",
+    "instruction": "Add 'On-campus' to your job type preferences in career interests and save.",
+    "verify": "real-tasks/task_m17.py"
+  },
+  {
+    "id": "task_m18",
+    "difficulty": "medium",
+    "instruction": "Cancel the upcoming case interview prep appointment with James Chen.",
+    "verify": "real-tasks/task_m18.py"
+  },
+  {
+    "id": "task_m19",
+    "difficulty": "medium",
+    "instruction": "Schedule a networking strategy appointment for March 17, 2026 at 1:00 PM, virtually on Handshake.",
+    "verify": "real-tasks/task_m19.py"
+  },
+  {
+    "id": "task_m20",
+    "difficulty": "medium",
+    "instruction": "Post a semi-anonymous answer to the question about system design interview resources recommending practice with mock interviews.",
+    "verify": "real-tasks/task_m20.py"
+  },
+  {
+    "id": "task_h1",
+    "difficulty": "hard",
+    "instruction": "Follow all consulting firms on Handshake.",
+    "verify": "real-tasks/task_h1.py"
+  },
+  {
+    "id": "task_h2",
+    "difficulty": "hard",
+    "instruction": "Pivot your career interests toward consulting: change your career community to 'Business & Finance', add 'Consultant' and 'Business Analyst' to your preferred roles, add 'Consulting' to your industries, and add 'Sales' to your job functions. Save your changes.",
+    "verify": "real-tasks/task_h2.py"
+  },
+  {
+    "id": "task_h3",
+    "difficulty": "hard",
+    "instruction": "Save all active Google jobs to your list.",
+    "verify": "real-tasks/task_h3.py"
+  },
+  {
+    "id": "task_h4",
+    "difficulty": "hard",
+    "instruction": "Unsave any closed jobs from your saved list.",
+    "verify": "real-tasks/task_h4.py"
+  },
+  {
+    "id": "task_h5",
+    "difficulty": "hard",
+    "instruction": "RSVP to all upcoming virtual events.",
+    "verify": "real-tasks/task_h5.py"
+  },
+  {
+    "id": "task_h6",
+    "difficulty": "hard",
+    "instruction": "Follow all finance industry employers on Handshake.",
+    "verify": "real-tasks/task_h6.py"
+  },
+  {
+    "id": "task_h7",
+    "difficulty": "hard",
+    "instruction": "Save all Google and Microsoft internships.",
+    "verify": "real-tasks/task_h7.py"
+  },
+  {
+    "id": "task_h8",
+    "difficulty": "hard",
+    "instruction": "Schedule a graduate school advising appointment with Maria Rodriguez for March 18, 2026 at 10:00 AM, virtually, and update your post-graduation plans to include 'Grad school'. Save your career interests.",
+    "verify": "real-tasks/task_h8.py"
+  },
+  {
+    "id": "task_h9",
+    "difficulty": "hard",
+    "instruction": "Bookmark all employer posts in the feed that are from companies you're currently following.",
+    "verify": "real-tasks/task_h9.py"
+  },
+  {
+    "id": "task_h10",
+    "difficulty": "hard",
+    "instruction": "Read all unread messages and RSVP to the Interview Prep workshop on behavioral questions.",
+    "verify": "real-tasks/task_h10.py"
+  },
+  {
+    "id": "task_h11",
+    "difficulty": "hard",
+    "instruction": "Prepare for PM recruiting: add 'Product Manager' to your job type roles if missing, add 'Full-time' to job types, save career interests, then save the Nike PM Intern and Amazon PM Intern jobs.",
+    "verify": "real-tasks/task_h11.py"
+  },
+  {
+    "id": "task_h12",
+    "difficulty": "hard",
+    "instruction": "Remove all your current preferred locations in career interests and add 'Boston, MA', 'Chicago, IL', and 'Washington, DC' instead. Save your changes.",
+    "verify": "real-tasks/task_h12.py"
+  },
+  {
+    "id": "task_h13",
+    "difficulty": "hard",
+    "instruction": "Create a feed post for your school audience about forming a study group for case interviews, then RSVP to the McKinsey campus presentation.",
+    "verify": "real-tasks/task_h13.py"
+  },
+  {
+    "id": "task_h14",
+    "difficulty": "hard",
+    "instruction": "Answer the question about finance internship recruiting timelines with details about when to start networking, then mark the most helpful answer on the salary negotiation question as helpful.",
+    "verify": "real-tasks/task_h14.py"
+  },
+  {
+    "id": "task_h15",
+    "difficulty": "hard",
+    "instruction": "Cancel all your requested appointments.",
+    "verify": "real-tasks/task_h15.py"
+  },
+  {
+    "id": "task_h16",
+    "difficulty": "hard",
+    "instruction": "Update your career interests to be purely AI/ML focused: set career community to 'Technology', ensure only 'Software Engineer', 'Machine Learning Engineer', 'Data Scientist', and 'Research Scientist' are in your roles, and make sure 'Technology' and 'Artificial Intelligence' are your only industries. Save your changes.",
+    "verify": "real-tasks/task_h16.py"
+  },
+  {
+    "id": "task_h17",
+    "difficulty": "hard",
+    "instruction": "Follow all employers that have posted jobs with the 'AI/ML' label.",
+    "verify": "real-tasks/task_h17.py"
+  },
+  {
+    "id": "task_h18",
+    "difficulty": "hard",
+    "instruction": "Save all active internships in San Francisco.",
+    "verify": "real-tasks/task_h18.py"
+  },
+  {
+    "id": "task_h19",
+    "difficulty": "hard",
+    "instruction": "Schedule a salary negotiation appointment for March 13, 2026 at 3:00 PM by phone, then update your phone number to '(650) 555-0200'.",
+    "verify": "real-tasks/task_h19.py"
+  },
+  {
+    "id": "task_h20",
+    "difficulty": "hard",
+    "instruction": "Mark all answers about diversity programs and salary negotiation as helpful, then bookmark the posts by students who have answered questions in the Q&A community if their posts exist in the feed.",
+    "verify": "real-tasks/task_h20.py"
+  }
+]

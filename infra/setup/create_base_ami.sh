@@ -270,7 +270,7 @@ echo ""
 echo "=== Smoke-testing Claude CLI on instance ==="
 SMOKE_OUTPUT=$(ssh -i "$HOME/.ssh/${KEY_PAIR}.pem" -o StrictHostKeyChecking=no -o ConnectTimeout=10 \
   "ec2-user@${PUBLIC_IP}" \
-  "cd /tmp && claude --dangerously-skip-permissions -p 'Reply with exactly: hello' --max-turns 1 2>&1" || true)
+  "timeout 60 claude --dangerously-skip-permissions -p 'Reply with exactly: hello' --max-turns 1 2>&1" || true)
 
 echo "  Claude output: $SMOKE_OUTPUT"
 if echo "$SMOKE_OUTPUT" | grep -qi "hello"; then

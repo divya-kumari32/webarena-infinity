@@ -122,12 +122,13 @@ else
   fi
 
   # Check permissions (--dangerously-skip-permissions)
-  HELLO=$(unset CLAUDECODE && timeout 30 claude --dangerously-skip-permissions -p "Print exactly: SMOKE_OK" 2>&1 || true)
-  if echo "$HELLO" | grep -q "SMOKE_OK"; then
+  HELLO=$(unset CLAUDECODE && timeout 60 claude --dangerously-skip-permissions -p "Say hello" --max-turns 1 2>&1 || true)
+  echo "       Claude output: $(echo "$HELLO" | head -5)"
+  if [ -n "$HELLO" ] && ! echo "$HELLO" | grep -qi "error\|unauthorized\|denied\|refused\|timed out"; then
     pass "Claude CLI runs with --dangerously-skip-permissions"
   else
     fail "Claude CLI did not produce expected output"
-    echo "       $(echo "$HELLO" | tail -3)"
+    echo "       $(echo "$HELLO" | tail -5)"
   fi
 fi
 

@@ -742,13 +742,167 @@ def solve_task_h20(state):
     state["paypalCredit"]["autopayAmount"] = "full"
 
 
+# ---- HARDENING ROUND 1 ----
+
+def solve_task_h21(state):
+    """Sell $200 of Chainlink and deposit $200 into savings."""
+    sell_crypto(state, "LINK", 200)
+    deposit_to_savings(state, 200)
+
+
+def solve_task_h22(state):
+    """Remove all unconfirmed payment methods."""
+    state["cards"] = [c for c in state["cards"] if c.get("status") != "pending_confirmation"]
+    state["bankAccounts"] = [b for b in state["bankAccounts"] if b.get("status") != "pending_confirmation"]
+
+
+def solve_task_h23(state):
+    """Invest $100 in BTC (highest % return crypto)."""
+    buy_crypto(state, "BTC", 100)
+
+
+def solve_task_h24(state):
+    """Save all available Shopping category offers."""
+    for offer in state["offers"]:
+        if offer.get("category") == "Shopping" and offer.get("status") == "available":
+            offer["status"] = "saved"
+            offer["savedAt"] = now_iso()
+
+
+def solve_task_h25(state):
+    """Convert all AUD to EUR."""
+    aud = find_balance(state, "AUD")
+    convert_currency(state, "AUD", "EUR", aud["amount"])
+
+
+def solve_task_h26(state):
+    """Send $50 Amazon gift card and save Amazon offer."""
+    purchase_gift_card(state, "Amazon", 50, "sarah.chen@email.com", "Sarah Chen", "Thank you!")
+    offer = find_offer(state, "Amazon")
+    offer["status"] = "saved"
+    offer["savedAt"] = now_iso()
+
+
+def solve_task_h27(state):
+    """Set BofA as backup, MC 2290 as preferred."""
+    # Set preferred to MC 2290
+    for c in state["cards"]:
+        c["isPreferred"] = False
+    card = find_card(state, "2290")
+    card["isPreferred"] = True
+    state["walletPreferences"]["preferredPaymentMethod"] = card["id"]
+    state["currentUser"]["preferredPaymentMethodId"] = card["id"]
+    # Set backup to BofA
+    for c in state["cards"]:
+        c["isBackup"] = False
+    bank = find_bank(state, "3891")
+    state["walletPreferences"]["backupPaymentMethod"] = bank["id"]
+    state["currentUser"]["backupPaymentMethodId"] = bank["id"]
+
+
+def solve_task_h28(state):
+    """Withdraw $3000 from savings, buy $100 BTC, buy $100 ETH."""
+    withdraw_from_savings(state, 3000)
+    buy_crypto(state, "BTC", 100)
+    buy_crypto(state, "ETH", 100)
+
+
+def solve_task_h29(state):
+    """Turn off payments & transfers notifications, turn on promotions."""
+    state["walletPreferences"]["emailNotifications"]["payments"] = False
+    state["walletPreferences"]["emailNotifications"]["transfers"] = False
+    state["walletPreferences"]["emailNotifications"]["promotions"] = True
+
+
+def solve_task_h30(state):
+    """Add NOK and convert 100 EUR to NOK."""
+    state["balances"].append({"currency": "NOK", "amount": 0, "isPrimary": False})
+    convert_currency(state, "EUR", "NOK", 100)
+
+
+def solve_task_h31(state):
+    """Sell $50 of BCH and buy $50 of LTC."""
+    sell_crypto(state, "BCH", 50)
+    buy_crypto(state, "LTC", 50)
+
+
+def solve_task_h32(state):
+    """Pay off entire PayPal Credit balance, set autopay to full."""
+    balance = state["paypalCredit"]["currentBalance"]
+    make_credit_payment(state, balance)
+    state["paypalCredit"]["autopayAmount"] = "full"
+    state["paypalCredit"]["autopayEnabled"] = True
+
+
+def solve_task_h33(state):
+    """Convert all JPY to USD, then remove JPY currency."""
+    jpy = find_balance(state, "JPY")
+    convert_currency(state, "JPY", "USD", jpy["amount"])
+    state["balances"] = [b for b in state["balances"] if b["currency"] != "JPY"]
+
+
+def solve_task_h34(state):
+    """Purchase $25 Starbucks and $50 Nike gift cards for self."""
+    user_email = state["currentUser"]["email"]
+    user_name = f"{state['currentUser']['firstName']} {state['currentUser']['lastName']}"
+    purchase_gift_card(state, "Starbucks", 25, user_email, user_name, "")
+    purchase_gift_card(state, "Nike", 50, user_email, user_name, "")
+
+
+def solve_task_h35(state):
+    """Redeem 2000 rewards for balance, then deposit $20 to savings."""
+    redeem_rewards(state, 2000, "balance")
+    deposit_to_savings(state, 20)
+
+
+def solve_task_h36(state):
+    """Change employer to Apex Industries and ATM limit to 300."""
+    state["paypalDebitCard"]["directDeposit"]["employer"] = "Apex Industries"
+    state["paypalDebitCard"]["dailyATMLimit"] = 300
+
+
+def solve_task_h37(state):
+    """Save Chipotle offer and buy $25 DoorDash gift card for self."""
+    offer = find_offer(state, "Chipotle")
+    offer["status"] = "saved"
+    offer["savedAt"] = now_iso()
+    user_email = state["currentUser"]["email"]
+    user_name = f"{state['currentUser']['firstName']} {state['currentUser']['lastName']}"
+    purchase_gift_card(state, "DoorDash", 25, user_email, user_name, "")
+
+
+def solve_task_h38(state):
+    """Withdraw $500 to BofA and set spending limit to 4000."""
+    withdraw_money(state, 500, "3891")
+    state["paypalDebitCard"]["dailySpendingLimit"] = 4000
+
+
+def solve_task_h39(state):
+    """Add INR, convert $100 to INR, set currency conversion to card issuer."""
+    state["balances"].append({"currency": "INR", "amount": 0, "isPrimary": False})
+    convert_currency(state, "USD", "INR", 100)
+    state["walletPreferences"]["currencyConversionOption"] = "card_issuer"
+
+
+def solve_task_h40(state):
+    """Unsave all saved offers, then save Target, Nike, Amazon."""
+    for offer in state["offers"]:
+        if offer.get("status") == "saved":
+            offer["status"] = "available"
+            offer["savedAt"] = None
+    for name in ["Target", "Nike", "Amazon"]:
+        offer = find_offer(state, name)
+        offer["status"] = "saved"
+        offer["savedAt"] = now_iso()
+
+
 # ---------------------------------------------------------------------------
 # Solver registry
 # ---------------------------------------------------------------------------
 
 SOLVERS = {}
 for _prefix in ("e", "m", "h"):
-    for _i in range(1, 21):
+    for _i in range(1, 41):
         _task_id = f"task_{_prefix}{_i}"
         _fn_name = f"solve_{_task_id}"
         if _fn_name in globals():

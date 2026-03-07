@@ -1066,6 +1066,511 @@ def solve_task_h40(state):
             user["savedPostIds"].append(post_id)
 
 
+def solve_task_h41(state):
+    """Mark Kevin O'Brien's Q&A answer helpful (most-liked student post → ans_09)."""
+    q = find_question(state, "qa_06")
+    ans = find_entity(q["answers"], id="ans_09")
+    ans["helpful"] = ans["helpful"] + 1
+
+
+def solve_task_h42(state):
+    """Read unread top-match messages + save all active jobs from those employers."""
+    for msg_id in ["msg_01", "msg_03", "msg_08"]:
+        msg = find_message(state, msg_id)
+        msg["isRead"] = True
+    user = state["currentUser"]
+    for jid in ["job_01", "job_02", "job_22", "job_06", "job_25", "job_26"]:
+        if jid not in user["savedJobIds"]:
+            user["savedJobIds"].append(jid)
+
+
+def solve_task_h43(state):
+    """RSVP Google event + bookmark Google post (most active job listings)."""
+    evt = find_event(state, "evt_04")
+    evt["rsvped"] = True
+    evt["rsvpCount"] = evt["rsvpCount"] + 1
+    post = find_post(state, "post_01")
+    post["bookmarked"] = True
+    user = state["currentUser"]
+    if "post_01" not in user["savedPostIds"]:
+        user["savedPostIds"].append("post_01")
+
+
+def solve_task_h44(state):
+    """Save all active FT jobs, unsave all seed internships."""
+    user = state["currentUser"]
+    user["savedJobIds"] = [
+        jid for jid in user["savedJobIds"]
+        if jid not in ("job_03", "job_07", "job_12", "job_18", "job_24")
+    ]
+    for jid in ["job_16", "job_17", "job_20", "job_21", "job_27", "job_28"]:
+        if jid not in user["savedJobIds"]:
+            user["savedJobIds"].append(jid)
+
+
+def solve_task_h45(state):
+    """Like + bookmark Jordan Taylor's post (salary Q&A most helpful → post_12)."""
+    post = find_post(state, "post_12")
+    post["likes"] = post["likes"] + 1
+    post["bookmarked"] = True
+    user = state["currentUser"]
+    if "post_12" not in user["savedPostIds"]:
+        user["savedPostIds"].append("post_12")
+
+
+def solve_task_h46(state):
+    """Mark David Lee's Q&A answer helpful (ans_10) + like his post (post_14)."""
+    q = find_question(state, "qa_07")
+    ans = find_entity(q["answers"], id="ans_10")
+    ans["helpful"] = ans["helpful"] + 1
+    post = find_post(state, "post_14")
+    post["likes"] = post["likes"] + 1
+
+
+def solve_task_h47(state):
+    """Add Fellowship/Gap year to postGraduation, Exploring to helpWith, grad Dec 2026."""
+    ci = state["currentUser"]["careerInterests"]
+    if "Fellowship" not in ci["postGraduation"]:
+        ci["postGraduation"].append("Fellowship")
+    if "Gap year" not in ci["postGraduation"]:
+        ci["postGraduation"].append("Gap year")
+    if "Exploring" not in ci["helpWith"]:
+        ci["helpWith"].append("Exploring")
+    ci["expectedGraduationDate"] = "December 2026"
+
+
+def solve_task_h48(state):
+    """RSVP Anthropic event + save job_29 (phone screen message → Anthropic)."""
+    evt = find_event(state, "evt_06")
+    evt["rsvped"] = True
+    evt["rsvpCount"] = evt["rsvpCount"] + 1
+    user = state["currentUser"]
+    if "job_29" not in user["savedJobIds"]:
+        user["savedJobIds"].append("job_29")
+
+
+def solve_task_h49(state):
+    """Save active jobs from on-campus event host employers."""
+    user = state["currentUser"]
+    for jid in ["job_01", "job_02", "job_05", "job_22", "job_27"]:
+        if jid not in user["savedJobIds"]:
+            user["savedJobIds"].append(jid)
+
+
+def solve_task_h50(state):
+    """Comment on FAANG study plan (post_08) + bookmark PM book post (post_18)."""
+    post_08 = find_post(state, "post_08")
+    comment_id = "cmt_" + str(state["_nextCommentId"])
+    state["_nextCommentId"] += 1
+    post_08["comments"].append({
+        "id": comment_id,
+        "authorName": state["currentUser"]["fullName"],
+        "authorSchool": state["currentUser"]["school"],
+        "authorAvatarColor": state["currentUser"]["avatarColor"],
+        "text": "Great study plan! How long did your preparation timeline look like?",
+        "createdAt": "2026-03-07T12:00:00Z",
+        "isAnonymous": False,
+    })
+    post_18 = find_post(state, "post_18")
+    post_18["bookmarked"] = True
+    user = state["currentUser"]
+    if "post_18" not in user["savedPostIds"]:
+        user["savedPostIds"].append("post_18")
+
+
+def solve_task_h51(state):
+    """Save Meta's unsaved job + RSVP Meta event + like Meta post."""
+    user = state["currentUser"]
+    if "job_26" not in user["savedJobIds"]:
+        user["savedJobIds"].append("job_26")
+    evt = find_event(state, "evt_02")
+    evt["rsvped"] = True
+    evt["rsvpCount"] = evt["rsvpCount"] + 1
+    post = find_post(state, "post_03")
+    post["likes"] = post["likes"] + 1
+
+
+def solve_task_h52(state):
+    """Remove closed job_03, follow employers of remaining saved jobs."""
+    user = state["currentUser"]
+    user["savedJobIds"] = [jid for jid in user["savedJobIds"] if jid != "job_03"]
+    for emp_id in ["emp_16", "emp_09"]:
+        if emp_id not in user["followedEmployerIds"]:
+            user["followedEmployerIds"].append(emp_id)
+            emp = find_employer(state, emp_id)
+            emp["followCount"] = emp["followCount"] + 1
+
+
+def solve_task_h53(state):
+    """Follow TFA (nonprofit) + save job_20 + like post_17."""
+    user = state["currentUser"]
+    if "emp_18" not in user["followedEmployerIds"]:
+        user["followedEmployerIds"].append("emp_18")
+        emp = find_employer(state, "emp_18")
+        emp["followCount"] = emp["followCount"] + 1
+    if "job_20" not in user["savedJobIds"]:
+        user["savedJobIds"].append("job_20")
+    post = find_post(state, "post_17")
+    post["likes"] = post["likes"] + 1
+
+
+def solve_task_h54(state):
+    """Like employer posts for AI/ML labeled jobs: post_03, post_05, post_11."""
+    for post_id in ["post_03", "post_05", "post_11"]:
+        post = find_post(state, post_id)
+        post["likes"] = post["likes"] + 1
+
+
+def solve_task_h55(state):
+    """Like Emma Rodriguez's post (post_10) + mark her Q&A answer helpful (ans_06)."""
+    post = find_post(state, "post_10")
+    post["likes"] = post["likes"] + 1
+    q = find_question(state, "qa_04")
+    ans = find_entity(q["answers"], id="ans_06")
+    ans["helpful"] = ans["helpful"] + 1
+
+
+def solve_task_h56(state):
+    """Save all active jobs in Seattle or New York."""
+    user = state["currentUser"]
+    for jid in ["job_08", "job_15", "job_24", "job_27", "job_28"]:
+        if jid not in user["savedJobIds"]:
+            user["savedJobIds"].append(jid)
+
+
+def solve_task_h57(state):
+    """Submit answer to qa_05 (salary negotiation) — discovered via Jordan Taylor."""
+    q = find_question(state, "qa_05")
+    ans_id = "ans_" + str(state["_nextAnswerId"]).zfill(2)
+    state["_nextAnswerId"] += 1
+    q["answers"].append({
+        "id": ans_id,
+        "authorName": "Maya Chen",
+        "authorSchool": state["currentUser"]["school"],
+        "authorMajor": state["currentUser"]["major"],
+        "authorGradYear": state["currentUser"]["graduationYear"],
+        "authorAvatarColor": state["currentUser"]["avatarColor"],
+        "text": "From my experience, always negotiate. Research market rates and have data to support your ask.",
+        "visibility": "full",
+        "status": "pending",
+        "createdAt": "2026-03-07T12:00:00Z",
+        "helpful": 0,
+    })
+
+
+def solve_task_h58(state):
+    """Set visibility Private, add Military to postGraduation, remove Remote from locations."""
+    state["currentUser"]["profileVisibility"] = "Private"
+    ci = state["currentUser"]["careerInterests"]
+    if "Military" not in ci["postGraduation"]:
+        ci["postGraduation"].append("Military")
+    ci["locations"] = [loc for loc in ci["locations"] if loc != "Remote"]
+
+
+def solve_task_h59(state):
+    """Like all student posts with > 300 likes: post_08, post_12, post_16."""
+    for post_id in ["post_08", "post_12", "post_16"]:
+        post = find_post(state, post_id)
+        post["likes"] = post["likes"] + 1
+
+
+def solve_task_h60(state):
+    """Follow unfollowed Tech employers + save their active internships."""
+    user = state["currentUser"]
+    for emp_id in ["emp_09", "emp_17", "emp_19", "emp_20"]:
+        if emp_id not in user["followedEmployerIds"]:
+            user["followedEmployerIds"].append(emp_id)
+            emp = find_employer(state, emp_id)
+            emp["followCount"] = emp["followCount"] + 1
+    for jid in ["job_08", "job_19", "job_24", "job_30"]:
+        if jid not in user["savedJobIds"]:
+            user["savedJobIds"].append(jid)
+
+
+# === HARDENING ROUND 2 ===
+
+def solve_task_h61(state):
+    """RSVP McKinsey event (evt_01) + schedule case interview prep with David Kim."""
+    evt = find_event(state, "evt_01")
+    evt["rsvped"] = True
+    evt["rsvpCount"] = evt["rsvpCount"] + 1
+    appt_id = "appt_" + str(state["_nextAppointmentId"]).zfill(2)
+    state["_nextAppointmentId"] += 1
+    state["appointments"].append({
+        "id": appt_id,
+        "category": "Interview Preparation",
+        "type": "Case Interview Prep",
+        "staffId": "staff_04",
+        "staffName": "David Kim",
+        "date": "2026-03-17",
+        "time": "3:00 PM",
+        "duration": 60,
+        "medium": "Virtual on Handshake",
+        "location": None,
+        "status": "requested",
+        "details": "",
+        "comments": [],
+        "createdAt": "2026-03-07T12:00:00Z",
+    })
+
+
+def solve_task_h62(state):
+    """Save active jobs from non-followed message senders."""
+    user = state["currentUser"]
+    for jid in ["job_05", "job_08", "job_17", "job_24", "job_27", "job_30"]:
+        if jid not in user["savedJobIds"]:
+            user["savedJobIds"].append(jid)
+
+
+def solve_task_h63(state):
+    """Follow Startup Grind Labs (emp_20, fewest followers) + save job_21."""
+    user = state["currentUser"]
+    if "emp_20" not in user["followedEmployerIds"]:
+        user["followedEmployerIds"].append("emp_20")
+        emp = find_employer(state, "emp_20")
+        emp["followCount"] = emp["followCount"] + 1
+    if "job_21" not in user["savedJobIds"]:
+        user["savedJobIds"].append("job_21")
+
+
+def solve_task_h64(state):
+    """Unsave jobs from non-CA employers: job_03 (NY), job_18 (OR), job_24 (WA)."""
+    user = state["currentUser"]
+    user["savedJobIds"] = [
+        jid for jid in user["savedJobIds"]
+        if jid not in ("job_03", "job_18", "job_24")
+    ]
+
+
+def solve_task_h65(state):
+    """Like Marcus Johnson's post (post_04) + save Stripe job (job_09)."""
+    post = find_post(state, "post_04")
+    post["likes"] = post["likes"] + 1
+    user = state["currentUser"]
+    if "job_09" not in user["savedJobIds"]:
+        user["savedJobIds"].append("job_09")
+
+
+def solve_task_h66(state):
+    """Healthcare career pivot."""
+    ci = state["currentUser"]["careerInterests"]
+    ci["careerCommunity"] = "Healthcare"
+    ci["roles"] = ["Solutions Architect", "Research Scientist"]
+    ci["industries"] = ["Healthcare Technology", "Biotechnology"]
+    if "Supply Chain" not in ci["jobFunctions"]:
+        ci["jobFunctions"].append("Supply Chain")
+
+
+def solve_task_h67(state):
+    """Comment on Emma Rodriguez's post (post_10) - fewest helpful Q&A answer."""
+    post = find_post(state, "post_10")
+    comment_id = "cmt_" + str(state["_nextCommentId"])
+    state["_nextCommentId"] += 1
+    post["comments"].append({
+        "id": comment_id,
+        "authorName": state["currentUser"]["fullName"],
+        "authorSchool": state["currentUser"]["school"],
+        "authorAvatarColor": state["currentUser"]["avatarColor"],
+        "text": "Great Q&A advice, Emma! Your tips about virtual career fairs were really helpful.",
+        "createdAt": "2026-03-07T12:00:00Z",
+        "isAnonymous": False,
+    })
+
+
+def solve_task_h68(state):
+    """Like all posts from publicly-traded employers."""
+    for post_id in ["post_01", "post_03", "post_07", "post_11", "post_15", "post_19"]:
+        post = find_post(state, post_id)
+        post["likes"] = post["likes"] + 1
+
+
+def solve_task_h69(state):
+    """Comment on all saved posts (post_02, post_08, post_14)."""
+    for post_id in ["post_02", "post_08", "post_14"]:
+        post = find_post(state, post_id)
+        comment_id = "cmt_" + str(state["_nextCommentId"])
+        state["_nextCommentId"] += 1
+        post["comments"].append({
+            "id": comment_id,
+            "authorName": state["currentUser"]["fullName"],
+            "authorSchool": state["currentUser"]["school"],
+            "authorAvatarColor": state["currentUser"]["avatarColor"],
+            "text": "Thanks for sharing your insight! Really appreciate it.",
+            "createdAt": "2026-03-07T12:00:00Z",
+            "isAnonymous": False,
+        })
+
+
+def solve_task_h70(state):
+    """Save Stripe internship (job_09) + bookmark Stripe post (post_13)."""
+    user = state["currentUser"]
+    if "job_09" not in user["savedJobIds"]:
+        user["savedJobIds"].append("job_09")
+    post = find_post(state, "post_13")
+    post["bookmarked"] = True
+    if "post_13" not in user["savedPostIds"]:
+        user["savedPostIds"].append("post_13")
+
+
+def solve_task_h71(state):
+    """RSVP all employer events + save their active unsaved jobs."""
+    for evt_id in ["evt_01", "evt_02", "evt_04", "evt_06", "evt_08", "evt_10"]:
+        evt = find_event(state, evt_id)
+        evt["rsvped"] = True
+        evt["rsvpCount"] = evt["rsvpCount"] + 1
+    user = state["currentUser"]
+    for jid in ["job_01", "job_02", "job_05", "job_17", "job_22", "job_26",
+                "job_27", "job_29", "job_30"]:
+        if jid not in user["savedJobIds"]:
+            user["savedJobIds"].append(jid)
+
+
+def solve_task_h72(state):
+    """Schedule personal statement review with Maria Rodriguez + post Q&A question."""
+    appt_id = "appt_" + str(state["_nextAppointmentId"]).zfill(2)
+    state["_nextAppointmentId"] += 1
+    state["appointments"].append({
+        "id": appt_id,
+        "category": "Graduate School",
+        "type": "Personal Statement Review",
+        "staffId": "staff_03",
+        "staffName": "Maria Rodriguez",
+        "date": "2026-03-28",
+        "time": "11:00 AM",
+        "duration": 30,
+        "medium": "In Person",
+        "location": "Career Center",
+        "status": "requested",
+        "details": "",
+        "comments": [],
+        "createdAt": "2026-03-07T12:00:00Z",
+    })
+    q_id = "qa_" + str(state["_nextQuestionId"]).zfill(2)
+    state["_nextQuestionId"] += 1
+    state["qaQuestions"].insert(0, {
+        "id": q_id,
+        "authorName": "Maya Chen",
+        "authorSchool": state["currentUser"]["school"],
+        "authorMajor": state["currentUser"]["major"],
+        "authorGradYear": state["currentUser"]["graduationYear"],
+        "authorAvatarColor": state["currentUser"]["avatarColor"],
+        "question": "What is the typical timeline for grad school applications in computer science? When should I start preparing?",
+        "status": "pending",
+        "createdAt": "2026-03-07T12:00:00Z",
+        "views": 0,
+        "answers": [],
+    })
+
+
+def solve_task_h73(state):
+    """Read Stripe message (msg_06) + like Marcus Johnson's post (post_04)."""
+    msg = find_message(state, "msg_06")
+    msg["isRead"] = True
+    post = find_post(state, "post_04")
+    post["likes"] = post["likes"] + 1
+
+
+def solve_task_h74(state):
+    """Like Jordan Taylor's post (post_12) + save job_21 (fewest applicant startup)."""
+    post = find_post(state, "post_12")
+    post["likes"] = post["likes"] + 1
+    user = state["currentUser"]
+    if "job_21" not in user["savedJobIds"]:
+        user["savedJobIds"].append("job_21")
+
+
+def solve_task_h75(state):
+    """Cancel appt_02 + reschedule Mock Interview - Technical with David Kim."""
+    appt = find_appointment(state, "appt_02")
+    appt["status"] = "cancelled"
+    appt_id = "appt_" + str(state["_nextAppointmentId"]).zfill(2)
+    state["_nextAppointmentId"] += 1
+    state["appointments"].append({
+        "id": appt_id,
+        "category": "Interview Preparation",
+        "type": "Mock Interview - Technical",
+        "staffId": "staff_04",
+        "staffName": "David Kim",
+        "date": "2026-03-25",
+        "time": "11:00 AM",
+        "duration": 60,
+        "medium": "Virtual on Handshake",
+        "location": None,
+        "status": "requested",
+        "details": "",
+        "comments": [],
+        "createdAt": "2026-03-07T12:00:00Z",
+    })
+
+
+def solve_task_h76(state):
+    """Bookmark tech talk host posts: post_01 (Google) + post_05 (Anthropic)."""
+    user = state["currentUser"]
+    for post_id in ["post_01", "post_05"]:
+        post = find_post(state, post_id)
+        post["bookmarked"] = True
+        if post_id not in user["savedPostIds"]:
+            user["savedPostIds"].append(post_id)
+
+
+def solve_task_h77(state):
+    """Set visibility Limited, phone, add Volunteering, create school post."""
+    state["currentUser"]["profileVisibility"] = "Limited"
+    state["currentUser"]["phone"] = "(650) 555-0300"
+    ci = state["currentUser"]["careerInterests"]
+    if "Volunteering" not in ci["postGraduation"]:
+        ci["postGraduation"].append("Volunteering")
+    post_id = "post_" + str(state["_nextPostId"])
+    state["_nextPostId"] += 1
+    state["feedPosts"].insert(0, {
+        "id": post_id,
+        "authorType": "student",
+        "authorId": state["currentUser"]["id"],
+        "authorName": state["currentUser"]["fullName"],
+        "authorSchool": state["currentUser"]["school"],
+        "authorAvatarColor": state["currentUser"]["avatarColor"],
+        "content": "Looking for volunteer opportunities over the summer! If anyone knows of programs or orgs accepting volunteers, please share.",
+        "audience": "school",
+        "likes": 0,
+        "comments": [],
+        "hasImage": False,
+        "hasVideo": False,
+        "createdAt": "2026-03-07T12:00:00Z",
+        "bookmarked": False,
+    })
+
+
+def solve_task_h78(state):
+    """Save Apple's unsaved jobs (job_06, job_25) + like Apple's post (post_11)."""
+    user = state["currentUser"]
+    for jid in ["job_06", "job_25"]:
+        if jid not in user["savedJobIds"]:
+            user["savedJobIds"].append(jid)
+    post = find_post(state, "post_11")
+    post["likes"] = post["likes"] + 1
+
+
+def solve_task_h79(state):
+    """Like all non-Stanford student posts."""
+    for post_id in ["post_04", "post_06", "post_08", "post_12",
+                    "post_14", "post_16", "post_18", "post_20"]:
+        post = find_post(state, post_id)
+        post["likes"] = post["likes"] + 1
+
+
+def solve_task_h80(state):
+    """Follow 10K+ employers not followed + save their active internships."""
+    user = state["currentUser"]
+    for emp_id in ["emp_02", "emp_06", "emp_08", "emp_09", "emp_16", "emp_19"]:
+        if emp_id not in user["followedEmployerIds"]:
+            user["followedEmployerIds"].append(emp_id)
+            emp = find_employer(state, emp_id)
+            emp["followCount"] = emp["followCount"] + 1
+    for jid in ["job_08", "job_11", "job_30"]:
+        if jid not in user["savedJobIds"]:
+            user["savedJobIds"].append(jid)
+
+
 # -- solver registry ----------------------------------------------------------
 
 SOLVERS = {
@@ -1149,6 +1654,46 @@ SOLVERS = {
     "task_h38": solve_task_h38,
     "task_h39": solve_task_h39,
     "task_h40": solve_task_h40,
+    "task_h41": solve_task_h41,
+    "task_h42": solve_task_h42,
+    "task_h43": solve_task_h43,
+    "task_h44": solve_task_h44,
+    "task_h45": solve_task_h45,
+    "task_h46": solve_task_h46,
+    "task_h47": solve_task_h47,
+    "task_h48": solve_task_h48,
+    "task_h49": solve_task_h49,
+    "task_h50": solve_task_h50,
+    "task_h51": solve_task_h51,
+    "task_h52": solve_task_h52,
+    "task_h53": solve_task_h53,
+    "task_h54": solve_task_h54,
+    "task_h55": solve_task_h55,
+    "task_h56": solve_task_h56,
+    "task_h57": solve_task_h57,
+    "task_h58": solve_task_h58,
+    "task_h59": solve_task_h59,
+    "task_h60": solve_task_h60,
+    "task_h61": solve_task_h61,
+    "task_h62": solve_task_h62,
+    "task_h63": solve_task_h63,
+    "task_h64": solve_task_h64,
+    "task_h65": solve_task_h65,
+    "task_h66": solve_task_h66,
+    "task_h67": solve_task_h67,
+    "task_h68": solve_task_h68,
+    "task_h69": solve_task_h69,
+    "task_h70": solve_task_h70,
+    "task_h71": solve_task_h71,
+    "task_h72": solve_task_h72,
+    "task_h73": solve_task_h73,
+    "task_h74": solve_task_h74,
+    "task_h75": solve_task_h75,
+    "task_h76": solve_task_h76,
+    "task_h77": solve_task_h77,
+    "task_h78": solve_task_h78,
+    "task_h79": solve_task_h79,
+    "task_h80": solve_task_h80,
 }
 
 

@@ -478,5 +478,245 @@
     "difficulty": "hard",
     "instruction": "Read all unread messages from Technology industry employers, then bookmark those same employers' posts in the feed.",
     "verify": "real-tasks/task_h40.py"
+  },
+  {
+    "id": "task_h41",
+    "difficulty": "hard",
+    "instruction": "The student whose feed post received the most likes also contributed an answer in Q&A. Mark their answer as helpful.",
+    "verify": "real-tasks/task_h41.py"
+  },
+  {
+    "id": "task_h42",
+    "difficulty": "hard",
+    "instruction": "Read all your unread top-match messages, then save all active jobs from those employers that you haven't already saved.",
+    "verify": "real-tasks/task_h42.py"
+  },
+  {
+    "id": "task_h43",
+    "difficulty": "hard",
+    "instruction": "Find the employer with the most active job listings on Handshake, RSVP to their upcoming event, and bookmark their feed post.",
+    "verify": "real-tasks/task_h43.py"
+  },
+  {
+    "id": "task_h44",
+    "difficulty": "hard",
+    "instruction": "Save all active full-time positions and unsave any internships currently in your saved list.",
+    "verify": "real-tasks/task_h44.py"
+  },
+  {
+    "id": "task_h45",
+    "difficulty": "hard",
+    "instruction": "The most helpful answer on the salary negotiation Q&A was written by a student who also posted in the feed. Like and bookmark that student's post.",
+    "verify": "real-tasks/task_h45.py"
+  },
+  {
+    "id": "task_h46",
+    "difficulty": "hard",
+    "instruction": "A student started a PM interview study group in the feed and also answered a Q&A question. Mark their Q&A answer as helpful and like their feed post.",
+    "verify": "real-tasks/task_h46.py"
+  },
+  {
+    "id": "task_h47",
+    "difficulty": "hard",
+    "instruction": "Add 'Fellowship' and 'Gap year' to your post-graduation plans in career interests, add 'Exploring' to how Handshake can help you, and change your expected graduation to 'December 2026'. Save your changes.",
+    "verify": "real-tasks/task_h47.py"
+  },
+  {
+    "id": "task_h48",
+    "difficulty": "hard",
+    "instruction": "One of your messages mentions a phone screen invitation. Find that employer, then RSVP to their upcoming event and save any of their active jobs you haven't saved yet.",
+    "verify": "real-tasks/task_h48.py"
+  },
+  {
+    "id": "task_h49",
+    "difficulty": "hard",
+    "instruction": "Save all active jobs from employers hosting upcoming on-campus events.",
+    "verify": "real-tasks/task_h49.py"
+  },
+  {
+    "id": "task_h50",
+    "difficulty": "hard",
+    "instruction": "Two students posted about interview preparation in the feed \u2014 one shared a FAANG study plan and another shared takeaways from a PM interview book. Comment on the FAANG study plan post asking about their timeline, and bookmark the PM book post.",
+    "verify": "real-tasks/task_h50.py"
+  },
+  {
+    "id": "task_h51",
+    "difficulty": "hard",
+    "instruction": "Research Meta across the platform: save all their active jobs you haven't saved, RSVP to their upcoming virtual info session, and like their feed post.",
+    "verify": "real-tasks/task_h51.py"
+  },
+  {
+    "id": "task_h52",
+    "difficulty": "hard",
+    "instruction": "Your saved jobs include a closed position. Remove it, then follow the employers of your remaining saved jobs that you aren't already following.",
+    "verify": "real-tasks/task_h52.py"
+  },
+  {
+    "id": "task_h53",
+    "difficulty": "hard",
+    "instruction": "Find the nonprofit employer on Handshake. Follow them, save their active job, and like their feed post.",
+    "verify": "real-tasks/task_h53.py"
+  },
+  {
+    "id": "task_h54",
+    "difficulty": "hard",
+    "instruction": "Like every employer post in the feed where the employer has at least one active job with the 'AI/ML' label.",
+    "verify": "real-tasks/task_h54.py"
+  },
+  {
+    "id": "task_h55",
+    "difficulty": "hard",
+    "instruction": "A student posted about their portfolio website and also answered a Q&A question about virtual career fairs. Like their feed post and mark their Q&A answer as helpful.",
+    "verify": "real-tasks/task_h55.py"
+  },
+  {
+    "id": "task_h56",
+    "difficulty": "hard",
+    "instruction": "Save all active jobs located in Seattle or New York.",
+    "verify": "real-tasks/task_h56.py"
+  },
+  {
+    "id": "task_h57",
+    "difficulty": "hard",
+    "instruction": "Find the student who wrote about choosing a startup over Big Tech in the feed. They also answered a Q&A question. Submit your own answer to that same question sharing your perspective.",
+    "verify": "real-tasks/task_h57.py"
+  },
+  {
+    "id": "task_h58",
+    "difficulty": "hard",
+    "instruction": "Set your profile visibility to 'Private', add 'Military' to your post-graduation plans in career interests, remove 'Remote' from your preferred locations, and save.",
+    "verify": "real-tasks/task_h58.py"
+  },
+  {
+    "id": "task_h59",
+    "difficulty": "hard",
+    "instruction": "Like all student posts in the feed that have more than 300 likes.",
+    "verify": "real-tasks/task_h59.py"
+  },
+  {
+    "id": "task_h60",
+    "difficulty": "hard",
+    "instruction": "Follow all Technology industry employers you aren't already following, then save their active internship positions.",
+    "verify": "real-tasks/task_h60.py"
+  },
+  {
+    "id": "task_h61",
+    "difficulty": "hard",
+    "instruction": "One of your messages mentions an upcoming campus presentation. RSVP to that event and schedule a case interview prep appointment with the interview coach for March 17, 2026 at 3:00 PM, virtually.",
+    "verify": "real-tasks/task_h61.py"
+  },
+  {
+    "id": "task_h62",
+    "difficulty": "hard",
+    "instruction": "Save all active jobs from employers that have messaged you but that you don't currently follow.",
+    "verify": "real-tasks/task_h62.py"
+  },
+  {
+    "id": "task_h63",
+    "difficulty": "hard",
+    "instruction": "Find the employer on Handshake with the fewest followers. Follow them and save all their active jobs.",
+    "verify": "real-tasks/task_h63.py"
+  },
+  {
+    "id": "task_h64",
+    "difficulty": "hard",
+    "instruction": "Review your saved jobs and unsave any whose employer is headquartered outside California.",
+    "verify": "real-tasks/task_h64.py"
+  },
+  {
+    "id": "task_h65",
+    "difficulty": "hard",
+    "instruction": "The student who answered the question about return offers also wrote a post about their first week at a company. Like their post and save that company's active jobs.",
+    "verify": "real-tasks/task_h65.py"
+  },
+  {
+    "id": "task_h66",
+    "difficulty": "hard",
+    "instruction": "Pivot your career interests toward healthcare: set career community to 'Healthcare', replace all your preferred roles with only 'Solutions Architect' and 'Research Scientist', replace all industries with 'Healthcare Technology' and 'Biotechnology', and add 'Supply Chain' to your job functions. Save your changes.",
+    "verify": "real-tasks/task_h66.py"
+  },
+  {
+    "id": "task_h67",
+    "difficulty": "hard",
+    "instruction": "In Q&A, find the approved answer with the fewest helpful votes (among those with at least one vote). That student also posted in the feed. Leave a comment on their post praising their Q&A advice.",
+    "verify": "real-tasks/task_h67.py"
+  },
+  {
+    "id": "task_h68",
+    "difficulty": "hard",
+    "instruction": "Like all feed posts from publicly-traded employers.",
+    "verify": "real-tasks/task_h68.py"
+  },
+  {
+    "id": "task_h69",
+    "difficulty": "hard",
+    "instruction": "Go to your saved posts and leave a comment on each one thanking the author for their insight.",
+    "verify": "real-tasks/task_h69.py"
+  },
+  {
+    "id": "task_h70",
+    "difficulty": "hard",
+    "instruction": "Find the employer whose alumni testimonial mentions learning about distributed systems. Save their active internship and bookmark their feed post.",
+    "verify": "real-tasks/task_h70.py"
+  },
+  {
+    "id": "task_h71",
+    "difficulty": "hard",
+    "instruction": "RSVP to every upcoming event hosted by an employer (not the career center), and save each of those employers' active jobs you haven't saved yet.",
+    "verify": "real-tasks/task_h71.py"
+  },
+  {
+    "id": "task_h72",
+    "difficulty": "hard",
+    "instruction": "Schedule a personal statement review with Maria Rodriguez for March 28, 2026 at 11:00 AM in person, then post a Q&A question asking about the timeline for grad school applications in computer science.",
+    "verify": "real-tasks/task_h72.py"
+  },
+  {
+    "id": "task_h73",
+    "difficulty": "hard",
+    "instruction": "Read your message from Stripe, then find and like the feed post written by the same person featured in Stripe's alumni testimonial.",
+    "verify": "real-tasks/task_h73.py"
+  },
+  {
+    "id": "task_h74",
+    "difficulty": "hard",
+    "instruction": "A student posted about choosing a startup over Big Tech. Like their post, then save the startup job posting with the fewest applicants on Handshake.",
+    "verify": "real-tasks/task_h74.py"
+  },
+  {
+    "id": "task_h75",
+    "difficulty": "hard",
+    "instruction": "Cancel your requested technical mock interview and reschedule it with the same coach for March 25, 2026 at 11:00 AM, virtually.",
+    "verify": "real-tasks/task_h75.py"
+  },
+  {
+    "id": "task_h76",
+    "difficulty": "hard",
+    "instruction": "Bookmark the feed posts from all employers hosting upcoming tech talks.",
+    "verify": "real-tasks/task_h76.py"
+  },
+  {
+    "id": "task_h77",
+    "difficulty": "hard",
+    "instruction": "Change your profile visibility to 'Limited', update your phone number to '(650) 555-0300', add 'Volunteering' to your post-graduation plans in career interests, save your changes, and then create a post for your school about looking for volunteer opportunities over the summer.",
+    "verify": "real-tasks/task_h77.py"
+  },
+  {
+    "id": "task_h78",
+    "difficulty": "hard",
+    "instruction": "One of the past events was a design speaker series. Find which employer hosted it, save all their active jobs you haven't saved, and like their feed post.",
+    "verify": "real-tasks/task_h78.py"
+  },
+  {
+    "id": "task_h79",
+    "difficulty": "hard",
+    "instruction": "Like every student post in the feed written by someone who doesn't attend Stanford University.",
+    "verify": "real-tasks/task_h79.py"
+  },
+  {
+    "id": "task_h80",
+    "difficulty": "hard",
+    "instruction": "Follow all employers with 10,000 or more employees that you aren't already following, and save each of their active internship positions.",
+    "verify": "real-tasks/task_h80.py"
   }
 ]

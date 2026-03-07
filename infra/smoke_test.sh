@@ -64,7 +64,7 @@ esac
 
 # ── 2. Claude CLI ──
 if ! command -v claude &>/dev/null; then fail "claude CLI not found"; else
-  AUTH=$(unset CLAUDECODE && claude auth status 2>&1 || true)
+  AUTH=$(claude auth status 2>&1 || true)
   if echo "$AUTH" | python3 -c "import sys,json; d=json.load(sys.stdin); exit(0 if d.get('loggedIn') else 1)" 2>/dev/null; then
     AUTH_EMAIL=$(echo "$AUTH" | python3 -c "import sys,json; print(json.load(sys.stdin).get('email','?'))" 2>/dev/null || echo "?")
     pass "Claude CLI auth ($AUTH_EMAIL)"
@@ -72,7 +72,8 @@ if ! command -v claude &>/dev/null; then fail "claude CLI not found"; else
     fail "Claude CLI not authenticated"
   fi
   CLAUDE_TMP=$(mktemp /tmp/smoke-claude-XXXXXX)
-  (unset CLAUDECODE; cd ~/mirror-mirror && timeout 60 claude --dangerously-skip-permissions -p "Say hello" --max-turns 1 --output-format text > "$CLAUDE_TMP" 2>&1) || true
+  # Use script to provide a pseudo-TTY — Claude CLI hangs without one
+  script -qc "cd ~/mirror-mirror && timeout 60 claude --dangerously-skip-permissions -p 'Say hello' --max-turns 1 --output-format text" /dev/null > "$CLAUDE_TMP" 2>&1 || true
   HELLO_SHORT=$(tr '\n' ' ' < "$CLAUDE_TMP" | head -c 120)
   if [ -s "$CLAUDE_TMP" ] && ! grep -qi "error\|unauthorized\|denied\|refused\|timed out" "$CLAUDE_TMP"; then
     pass "Claude CLI --dangerously-skip-permissions: $HELLO_SHORT"

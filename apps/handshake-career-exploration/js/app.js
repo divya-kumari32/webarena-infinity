@@ -492,7 +492,7 @@ const App = {
 
         // Post audience in create modal
         if (ddId === 'postAudience') {
-            // stored temporarily, used when posting
+            AppState.newPostAudience = value;
             this.render();
             return;
         }
@@ -558,11 +558,10 @@ const App = {
     _handleCreatePost() {
         const textarea = document.getElementById('newPostContent');
         if (!textarea || !textarea.value.trim()) return;
-        const audienceEl = document.getElementById('postAudience');
-        const audienceValue = audienceEl ? audienceEl.dataset.value : 'Everyone on Handshake';
-        const audience = audienceValue === 'People at your school' ? 'school' : 'everyone';
+        const audience = AppState.newPostAudience === 'People at your school' ? 'school' : 'everyone';
         AppState.createPost(textarea.value, audience);
         AppState.activeModal = null;
+        AppState.newPostAudience = 'Everyone on Handshake';
         AppState.showToast('Post shared!');
         this.render();
     },

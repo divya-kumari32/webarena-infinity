@@ -1237,7 +1237,7 @@ const Views = {
                     <div>
                         <div class="create-post-name">${AppState.currentUser.fullName}</div>
                         <div class="create-post-visibility">
-                            ${Components.dropdown('postAudience', 'Everyone on Handshake', ['Everyone on Handshake', 'People at your school'], 'Audience')}
+                            ${Components.dropdown('postAudience', AppState.newPostAudience, ['Everyone on Handshake', 'People at your school'], 'Audience')}
                         </div>
                     </div>
                 </div>

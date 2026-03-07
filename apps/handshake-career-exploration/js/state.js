@@ -35,6 +35,7 @@ const AppState = {
     qaTab: 'all',
     messageFilter: 'all',
     activeModal: null,
+    newPostAudience: 'Everyone on Handshake',
     modalData: null,
     selectedEmployerId: null,
     selectedEmployerTab: 'overview',

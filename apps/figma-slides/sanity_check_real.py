@@ -642,9 +642,274 @@ def solve_task_h20(state):
     state["deckSettings"]["shareSettings"]["linkRole"] = "can_view"
 
 
+def solve_task_h21(state):
+    """Q4 Roadmap: gradient bg, subtitle text, smart_animate transition."""
+    slide = find_slide(state, "Q4 Roadmap")
+    slide["background"] = {
+        "type": "gradient",
+        "gradient": {
+            "type": "linear",
+            "angle": 180,
+            "stops": [
+                {"color": "#0A0A2A", "position": 0},
+                {"color": "#1E1E1E", "position": 100}
+            ]
+        }
+    }
+    obj = find_object(slide, "Section Subtitle")
+    obj["text"] = "Innovation Starts Here"
+    slide["transition"]["type"] = "smart_animate"
+    slide["transition"]["direction"] = None
+    slide["transition"]["duration"] = 600
+
+
+def solve_task_h22(state):
+    """Dissolve->slide_in right; push->spring easing 600ms."""
+    for s in state["slides"]:
+        trans = s.get("transition", {})
+        if trans.get("type") == "dissolve":
+            trans["type"] = "slide_in"
+            trans["direction"] = "right"
+        elif trans.get("type") == "push":
+            trans["easing"] = "spring"
+            trans["duration"] = 600
+
+
+def solve_task_h23(state):
+    """At-risk team card fill + animation; team lead role to Viewer."""
+    slide = find_slide(state, "Resource Allocation")
+    obj = find_object(slide, "Team B Card")
+    obj["fill"] = "#1A1A2E"
+    obj["animation"] = {
+        "style": "pop",
+        "duration": 500,
+        "timing": "on_click",
+        "direction": "in",
+        "order": 0
+    }
+    collab = find_collaborator(state, "Marcus Rivera")
+    collab["role"] = "Viewer"
+
+
+def solve_task_h24(state):
+    """YoY cards get stroke; SLA card gets fill change."""
+    slide = find_slide(state, "Q3 Highlights")
+    for card_name in ("Metric Card 1", "Metric Card 2"):
+        obj = find_object(slide, card_name)
+        obj["stroke"] = {"color": "#0ACF83", "width": 2}
+    obj3 = find_object(slide, "Metric Card 3")
+    obj3["fill"] = "#F24E1E"
+
+
+def solve_task_h25(state):
+    """Skip slides with unresolved comments; restrict link access."""
+    slides_with_unresolved = set()
+    for c in state["comments"]:
+        if c.get("resolved") is not True:
+            slides_with_unresolved.add(c["slideId"])
+    for s in state["slides"]:
+        if s["id"] in slides_with_unresolved:
+            s["skipped"] = True
+    state["deckSettings"]["shareSettings"]["linkAccess"] = "restricted"
+
+
+def solve_task_h26(state):
+    """Remove no-styles library; code theme solarized; Thank You push-bottom."""
+    state["libraries"] = [
+        lib for lib in state["libraries"]
+        if not (lib.get("styleCount", 0) == 0 and lib.get("variableCount", 0) == 0)
+    ]
+    slide = find_slide(state, "API Reference")
+    obj = find_object_by_type(slide, "code")
+    obj["theme"] = "solarized"
+    ty_slide = find_slide(state, "Thank You")
+    ty_slide["transition"]["type"] = "push"
+    ty_slide["transition"]["direction"] = "bottom"
+    ty_slide["transition"]["duration"] = 500
+
+
+def solve_task_h27(state):
+    """Title slide: animated objects opacity 80; non-animated locked."""
+    slide = find_slide(state, "Q4 2025 Product Strategy")
+    for obj in slide["objects"]:
+        if obj.get("animation") is not None:
+            obj["opacity"] = 80
+        else:
+            obj["locked"] = True
+
+
+def solve_task_h28(state):
+    """Deck defaults: Corporate Blue, move_in/top/ease_in, with_total."""
+    state["deckSettings"]["defaultTemplateStyle"] = "ts_002"
+    state["deckSettings"]["defaultTransition"] = {
+        "type": "move_in",
+        "direction": "top",
+        "easing": "ease_in",
+        "duration": 400,
+        "timing": "immediately"
+    }
+    state["deckSettings"]["slideNumberFormat"] = "with_total"
+
+
+def solve_task_h29(state):
+    """Q3 Review Title objects: Georgia, fontWeight 600."""
+    q3_titles = {"Q3 Highlights", "Growth Metrics"}
+    for s in state["slides"]:
+        if s["title"] in q3_titles:
+            for obj in s["objects"]:
+                if obj["name"] == "Title":
+                    obj["fontFamily"] = "Georgia"
+                    obj["fontWeight"] = 600
+
+
+def solve_task_h30(state):
+    """Resolve offline collaborators' comments; rename Warm Sunset."""
+    offline_ids = {"user_004", "user_005", "user_007"}
+    for c in state["comments"]:
+        if c["userId"] in offline_ids:
+            c["resolved"] = True
+    ts = find_template_style(state, style_id="ts_003")
+    ts["name"] = "Coral Reef"
+
+
+def solve_task_h31(state):
+    """Adoption table '--' to '0%'; comparison 'None'->'Planned', 'Limited'->'Partial'."""
+    slide = find_slide(state, "Data Comparison")
+    table = find_object(slide, "Adoption Table")
+    for r, row in enumerate(table["cells"]):
+        for c, val in enumerate(row):
+            if val == "--":
+                table["cells"][r][c] = "0%"
+
+    comp_slide = find_slide(state, "Competitive Landscape")
+    comp_table = find_object(comp_slide, "Comparison Table")
+    for r, row in enumerate(comp_table["cells"]):
+        for c, val in enumerate(row):
+            if val == "None":
+                comp_table["cells"][r][c] = "Planned"
+            elif val == "Limited":
+                comp_table["cells"][r][c] = "Partial"
+
+
+def solve_task_h32(state):
+    """Lock adoption table; comparison table header bg #0052CC."""
+    slide = find_slide(state, "Data Comparison")
+    table = find_object(slide, "Adoption Table")
+    table["locked"] = True
+
+    comp_slide = find_slide(state, "Competitive Landscape")
+    comp_table = find_object(comp_slide, "Comparison Table")
+    comp_table["headerStyle"]["background"] = "#0052CC"
+
+
+def solve_task_h33(state):
+    """Online Editors to Viewer; delete resolved comments."""
+    online_editor_names = {"Marcus Rivera", "Aiko Tanaka", "David Park"}
+    for c in state["collaborators"]:
+        if c["name"] in online_editor_names:
+            c["role"] = "Viewer"
+    state["comments"] = [c for c in state["comments"] if c.get("resolved") is not True]
+
+
+def solve_task_h34(state):
+    """Customer Feedback: remove all animations, add slide_left to Attribution."""
+    slide = find_slide(state, "Customer Feedback")
+    for obj in slide["objects"]:
+        obj["animation"] = None
+    attr = find_object(slide, "Attribution")
+    attr["animation"] = {
+        "style": "slide_left",
+        "duration": 500,
+        "timing": "after_previous",
+        "direction": "in",
+        "order": 0
+    }
+
+
+def solve_task_h35(state):
+    """Ungrouped slides: gradient bg, dissolve 500ms."""
+    for s in state["slides"]:
+        if s.get("groupId") is None:
+            s["background"] = {
+                "type": "gradient",
+                "gradient": {
+                    "type": "linear",
+                    "angle": 180,
+                    "stops": [
+                        {"color": "#1E1E1E", "position": 0},
+                        {"color": "#2D1B69", "position": 100}
+                    ]
+                }
+            }
+            s["transition"]["type"] = "dissolve"
+            s["transition"]["direction"] = None
+            s["transition"]["duration"] = 500
+
+
+def solve_task_h36(state):
+    """Swap Q2 (col 2) and Q3 (col 3) in adoption table."""
+    slide = find_slide(state, "Data Comparison")
+    table = find_object(slide, "Adoption Table")
+    for r in range(1, len(table["cells"])):
+        table["cells"][r][2], table["cells"][r][3] = table["cells"][r][3], table["cells"][r][2]
+
+
+def solve_task_h37(state):
+    """Offline prep: offline=true, disable libs, remove Viewers, padded format."""
+    state["deckSettings"]["availableOffline"] = True
+    for lib in state["libraries"]:
+        lib["enabled"] = False
+    state["collaborators"] = [c for c in state["collaborators"] if c["role"] != "Viewer"]
+    state["deckSettings"]["slideNumberFormat"] = "padded"
+
+
+def solve_task_h38(state):
+    """Design System 2.0 badges: text + fill changes."""
+    slide = find_slide(state, "Design System 2.0")
+    timeline = find_object(slide, "Timeline Badge")
+    timeline["text"] = "Beta: Dec 2025"
+    timeline["fill"] = "#F24E1E"
+    ga = find_object(slide, "GA Badge")
+    ga["text"] = "GA: Mar 2026"
+    ga["fill"] = "#FF6B35"
+
+
+def solve_task_h39(state):
+    """Add pop animation to Title objects in Q4 Planning that lack one."""
+    q4_titles = {"Design System 2.0", "API Reference", "Team Survey Results", "Data Comparison"}
+    for s in state["slides"]:
+        if s["title"] in q4_titles:
+            for obj in s["objects"]:
+                if obj["name"] == "Title" and obj.get("animation") is None:
+                    obj["animation"] = {
+                        "style": "pop",
+                        "duration": 300,
+                        "timing": "on_click",
+                        "direction": "in",
+                        "order": 0
+                    }
+
+
+def solve_task_h40(state):
+    """Team Updates: Corporate Blue, white bg, move_in bottom; remove Elena."""
+    team_updates_titles = {"Resource Allocation", "Sprint Timeline"}
+    for s in state["slides"]:
+        if s["title"] in team_updates_titles:
+            s["templateStyle"] = "ts_002"
+            s["background"] = {"type": "solid", "color": "#FFFFFF"}
+            s["transition"] = {
+                "type": "move_in",
+                "direction": "bottom",
+                "easing": "ease",
+                "duration": 400,
+                "timing": "immediately"
+            }
+    state["collaborators"] = [c for c in state["collaborators"] if c["name"] != "Elena Kowalski"]
+
+
 SOLVERS = {}
 for _difficulty in ("e", "m", "h"):
-    for _i in range(1, 21):
+    for _i in range(1, 41):
         _task_id = f"task_{_difficulty}{_i}"
         _fn_name = f"solve_task_{_difficulty}{_i}"
         if _fn_name in globals():

@@ -1160,6 +1160,309 @@ def solve_task_h60(state):
             layer["textDecoration"] = "underline"
 
 
+# -- solve functions (hardening round 3) -----------------------------------
+
+def solve_task_h61(state):
+    """Set letter spacing 0.02em and line height 22px on every 14px layer."""
+    for layer in state["textLayers"]:
+        if layer["fontSize"] == 14:
+            layer["letterSpacing"] = {"value": 0.02, "unit": "em"}
+            layer["lineHeight"] = {"value": 22, "unit": "px"}
+
+
+def solve_task_h62(state):
+    """Halve Heading/Display font size, switch to Crimson Text Bold, apply to Japanese Heading."""
+    style = find_style(state, "Heading/Display")
+    style["fontSize"] = 32  # 64 / 2
+    style["fontFamily"] = "Crimson Text"
+    style["fontStyle"] = "Bold"
+    layer = find_layer(state, "Japanese Heading")
+    apply_style_to_layer(layer, style)
+
+
+def solve_task_h63(state):
+    """Lock every layer whose font family starts with 'Noto'."""
+    for layer in state["textLayers"]:
+        if layer["fontFamily"].startswith("Noto"):
+            layer["locked"] = True
+
+
+def solve_task_h64(state):
+    """Clamp font sizes to 14-32 range."""
+    for layer in state["textLayers"]:
+        if layer["fontSize"] < 14:
+            layer["fontSize"] = 14
+        elif layer["fontSize"] > 32:
+            layer["fontSize"] = 32
+
+
+def solve_task_h65(state):
+    """Update Heading/H2: Playfair Display Semi Bold 28px/36px, enable onum. Propagate."""
+    style = find_style(state, "Heading/H2")
+    style["fontFamily"] = "Playfair Display"
+    style["fontStyle"] = "Semi Bold"
+    style["fontSize"] = 28
+    style["lineHeight"] = {"value": 36, "unit": "px"}
+    style["openTypeFeatures"]["onum"] = True
+    propagate_style_to_layers(state, style)
+
+
+def solve_task_h66(state):
+    """Duplicate the 14px bulleted list layer as 'Benefits List', Poppins Medium, numbered."""
+    original = find_layer(state, "Feature List")
+    next_id = state.get("_nextTextLayerId", 100)
+    dup = deepcopy(original)
+    dup["id"] = f"tl_{str(next_id).zfill(3)}"
+    dup["name"] = "Benefits List"
+    dup["fontFamily"] = "Poppins"
+    dup["fontStyle"] = "Medium"
+    dup["listStyle"] = "numbered"
+    dup["variableAxes"] = {}
+    dup["y"] = original["y"] + 40
+    dup["createdAt"] = NOW
+    dup["updatedAt"] = NOW
+    state["textLayers"].append(dup)
+    state["_nextTextLayerId"] = next_id + 1
+
+
+def solve_task_h67(state):
+    """On Indented Quote: disable ss01, enable onum+smcp, set paragraph indent to 40."""
+    layer = find_layer(state, "Indented Quote")
+    layer["openTypeFeatures"]["ss01"] = False
+    layer["openTypeFeatures"]["onum"] = True
+    layer["openTypeFeatures"]["smcp"] = True
+    layer["paragraphIndent"] = 40
+
+
+def solve_task_h68(state):
+    """Set default font to match the layer with widest letter spacing (Small Caps Header)."""
+    # Small Caps Header has letterSpacing 0.1em (widest), uses Montserrat 14px
+    state["preferences"]["defaultFontFamily"] = "Montserrat"
+    state["preferences"]["defaultFontSize"] = 14
+
+
+def solve_task_h69(state):
+    """Add link on first 10 chars to figma.com/list and set list spacing 10 on all list layers."""
+    next_link_id = state.get("_nextLinkId", 100)
+    for layer in state["textLayers"]:
+        if layer.get("listStyle") not in (None, "none"):
+            link_id = f"lnk_{str(next_link_id).zfill(3)}"
+            layer["links"].append({
+                "id": link_id,
+                "startIndex": 0,
+                "endIndex": 10,
+                "url": "https://figma.com/list",
+            })
+            next_link_id += 1
+            layer["listSpacing"] = 10
+    state["_nextLinkId"] = next_link_id
+
+
+def solve_task_h70(state):
+    """Create 'Sidebar Navigation' layer: Space Grotesk Bold 13px, uppercase, 0.08em, zero."""
+    next_id = state.get("_nextTextLayerId", 100)
+    prefs = state["preferences"]
+    layer = {
+        "id": f"tl_{str(next_id).zfill(3)}",
+        "name": "Sidebar Navigation",
+        "content": "Sidebar Navigation",
+        "fontFamily": "Space Grotesk",
+        "fontStyle": "Bold",
+        "fontSize": 13,
+        "lineHeight": {"value": 18, "unit": "px"},
+        "letterSpacing": {"value": 0.08, "unit": "em"},
+        "paragraphSpacing": 0,
+        "paragraphIndent": 0,
+        "horizontalAlign": prefs["defaultHorizontalAlign"],
+        "verticalAlign": "top",
+        "textDecoration": "none",
+        "letterCase": "uppercase",
+        "textDirection": prefs["defaultTextDirection"],
+        "resizing": "auto-width",
+        "truncation": {"enabled": False, "maxLines": None},
+        "listStyle": "none",
+        "listSpacing": 0,
+        "hangingPunctuation": False,
+        "hangingList": False,
+        "verticalTrim": False,
+        "links": [],
+        "openTypeFeatures": {"liga": True, "kern": True, "zero": True},
+        "textStyleId": None,
+        "variableAxes": {},
+        "width": None,
+        "height": None,
+        "x": 40,
+        "y": 40 + len(state["textLayers"]) * 40,
+        "locked": False,
+        "visible": True,
+        "createdAt": NOW,
+        "updatedAt": NOW,
+    }
+    state["textLayers"].append(layer)
+    state["_nextTextLayerId"] = next_id + 1
+
+
+def solve_task_h71(state):
+    """Find layer with hanging punctuation + indent, change to Merriweather Regular, spacing 16."""
+    layer = find_layer(state, "Indented Quote")
+    layer["fontFamily"] = "Merriweather"
+    layer["fontStyle"] = "Regular"
+    layer["variableAxes"] = {}
+    layer["paragraphSpacing"] = 16
+
+
+def solve_task_h72(state):
+    """Code Sample: Fira Code Medium 15px/24px, enable ss01+zero, detach style."""
+    layer = find_layer(state, "Code Sample")
+    layer["fontFamily"] = "Fira Code"
+    layer["fontStyle"] = "Medium"
+    layer["fontSize"] = 15
+    layer["lineHeight"] = {"value": 24, "unit": "px"}
+    layer["openTypeFeatures"]["ss01"] = True
+    layer["openTypeFeatures"]["zero"] = True
+    layer["textStyleId"] = None
+    # Fira Code is variable: wght (300-700, default 400)
+    layer["variableAxes"] = {"wght": 400}
+
+
+def solve_task_h73(state):
+    """Apply Caption/Small to Release Notes Header (second-largest font size), enable truncation 2."""
+    layer = find_layer(state, "Release Notes Header")
+    style = find_style(state, "Caption/Small")
+    apply_style_to_layer(layer, style)
+    layer["truncation"] = {"enabled": True, "maxLines": 2}
+
+
+def solve_task_h74(state):
+    """Set spelling language Japanese, big nudge 50, default alignment right."""
+    state["preferences"]["spellingLanguage"] = "Japanese"
+    state["preferences"]["bigNudgeAmount"] = 50
+    state["preferences"]["defaultHorizontalAlign"] = "right"
+
+
+def solve_task_h75(state):
+    """Hide the larger RTL layer (Arabic Welcome), lock the smaller (Hebrew Body)."""
+    find_layer(state, "Arabic Welcome")["visible"] = False
+    find_layer(state, "Hebrew Body")["locked"] = True
+
+
+def solve_task_h76(state):
+    """Create 'Learn More' layer: Crimson Text Semi Bold 16px, underline, center, full link."""
+    next_id = state.get("_nextTextLayerId", 100)
+    next_link_id = state.get("_nextLinkId", 100)
+    prefs = state["preferences"]
+    content = "Learn More"
+    layer = {
+        "id": f"tl_{str(next_id).zfill(3)}",
+        "name": "Learn More",
+        "content": content,
+        "fontFamily": "Crimson Text",
+        "fontStyle": "Semi Bold",
+        "fontSize": 16,
+        "lineHeight": deepcopy(prefs["defaultLineHeight"]),
+        "letterSpacing": deepcopy(prefs["defaultLetterSpacing"]),
+        "paragraphSpacing": 0,
+        "paragraphIndent": 0,
+        "horizontalAlign": "center",
+        "verticalAlign": "top",
+        "textDecoration": "underline",
+        "letterCase": "none",
+        "textDirection": prefs["defaultTextDirection"],
+        "resizing": "auto-width",
+        "truncation": {"enabled": False, "maxLines": None},
+        "listStyle": "none",
+        "listSpacing": 0,
+        "hangingPunctuation": False,
+        "hangingList": False,
+        "verticalTrim": False,
+        "links": [{
+            "id": f"lnk_{str(next_link_id).zfill(3)}",
+            "startIndex": 0,
+            "endIndex": len(content),
+            "url": "https://figma.com/learn",
+        }],
+        "openTypeFeatures": {"liga": True, "kern": True},
+        "textStyleId": None,
+        "variableAxes": {},
+        "width": None,
+        "height": None,
+        "x": 40,
+        "y": 40 + len(state["textLayers"]) * 40,
+        "locked": False,
+        "visible": True,
+        "createdAt": NOW,
+        "updatedAt": NOW,
+    }
+    state["textLayers"].append(layer)
+    state["_nextTextLayerId"] = next_id + 1
+    state["_nextLinkId"] = next_link_id + 1
+
+
+def solve_task_h77(state):
+    """Body Text: Lato Regular, 24px lh, detach style, indent 16, auto-width."""
+    layer = find_layer(state, "Body Text")
+    layer["fontFamily"] = "Lato"
+    layer["fontStyle"] = "Regular"
+    layer["lineHeight"] = {"value": 24, "unit": "px"}
+    layer["textStyleId"] = None
+    layer["paragraphIndent"] = 16
+    layer["resizing"] = "auto-width"
+    layer["width"] = None
+    layer["height"] = None
+    layer["variableAxes"] = {}
+
+
+def solve_task_h78(state):
+    """Create Heading/Hero style (Playfair Display Bold 56px/64px, -0.03em, ss01), apply to Page Title."""
+    next_id = state.get("_nextTextStyleId", 100)
+    style = {
+        "id": f"ts_{str(next_id).zfill(3)}",
+        "name": "Heading/Hero",
+        "fontFamily": "Playfair Display",
+        "fontStyle": "Bold",
+        "fontSize": 56,
+        "lineHeight": {"value": 64, "unit": "px"},
+        "letterSpacing": {"value": -0.03, "unit": "em"},
+        "paragraphSpacing": 0,
+        "paragraphIndent": 0,
+        "textDecoration": "none",
+        "letterCase": "none",
+        "listStyle": "none",
+        "openTypeFeatures": {"liga": True, "kern": True, "ss01": True},
+        "description": "",
+        "createdAt": NOW,
+        "updatedAt": NOW,
+    }
+    state["textStyles"].append(style)
+    state["_nextTextStyleId"] = next_id + 1
+
+    layer = find_layer(state, "Page Title")
+    apply_style_to_layer(layer, style)
+
+
+def solve_task_h79(state):
+    """Variable Font Demo: Source Code Pro, weight 700, ss01+zero, 0.05em, center."""
+    layer = find_layer(state, "Variable Font Demo")
+    layer["fontFamily"] = "Source Code Pro"
+    # Source Code Pro is variable: wght (200-900, default 400)
+    layer["variableAxes"] = {"wght": 700}
+    layer["openTypeFeatures"]["ss01"] = True
+    layer["openTypeFeatures"]["zero"] = True
+    layer["letterSpacing"] = {"value": 0.05, "unit": "em"}
+    layer["horizontalAlign"] = "center"
+
+
+def solve_task_h80(state):
+    """Center-aligned -> justify+hangingPunctuation, right-aligned -> left+LTR."""
+    for layer in state["textLayers"]:
+        if layer["horizontalAlign"] == "center":
+            layer["horizontalAlign"] = "justify"
+            layer["hangingPunctuation"] = True
+        elif layer["horizontalAlign"] == "right":
+            layer["horizontalAlign"] = "left"
+            layer["textDirection"] = "ltr"
+
+
 # -- solver registry --------------------------------------------------------
 
 SOLVERS = {
@@ -1263,6 +1566,26 @@ SOLVERS = {
     "task_h58": solve_task_h58,
     "task_h59": solve_task_h59,
     "task_h60": solve_task_h60,
+    "task_h61": solve_task_h61,
+    "task_h62": solve_task_h62,
+    "task_h63": solve_task_h63,
+    "task_h64": solve_task_h64,
+    "task_h65": solve_task_h65,
+    "task_h66": solve_task_h66,
+    "task_h67": solve_task_h67,
+    "task_h68": solve_task_h68,
+    "task_h69": solve_task_h69,
+    "task_h70": solve_task_h70,
+    "task_h71": solve_task_h71,
+    "task_h72": solve_task_h72,
+    "task_h73": solve_task_h73,
+    "task_h74": solve_task_h74,
+    "task_h75": solve_task_h75,
+    "task_h76": solve_task_h76,
+    "task_h77": solve_task_h77,
+    "task_h78": solve_task_h78,
+    "task_h79": solve_task_h79,
+    "task_h80": solve_task_h80,
 }
 
 

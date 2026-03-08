@@ -518,6 +518,9 @@ async def main():
     parser.add_argument("--resume-dir", default=None,
                         help="Resume a partial evaluation into this existing directory. "
                              "Detects completed tasks and only re-runs the remainder.")
+    parser.add_argument("--tag", default=None,
+                        help="Optional tag embedded in the results directory name "
+                             "(e.g. 'p3b' → {model}_{ts}_{tag}_parallel).")
     args = parser.parse_args()
 
     web_app_dir = str(Path(args.web_app).resolve())
@@ -544,7 +547,8 @@ async def main():
         else:
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             suite_tag = f"_{args.task_suite}" if args.task_suite != "real-tasks" else ""
-            run_dir = Path(output_dir) / f"{args.model}_{timestamp}{suite_tag}_parallel"
+            extra_tag = f"_{args.tag}" if args.tag else ""
+            run_dir = Path(output_dir) / f"{args.model}_{timestamp}{suite_tag}{extra_tag}_parallel"
             run_dir.mkdir(parents=True, exist_ok=True)
             results, _ = await run_single_eval(tasks, args, run_dir, web_app_dir)
 
@@ -579,7 +583,8 @@ async def main():
     else:
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         suite_tag = f"_{args.task_suite}" if args.task_suite != "real-tasks" else ""
-        parent_dir = Path(output_dir) / f"{args.model}_{timestamp}{suite_tag}_parallel"
+        extra_tag = f"_{args.tag}" if args.tag else ""
+        parent_dir = Path(output_dir) / f"{args.model}_{timestamp}{suite_tag}{extra_tag}_parallel"
     parent_dir.mkdir(parents=True, exist_ok=True)
 
     mode_label = "cascading (failed-only)" if args.failed_only else "full repeat"

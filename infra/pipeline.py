@@ -12,17 +12,17 @@ Usage:
         --docs-path apps/user-manuals/linear/02-account \\
         --model gemini --workers 4 --repetitions 3
 
-    # Resume with existing app (skip generation)
+    # Rerun from real task generation (cleans real-tasks, hardening, results)
     python infra/pipeline.py \\
         --app-name gmail \\
         --docs-path apps/user-manuals/gmail/ \\
-        --skip-generation --model gemini --workers 2 --repetitions 1
+        --rerun-from phase_3a --model gemini --workers 2
 
-    # Skip function tasks, only do real tasks
+    # Rerun just the eval phases (cleans results only)
     python infra/pipeline.py \\
         --app-name gmail \\
         --docs-path apps/user-manuals/gmail/ \\
-        --skip-generation --skip-function-tasks --model gemini
+        --rerun-from phase_2b --model gemini
 
     # Resume after a crash (picks up from saved state)
     python infra/pipeline.py \\
@@ -37,6 +37,7 @@ import argparse
 import json
 import logging
 import os
+import shutil
 import subprocess
 import sys
 import time
@@ -191,12 +192,15 @@ def run_eval(
     repetitions: int,
     resume: bool = False,
     task_id_filter: str | None = None,
+    tag: str | None = None,
 ) -> Path | None:
     """Run evaluation/run_eval_parallel.py as a subprocess.
 
     Args:
         task_id_filter: Optional comma-separated task IDs to evaluate
             (passed as --task-id to the eval runner).
+        tag: Optional tag embedded in the results directory name
+            (e.g. 'p3b' produces …_p3b_parallel).
 
     Returns the path to the results directory, or None on failure.
     """
@@ -219,6 +223,9 @@ def run_eval(
 
     if task_id_filter:
         cmd.extend(["--task-id", task_id_filter])
+
+    if tag:
+        cmd.extend(["--tag", tag])
 
     # If resuming, check for a partial results directory to resume into
     if resume:
@@ -547,6 +554,105 @@ def clear_state(app_name: str) -> None:
         log.info("Cleared pipeline state file")
 
 
+# Phase tag prefixes used in results directory names (set via --tag in run_eval).
+# Format: {model}_{timestamp}[_{suite_tag}][_{phase_tag}]_parallel
+#   p2b        — function task eval (phase 2b)
+#   p3b        — real task eval (phase 3b)
+#   p4b_r{N}   — hardening eval round N (phase 4b)
+#   p5         — final regression eval (phase 5)
+# Legacy dirs without a phase tag are treated as "unknown" and always cleaned.
+PHASE_TAG_ORDER = {
+    "p2b": PHASE_ORDER["phase_2b"],
+    "p3b": PHASE_ORDER["phase_3b"],
+    "p4b": PHASE_ORDER["phase_4b"],
+    "p5":  PHASE_ORDER["phase_5"],
+}
+
+
+def _result_phase_order(dirname: str) -> int:
+    """Extract the phase ordering from a results directory name.
+
+    Returns the PHASE_ORDER value, or 0 for legacy/untagged dirs (always cleaned).
+    """
+    # Strip the trailing "_parallel" and split on "_"
+    base = dirname.removesuffix("_parallel")
+    parts = base.split("_")
+    # Walk parts from the end looking for a known phase-tag prefix
+    for part in reversed(parts):
+        for prefix, order in PHASE_TAG_ORDER.items():
+            if part == prefix or part.startswith(prefix + "_") or part.startswith(prefix):
+                # Exact match (p2b, p3b, p5) or round-suffixed (p4b_r2 → part="p4b")
+                # For "p4b_r2" the split gives "p4b" and "r2" as separate parts,
+                # so matching "p4b" is enough.
+                if part == prefix or part.startswith(prefix):
+                    return order
+    return 0  # legacy / untagged — always eligible for cleanup
+
+
+def _clean_results(app_dir: Path, from_order: int) -> None:
+    """Remove results directories produced at or after *from_order*.
+
+    Uses the phase tag embedded in the directory name.  Legacy directories
+    without a tag (order 0) are always removed.
+    """
+    results_dir = app_dir / "results"
+    if not results_dir.is_dir():
+        return
+
+    for d in list(results_dir.iterdir()):
+        if not d.is_dir():
+            continue
+        dir_order = _result_phase_order(d.name)
+        if dir_order == 0 or dir_order >= from_order:
+            label = "(untagged)" if dir_order == 0 else ""
+            log.info("Cleaning: removing results/%s/ %s", d.name, label)
+            shutil.rmtree(d)
+
+    # Remove results/ itself if empty
+    if results_dir.exists() and not any(results_dir.iterdir()):
+        results_dir.rmdir()
+
+
+def clean_artifacts(app_dir: Path, from_phase: str) -> None:
+    """Remove artifacts produced by *from_phase* and all subsequent phases.
+
+    This ensures a clean slate when re-executing from a specific point.
+    """
+    order = PHASE_ORDER[from_phase]
+
+    # Phase 1: the entire app directory
+    if order <= PHASE_ORDER["phase_1"]:
+        if app_dir.exists():
+            log.info("Cleaning: removing app directory %s", app_dir)
+            shutil.rmtree(app_dir)
+        return
+
+    # Phase 2a: function task definitions
+    if order <= PHASE_ORDER["phase_2a"]:
+        p = app_dir / "function-tasks.json"
+        if p.exists():
+            log.info("Cleaning: removing %s", p.name)
+            p.unlink()
+        d = app_dir / "function-tasks"
+        if d.exists():
+            log.info("Cleaning: removing %s/", d.name)
+            shutil.rmtree(d)
+
+    # Phase 3a: real task definitions
+    if order <= PHASE_ORDER["phase_3a"]:
+        p = app_dir / "real-tasks.json"
+        if p.exists():
+            log.info("Cleaning: removing %s", p.name)
+            p.unlink()
+        d = app_dir / "real-tasks"
+        if d.exists():
+            log.info("Cleaning: removing %s/", d.name)
+            shutil.rmtree(d)
+
+    # Clean results directories from this phase onward (by tag)
+    _clean_results(app_dir, from_order=order)
+
+
 # ---------------------------------------------------------------------------
 # Task hardening helpers
 # ---------------------------------------------------------------------------
@@ -728,19 +834,14 @@ def main() -> None:
         help="Max eval-audit loops per phase (default: 5)",
     )
     parser.add_argument(
-        "--skip-generation",
-        action="store_true",
-        help="Skip app generation (resume from existing app)",
-    )
-    parser.add_argument(
-        "--skip-function-tasks",
-        action="store_true",
-        help="Skip function task phase entirely",
-    )
-    parser.add_argument(
-        "--skip-real-tasks",
-        action="store_true",
-        help="Skip real task phase entirely",
+        "--rerun-from",
+        choices=list(k for k in PHASE_ORDER if k != "done"),
+        default=None,
+        help="Clean artifacts from this phase onward and re-execute. "
+             "Phases: phase_1 (app gen), phase_2a (func task gen), "
+             "phase_2b (func task eval), phase_3a (real task gen), "
+             "phase_3b (real task eval), phase_4a/phase_4b (hardening), "
+             "phase_5 (final eval)",
     )
     parser.add_argument(
         "--branch",
@@ -756,11 +857,6 @@ def main() -> None:
         "--resume",
         action="store_true",
         help="Resume from last saved pipeline state (reads logs/{app}/pipeline_state.json)",
-    )
-    parser.add_argument(
-        "--skip-hardening",
-        action="store_true",
-        help="Skip Phase 4 (task hardening) entirely",
     )
     parser.add_argument(
         "--hardening-rounds",
@@ -802,10 +898,7 @@ def main() -> None:
     log.info("  workers:         %d", args.workers)
     log.info("  repetitions:     %d", args.repetitions)
     log.info("  max-iterations:  %d", max_iterations)
-    log.info("  skip-generation: %s", args.skip_generation)
-    log.info("  skip-func-tasks: %s", args.skip_function_tasks)
-    log.info("  skip-real-tasks: %s", args.skip_real_tasks)
-    log.info("  skip-hardening:  %s", args.skip_hardening)
+    log.info("  rerun-from:      %s", args.rerun_from or "(full run)")
     log.info("  hardening-rounds:%d", args.hardening_rounds)
     log.info("  tasks-per-round: %d", args.tasks_per_round)
     log.info("  branch:          %s", args.branch or "(current)")
@@ -818,10 +911,20 @@ def main() -> None:
     if args.branch:
         setup_branch(args.branch)
 
-    # ── Resume handling ───────────────────────────────────────────────
+    # ── Rerun-from handling ───────────────────────────────────────────
+
+    if args.resume and args.rerun_from:
+        log.error("--resume and --rerun-from are mutually exclusive")
+        sys.exit(1)
 
     resume_phase: str | None = None
     resume_iter: int = 0
+    start_phase: str | None = None
+
+    if args.rerun_from:
+        start_phase = args.rerun_from
+        log.info("Rerunning from %s — cleaning artifacts", start_phase)
+        clean_artifacts(app_dir, start_phase)
 
     if args.resume:
         state = load_state(args.app_name)
@@ -833,6 +936,7 @@ def main() -> None:
 
         resume_phase = state["step"]
         resume_iter = state.get("iteration", 0)
+        start_phase = resume_phase
         log.info(
             "Resuming from step=%s, iteration=%d (last_good_commit=%s)",
             resume_phase,
@@ -859,14 +963,14 @@ def main() -> None:
         git("reset", "--hard", "HEAD")
 
     def should_run(phase: str) -> bool:
-        """Return True if this phase should run given resume state."""
-        if resume_phase is None:
+        """Return True if this phase should run given start_phase."""
+        if start_phase is None:
             return True
-        return PHASE_ORDER.get(phase, 0) >= PHASE_ORDER.get(resume_phase, 0)
+        return PHASE_ORDER.get(phase, 0) >= PHASE_ORDER.get(start_phase, 0)
 
     # ── Phase 1: Generate App ──────────────────────────────────────────
 
-    if not args.skip_generation and should_run("phase_1"):
+    if should_run("phase_1"):
         log.info("Phase 1: Generating web app")
         save_state(args.app_name, "phase_1", args=args)
         app_dir.mkdir(parents=True, exist_ok=True)
@@ -884,211 +988,192 @@ def main() -> None:
         commit_checkpoint(app_dir, f"Generate app: {args.app_name}", push=args.push_enabled)
         log.info("Phase 1 complete: app generated")
     else:
-        if args.skip_generation:
-            log.info("Phase 1: Skipped (--skip-generation)")
-        else:
-            log.info("Phase 1: Skipped (resuming past this phase)")
+        log.info("Phase 1: Skipped")
         if not app_dir.is_dir():
             log.error("App directory does not exist: %s", app_dir)
             sys.exit(1)
 
     # ── Phase 2: Function Tasks ────────────────────────────────────────
 
-    if not args.skip_function_tasks:
-        log.info("Phase 2: Function task evaluation")
+    # 2a: Generate function tasks (once)
+    if should_run("phase_2a"):
+        log.info("Phase 2a: Generating function tasks")
+        save_state(args.app_name, "phase_2a", args=args)
+        rc, stdout, stderr = run_claude(
+            "generate-function-tests",
+            cwd=REPO_DIR,
+            timeout=3600,
+            **{"app-name": args.app_name},
+        )
+        if rc != 0:
+            log.error(
+                "Phase 2a FAILED: function task generation returned rc=%d", rc
+            )
+            sys.exit(1)
 
-        # 2a: Generate function tasks (once)
-        if should_run("phase_2a"):
-            log.info("Phase 2a: Generating function tasks")
-            save_state(args.app_name, "phase_2a", args=args)
-            rc, stdout, stderr = run_claude(
-                "generate-function-tests",
+        ok, output = run_sanity_check(app_dir, "function")
+        if not ok:
+            log.info("Sanity check failed after function task generation — fixing")
+            run_claude(
+                "fix-sanity-check",
                 cwd=REPO_DIR,
-                timeout=3600,
+                timeout=1800,
+                output=output[-3000:],
+                variant="function",
                 **{"app-name": args.app_name},
             )
-            if rc != 0:
-                log.error(
-                    "Phase 2a FAILED: function task generation returned rc=%d", rc
-                )
-                sys.exit(1)
 
+        commit_checkpoint(app_dir, f"Generate function tasks: {args.app_name}", push=args.push_enabled)
+
+    # 2b: Eval → Audit loop
+    if should_run("phase_2b"):
+        start_iter = resume_iter if resume_phase == "phase_2b" else 1
+        for iteration in range(start_iter, max_iterations + 1):
+            log.info(
+                "Phase 2b: Function task iteration %d/%d",
+                iteration,
+                max_iterations,
+            )
+            save_state(args.app_name, "phase_2b", iteration=iteration, args=args)
+
+            results_dir = run_eval(
+                app_dir,
+                "function-tasks",
+                args.model,
+                args.workers,
+                args.repetitions,
+                resume=(args.resume and iteration == start_iter),
+                tag="p2b",
+            )
+            results = parse_results(results_dir)
+            log.info(
+                "Function task pass rate: %.1f%% (%d/%d)",
+                results["pass_rate"],
+                results["passed"],
+                results["total"],
+            )
+
+            if results["pass_rate"] == 100:
+                log.info("All function tasks passed!")
+                break
+
+            if results_dir is None:
+                log.warning("No results directory — skipping audit")
+                break
+
+            log.info("Running audit on function task failures")
+            run_claude(
+                "audit-function-tests",
+                cwd=REPO_DIR,
+                timeout=3600,
+                evaluation_result_path=str(results_dir),
+            )
+
+            if not detect_changes(app_dir):
+                log.info(
+                    "Audit made no changes — remaining failures are agent-side"
+                )
+                break
+
+            # Re-check sanity after audit changes
             ok, output = run_sanity_check(app_dir, "function")
-            if not ok:
-                log.info("Sanity check failed after function task generation — fixing")
-                run_claude(
-                    "fix-sanity-check",
-                    cwd=REPO_DIR,
-                    timeout=1800,
-                    output=output[-3000:],
-                    variant="function",
-                    **{"app-name": args.app_name},
-                )
-
-            commit_checkpoint(app_dir, f"Generate function tasks: {args.app_name}", push=args.push_enabled)
-        else:
-            log.info("Phase 2a: Skipped (resuming past this phase)")
-
-        # 2b: Eval → Audit loop
-        if should_run("phase_2b"):
-            start_iter = resume_iter if resume_phase == "phase_2b" else 1
-            for iteration in range(start_iter, max_iterations + 1):
-                log.info(
-                    "Phase 2b: Function task iteration %d/%d",
-                    iteration,
-                    max_iterations,
-                )
-                save_state(args.app_name, "phase_2b", iteration=iteration, args=args)
-
-                results_dir = run_eval(
-                    app_dir,
-                    "function-tasks",
-                    args.model,
-                    args.workers,
-                    args.repetitions,
-                    resume=(args.resume and iteration == start_iter),
-                )
-                results = parse_results(results_dir)
-                log.info(
-                    "Function task pass rate: %.1f%% (%d/%d)",
-                    results["pass_rate"],
-                    results["passed"],
-                    results["total"],
-                )
-
-                if results["pass_rate"] == 100:
-                    log.info("All function tasks passed!")
-                    break
-
-                if results_dir is None:
-                    log.warning("No results directory — skipping audit")
-                    break
-
-                log.info("Running audit on function task failures")
-                run_claude(
-                    "audit-function-tests",
-                    cwd=REPO_DIR,
-                    timeout=3600,
-                    evaluation_result_path=str(results_dir),
-                )
-
-                if not detect_changes(app_dir):
-                    log.info(
-                        "Audit made no changes — remaining failures are agent-side"
-                    )
-                    break
-
-                # Re-check sanity after audit changes
-                ok, output = run_sanity_check(app_dir, "function")
-                commit_checkpoint(
-                    app_dir,
-                    f"Function task audit iter {iteration}: {args.app_name}",
-                    push=args.push_enabled,
-                )
-
-        log.info("Phase 2 complete")
-    else:
-        log.info("Phase 2: Skipped (--skip-function-tasks)")
+            commit_checkpoint(
+                app_dir,
+                f"Function task audit iter {iteration}: {args.app_name}",
+                push=args.push_enabled,
+            )
 
     # ── Phase 3: Real Tasks ────────────────────────────────────────────
 
-    if not args.skip_real_tasks:
-        log.info("Phase 3: Real task evaluation")
+    # 3a: Generate real tasks (once)
+    if should_run("phase_3a"):
+        log.info("Phase 3a: Generating real tasks")
+        save_state(args.app_name, "phase_3a", args=args)
+        rc, stdout, stderr = run_claude(
+            "generate-real-tasks",
+            cwd=REPO_DIR,
+            timeout=3600,
+            **{"app-name": args.app_name},
+        )
+        if rc != 0:
+            log.error("Phase 3a FAILED: real task generation returned rc=%d", rc)
+            sys.exit(1)
 
-        # 3a: Generate real tasks (once)
-        if should_run("phase_3a"):
-            log.info("Phase 3a: Generating real tasks")
-            save_state(args.app_name, "phase_3a", args=args)
-            rc, stdout, stderr = run_claude(
-                "generate-real-tasks",
+        ok, output = run_sanity_check(app_dir, "real")
+        if not ok:
+            log.info("Sanity check failed after real task generation — fixing")
+            run_claude(
+                "fix-sanity-check",
                 cwd=REPO_DIR,
-                timeout=3600,
+                timeout=1800,
+                output=output[-3000:],
+                variant="real",
                 **{"app-name": args.app_name},
             )
-            if rc != 0:
-                log.error("Phase 3a FAILED: real task generation returned rc=%d", rc)
-                sys.exit(1)
 
+        commit_checkpoint(app_dir, f"Generate real tasks: {args.app_name}", push=args.push_enabled)
+
+    # 3b: Eval → Audit loop
+    if should_run("phase_3b"):
+        start_iter = resume_iter if resume_phase == "phase_3b" else 1
+        for iteration in range(start_iter, max_iterations + 1):
+            log.info(
+                "Phase 3b: Real task iteration %d/%d",
+                iteration,
+                max_iterations,
+            )
+            save_state(args.app_name, "phase_3b", iteration=iteration, args=args)
+
+            results_dir = run_eval(
+                app_dir,
+                "real-tasks",
+                args.model,
+                args.workers,
+                args.repetitions,
+                resume=(args.resume and iteration == start_iter),
+                tag="p3b",
+            )
+            results = parse_results(results_dir)
+            log.info(
+                "Real task pass rate: %.1f%% (%d/%d)",
+                results["pass_rate"],
+                results["passed"],
+                results["total"],
+            )
+
+            if results["pass_rate"] == 100:
+                log.info("All real tasks passed!")
+                break
+
+            if results_dir is None:
+                log.warning("No results directory — skipping audit")
+                break
+
+            log.info("Running audit on real task failures")
+            run_claude(
+                "audit-real-tasks",
+                cwd=REPO_DIR,
+                timeout=3600,
+                evaluation_result_path=str(results_dir),
+            )
+
+            if not detect_changes(app_dir):
+                log.info(
+                    "Audit made no changes — remaining failures are agent-side"
+                )
+                break
+
+            # Re-check sanity after audit changes
             ok, output = run_sanity_check(app_dir, "real")
-            if not ok:
-                log.info("Sanity check failed after real task generation — fixing")
-                run_claude(
-                    "fix-sanity-check",
-                    cwd=REPO_DIR,
-                    timeout=1800,
-                    output=output[-3000:],
-                    variant="real",
-                    **{"app-name": args.app_name},
-                )
-
-            commit_checkpoint(app_dir, f"Generate real tasks: {args.app_name}", push=args.push_enabled)
-        else:
-            log.info("Phase 3a: Skipped (resuming past this phase)")
-
-        # 3b: Eval → Audit loop
-        if should_run("phase_3b"):
-            start_iter = resume_iter if resume_phase == "phase_3b" else 1
-            for iteration in range(start_iter, max_iterations + 1):
-                log.info(
-                    "Phase 3b: Real task iteration %d/%d",
-                    iteration,
-                    max_iterations,
-                )
-                save_state(args.app_name, "phase_3b", iteration=iteration, args=args)
-
-                results_dir = run_eval(
-                    app_dir,
-                    "real-tasks",
-                    args.model,
-                    args.workers,
-                    args.repetitions,
-                    resume=(args.resume and iteration == start_iter),
-                )
-                results = parse_results(results_dir)
-                log.info(
-                    "Real task pass rate: %.1f%% (%d/%d)",
-                    results["pass_rate"],
-                    results["passed"],
-                    results["total"],
-                )
-
-                if results["pass_rate"] == 100:
-                    log.info("All real tasks passed!")
-                    break
-
-                if results_dir is None:
-                    log.warning("No results directory — skipping audit")
-                    break
-
-                log.info("Running audit on real task failures")
-                run_claude(
-                    "audit-real-tasks",
-                    cwd=REPO_DIR,
-                    timeout=3600,
-                    evaluation_result_path=str(results_dir),
-                )
-
-                if not detect_changes(app_dir):
-                    log.info(
-                        "Audit made no changes — remaining failures are agent-side"
-                    )
-                    break
-
-                # Re-check sanity after audit changes
-                ok, output = run_sanity_check(app_dir, "real")
-                commit_checkpoint(
-                    app_dir,
-                    f"Real task audit iter {iteration}: {args.app_name}",
-                    push=args.push_enabled,
-                )
-
-        log.info("Phase 3 complete")
-    else:
-        log.info("Phase 3: Skipped (--skip-real-tasks)")
+            commit_checkpoint(
+                app_dir,
+                f"Real task audit iter {iteration}: {args.app_name}",
+                push=args.push_enabled,
+            )
 
     # ── Phase 4: Task Hardening ───────────────────────────────────────
 
-    if not args.skip_hardening:
+    if should_run("phase_4a") or should_run("phase_4b"):
         log.info(
             "Phase 4: Task hardening (%d rounds, audit every %s)",
             args.hardening_rounds,
@@ -1097,7 +1182,7 @@ def main() -> None:
 
         # Determine starting round on resume
         hardening_start_round = 1
-        if resume_phase in ("phase_4a", "phase_4b"):
+        if resume_phase in ("phase_4a", "phase_4b") and resume_iter > 0:
             hardening_start_round = max(1, resume_iter // 100)
 
         # Collect result dirs from each round for batched auditing
@@ -1111,7 +1196,7 @@ def main() -> None:
             )
 
             # --- 4a: Analyze + Generate ---
-            skip_4a = resume_phase == "phase_4b" and round_num == hardening_start_round
+            skip_4a = start_phase == "phase_4b" and round_num == hardening_start_round
             if not skip_4a:
                 save_state(
                     args.app_name,
@@ -1196,6 +1281,7 @@ def main() -> None:
                 args.workers,
                 args.repetitions,
                 task_id_filter=task_id_filter,
+                tag=f"p4b_r{round_num}",
             )
             results = parse_results(results_dir)
             log.info(
@@ -1249,14 +1335,10 @@ def main() -> None:
                 hardening_result_dirs.clear()
 
         log.info("Phase 4 complete")
-    else:
-        log.info("Phase 4: Skipped (--skip-hardening)")
 
     # ── Phase 5: Final Regression Eval ───────────────────────────────
-    # Always runs ALL tasks (function + real) regardless of skip flags.
-    # This is the final report covering the complete task suite.
 
-    if not args.skip_hardening and should_run("phase_5"):
+    if should_run("phase_5"):
         log.info("Phase 5: Final regression eval (full suite)")
         save_state(args.app_name, "phase_5", args=args)
 
@@ -1270,6 +1352,7 @@ def main() -> None:
                 args.model,
                 args.workers,
                 args.repetitions,
+                tag="p5",
             )
             func_results = parse_results(func_results_dir)
             log.info(
@@ -1289,6 +1372,7 @@ def main() -> None:
                 args.model,
                 args.workers,
                 args.repetitions,
+                tag="p5",
             )
             real_results = parse_results(real_results_dir)
             log.info(
@@ -1299,10 +1383,6 @@ def main() -> None:
             )
 
         log.info("Phase 5 complete")
-    elif args.skip_hardening:
-        log.info("Phase 5: Skipped (--skip-hardening)")
-    else:
-        log.info("Phase 5: Skipped (resuming past this phase)")
 
     # ── Done ───────────────────────────────────────────────────────────
 

@@ -1934,6 +1934,325 @@ def solve_task_h100(state):
     })
 
 
+# === HARDENING ROUND 4 ===
+
+def solve_task_h101(state):
+    """Save Amazon jobs + like Amazon post. Discovery: Twitch → Amazon."""
+    user = state["currentUser"]
+    for jid in ["job_08", "job_24"]:
+        if jid not in user["savedJobIds"]:
+            user["savedJobIds"].append(jid)
+    post = find_post(state, "post_07")
+    post["likes"] = post["likes"] + 1
+
+
+def solve_task_h102(state):
+    """Bookmark student posts < 200 likes, like student posts >= 200 likes."""
+    user = state["currentUser"]
+    # Bookmark < 200
+    for post_id in ["post_02", "post_04", "post_10", "post_20"]:
+        post = find_post(state, post_id)
+        post["bookmarked"] = True
+        if post_id not in user["savedPostIds"]:
+            user["savedPostIds"].append(post_id)
+    # Like >= 200
+    for post_id in ["post_06", "post_08", "post_12", "post_14", "post_16", "post_18"]:
+        post = find_post(state, post_id)
+        post["likes"] = post["likes"] + 1
+
+
+def solve_task_h103(state):
+    """Schedule Professional Branding with Michael Okafor (discovered from appt_01)."""
+    appt_id = "appt_" + str(state["_nextAppointmentId"]).zfill(2)
+    state["_nextAppointmentId"] += 1
+    state["appointments"].append({
+        "id": appt_id,
+        "category": "Networking & Professional Development",
+        "type": "Professional Branding",
+        "staffId": "staff_06",
+        "staffName": "Michael Okafor",
+        "date": "2026-03-18",
+        "time": "2:00 PM",
+        "duration": 30,
+        "medium": "Virtual on Handshake",
+        "location": None,
+        "status": "requested",
+        "details": "",
+        "comments": [],
+        "createdAt": "2026-03-07T12:00:00Z",
+    })
+
+
+def solve_task_h104(state):
+    """RSVP Salesforce event + follow Salesforce. Discovery: Tableau → Salesforce."""
+    evt = find_event(state, "evt_10")
+    evt["rsvped"] = True
+    evt["rsvpCount"] = evt["rsvpCount"] + 1
+    user = state["currentUser"]
+    if "emp_19" not in user["followedEmployerIds"]:
+        user["followedEmployerIds"].append("emp_19")
+        emp = find_employer(state, "emp_19")
+        emp["followCount"] = emp["followCount"] + 1
+
+
+def solve_task_h105(state):
+    """Mark ans_02 helpful on qa_01 (2nd most viewed, fewer helpful votes)."""
+    q = find_question(state, "qa_01")
+    ans = find_entity(q["answers"], id="ans_02")
+    ans["helpful"] = ans["helpful"] + 1
+
+
+def solve_task_h106(state):
+    """Save active internships >= $50/hr from unfollowed employers."""
+    user = state["currentUser"]
+    for jid in ["job_08", "job_19", "job_24"]:
+        if jid not in user["savedJobIds"]:
+            user["savedJobIds"].append(jid)
+
+
+def solve_task_h107(state):
+    """RSVP both Tech Talks + save all jobs from hosts (Google, Anthropic)."""
+    for evt_id in ["evt_04", "evt_06"]:
+        evt = find_event(state, evt_id)
+        evt["rsvped"] = True
+        evt["rsvpCount"] = evt["rsvpCount"] + 1
+    user = state["currentUser"]
+    for jid in ["job_01", "job_02", "job_22", "job_12", "job_29"]:
+        if jid not in user["savedJobIds"]:
+            user["savedJobIds"].append(jid)
+
+
+def solve_task_h108(state):
+    """Follow McKinsey + RSVP evt_01 + bookmark post_09. Most applicants: job_05."""
+    user = state["currentUser"]
+    if "emp_04" not in user["followedEmployerIds"]:
+        user["followedEmployerIds"].append("emp_04")
+        emp = find_employer(state, "emp_04")
+        emp["followCount"] = emp["followCount"] + 1
+    evt = find_event(state, "evt_01")
+    evt["rsvped"] = True
+    evt["rsvpCount"] = evt["rsvpCount"] + 1
+    post = find_post(state, "post_09")
+    post["bookmarked"] = True
+    if "post_09" not in user["savedPostIds"]:
+        user["savedPostIds"].append("post_09")
+
+
+def solve_task_h109(state):
+    """Mark Marcus Johnson's Q&A answer (ans_12) helpful + read Stripe msg (msg_06)."""
+    q = find_question(state, "qa_09")
+    ans = find_entity(q["answers"], id="ans_12")
+    ans["helpful"] = ans["helpful"] + 1
+    msg = find_message(state, "msg_06")
+    msg["isRead"] = True
+
+
+def solve_task_h110(state):
+    """Save FT Finance jobs (job_27, job_28) + follow Finance employers."""
+    user = state["currentUser"]
+    for jid in ["job_27", "job_28"]:
+        if jid not in user["savedJobIds"]:
+            user["savedJobIds"].append(jid)
+    for emp_id in ["emp_02", "emp_06"]:
+        if emp_id not in user["followedEmployerIds"]:
+            user["followedEmployerIds"].append(emp_id)
+            emp = find_employer(state, emp_id)
+            emp["followCount"] = emp["followCount"] + 1
+
+
+def solve_task_h111(state):
+    """Follow unfollowed private companies + save their active FT jobs."""
+    user = state["currentUser"]
+    for emp_id in ["emp_04", "emp_08", "emp_11", "emp_14", "emp_20"]:
+        if emp_id not in user["followedEmployerIds"]:
+            user["followedEmployerIds"].append(emp_id)
+            emp = find_employer(state, emp_id)
+            emp["followCount"] = emp["followCount"] + 1
+    for jid in ["job_16", "job_21"]:
+        if jid not in user["savedJobIds"]:
+            user["savedJobIds"].append(jid)
+
+
+def solve_task_h112(state):
+    """Like Kevin O'Brien's post_08 + answer qa_03. Discovery: qa_03 author = post_08 author."""
+    post = find_post(state, "post_08")
+    post["likes"] = post["likes"] + 1
+    q = find_question(state, "qa_03")
+    ans_id = "ans_" + str(state["_nextAnswerId"]).zfill(2)
+    state["_nextAnswerId"] += 1
+    q["answers"].append({
+        "id": ans_id,
+        "authorName": "Maya Chen",
+        "authorSchool": state["currentUser"]["school"],
+        "authorMajor": state["currentUser"]["major"],
+        "authorGradYear": state["currentUser"]["graduationYear"],
+        "authorAvatarColor": state["currentUser"]["avatarColor"],
+        "text": "A consulting internship can be valuable for building analytical skills that transfer to tech, especially for PM roles.",
+        "visibility": "full",
+        "status": "pending",
+        "createdAt": "2026-03-07T12:00:00Z",
+        "helpful": 0,
+    })
+
+
+def solve_task_h113(state):
+    """Like Amazon post_07 + save internships. 2nd highest followers: Amazon."""
+    post = find_post(state, "post_07")
+    post["likes"] = post["likes"] + 1
+    user = state["currentUser"]
+    for jid in ["job_08", "job_24"]:
+        if jid not in user["savedJobIds"]:
+            user["savedJobIds"].append(jid)
+
+
+def solve_task_h114(state):
+    """Create post about informational interviews + schedule networking with James Chen."""
+    post_id = "post_" + str(state["_nextPostId"])
+    state["_nextPostId"] += 1
+    state["feedPosts"].insert(0, {
+        "id": post_id,
+        "authorType": "student",
+        "authorId": state["currentUser"]["id"],
+        "authorName": state["currentUser"]["fullName"],
+        "authorSchool": state["currentUser"]["school"],
+        "authorAvatarColor": state["currentUser"]["avatarColor"],
+        "content": "Informational interviews are one of the most underrated tools for career exploration. Reach out to alumni and professionals to learn about their roles and industries!",
+        "audience": "everyone",
+        "likes": 0,
+        "comments": [],
+        "hasImage": False,
+        "hasVideo": False,
+        "createdAt": "2026-03-07T12:00:00Z",
+        "bookmarked": False,
+    })
+    appt_id = "appt_" + str(state["_nextAppointmentId"]).zfill(2)
+    state["_nextAppointmentId"] += 1
+    state["appointments"].append({
+        "id": appt_id,
+        "category": "Networking & Professional Development",
+        "type": "Networking Strategy",
+        "staffId": "staff_02",
+        "staffName": "James Chen",
+        "date": "2026-03-20",
+        "time": "2:00 PM",
+        "duration": 30,
+        "medium": "Virtual on Handshake",
+        "location": None,
+        "status": "requested",
+        "details": "",
+        "comments": [],
+        "createdAt": "2026-03-07T12:00:00Z",
+    })
+
+
+def solve_task_h115(state):
+    """Mark helpful: ans_05 (38), ans_06 (29), ans_12 (35)."""
+    q03 = find_question(state, "qa_03")
+    ans05 = find_entity(q03["answers"], id="ans_05")
+    ans05["helpful"] = ans05["helpful"] + 1
+
+    q04 = find_question(state, "qa_04")
+    ans06 = find_entity(q04["answers"], id="ans_06")
+    ans06["helpful"] = ans06["helpful"] + 1
+
+    q09 = find_question(state, "qa_09")
+    ans12 = find_entity(q09["answers"], id="ans_12")
+    ans12["helpful"] = ans12["helpful"] + 1
+
+
+def solve_task_h116(state):
+    """Answer qa_08 + schedule Career Change Guidance March 10 3 PM in person."""
+    q = find_question(state, "qa_08")
+    ans_id = "ans_" + str(state["_nextAnswerId"]).zfill(2)
+    state["_nextAnswerId"] += 1
+    q["answers"].append({
+        "id": ans_id,
+        "authorName": "Maya Chen",
+        "authorSchool": state["currentUser"]["school"],
+        "authorMajor": state["currentUser"]["major"],
+        "authorGradYear": state["currentUser"]["graduationYear"],
+        "authorAvatarColor": state["currentUser"]["avatarColor"],
+        "text": "GPA is important for the resume screen but once you get interviews it's all about case performance and fit. Aim for 3.5+ and focus on networking.",
+        "visibility": "full",
+        "status": "pending",
+        "createdAt": "2026-03-07T12:00:00Z",
+        "helpful": 0,
+    })
+    appt_id = "appt_" + str(state["_nextAppointmentId"]).zfill(2)
+    state["_nextAppointmentId"] += 1
+    state["appointments"].append({
+        "id": appt_id,
+        "category": "Career Counseling",
+        "type": "Career Change Guidance",
+        "staffId": None,
+        "staffName": None,
+        "date": "2026-03-10",
+        "time": "3:00 PM",
+        "duration": 30,
+        "medium": "In Person",
+        "location": "Career Center",
+        "status": "requested",
+        "details": "",
+        "comments": [],
+        "createdAt": "2026-03-07T12:00:00Z",
+    })
+
+
+def solve_task_h117(state):
+    """Follow Epic + save job_16 + add Biotechnology. Discovery: patient care testimonial."""
+    user = state["currentUser"]
+    if "emp_14" not in user["followedEmployerIds"]:
+        user["followedEmployerIds"].append("emp_14")
+        emp = find_employer(state, "emp_14")
+        emp["followCount"] = emp["followCount"] + 1
+    if "job_16" not in user["savedJobIds"]:
+        user["savedJobIds"].append("job_16")
+    ci = user["careerInterests"]
+    if "Biotechnology" not in ci["industries"]:
+        ci["industries"].append("Biotechnology")
+
+
+def solve_task_h118(state):
+    """Read all unread messages + comment on Google's post (most recent sender)."""
+    for msg_id in ["msg_01", "msg_03", "msg_06", "msg_08"]:
+        msg = find_message(state, msg_id)
+        msg["isRead"] = True
+    post = find_post(state, "post_01")
+    comment_id = "cmt_" + str(state["_nextCommentId"])
+    state["_nextCommentId"] += 1
+    post["comments"].append({
+        "id": comment_id,
+        "authorName": state["currentUser"]["fullName"],
+        "authorSchool": state["currentUser"]["school"],
+        "authorAvatarColor": state["currentUser"]["avatarColor"],
+        "text": "Excited about the expanded internship program! Just submitted my application.",
+        "createdAt": "2026-03-07T12:00:00Z",
+        "isAnonymous": False,
+    })
+
+
+def solve_task_h119(state):
+    """Bookmark posts from employers with >= 2 active jobs."""
+    user = state["currentUser"]
+    for post_id in ["post_01", "post_03", "post_05", "post_07", "post_11", "post_19"]:
+        post = find_post(state, post_id)
+        post["bookmarked"] = True
+        if post_id not in user["savedPostIds"]:
+            user["savedPostIds"].append(post_id)
+
+
+def solve_task_h120(state):
+    """Cancel appt_08 (further future) + comment on appt_02 (earlier) about frameworks."""
+    appt_08 = find_appointment(state, "appt_08")
+    appt_08["status"] = "cancelled"
+    appt_02 = find_appointment(state, "appt_02")
+    appt_02["comments"].append({
+        "author": state["currentUser"]["fullName"],
+        "text": "Could we also discuss interview frameworks during our session?",
+        "createdAt": "2026-03-07T12:00:00Z",
+    })
+
+
 # -- solver registry ----------------------------------------------------------
 
 SOLVERS = {
@@ -2077,6 +2396,26 @@ SOLVERS = {
     "task_h98": solve_task_h98,
     "task_h99": solve_task_h99,
     "task_h100": solve_task_h100,
+    "task_h101": solve_task_h101,
+    "task_h102": solve_task_h102,
+    "task_h103": solve_task_h103,
+    "task_h104": solve_task_h104,
+    "task_h105": solve_task_h105,
+    "task_h106": solve_task_h106,
+    "task_h107": solve_task_h107,
+    "task_h108": solve_task_h108,
+    "task_h109": solve_task_h109,
+    "task_h110": solve_task_h110,
+    "task_h111": solve_task_h111,
+    "task_h112": solve_task_h112,
+    "task_h113": solve_task_h113,
+    "task_h114": solve_task_h114,
+    "task_h115": solve_task_h115,
+    "task_h116": solve_task_h116,
+    "task_h117": solve_task_h117,
+    "task_h118": solve_task_h118,
+    "task_h119": solve_task_h119,
+    "task_h120": solve_task_h120,
 }
 
 

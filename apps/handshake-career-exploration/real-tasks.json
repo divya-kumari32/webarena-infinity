@@ -838,5 +838,125 @@
     "difficulty": "hard",
     "instruction": "Cancel both of your requested appointments, then schedule a new behavioral mock interview with the interview coach for March 21, 2026 at 3:00 PM in person. Update your phone number to '(650) 555-0250' and create a school-audience post about preparing for upcoming interviews.",
     "verify": "real-tasks/task_h100.py"
+  },
+  {
+    "id": "task_h101",
+    "difficulty": "hard",
+    "instruction": "Find the employer affiliated with 'Twitch'. Save all their active jobs you haven't saved and like their feed post about AWS re:Invent.",
+    "verify": "real-tasks/task_h101.py"
+  },
+  {
+    "id": "task_h102",
+    "difficulty": "hard",
+    "instruction": "In the feed, bookmark every student post with fewer than 200 likes, and like every student post with 200 or more likes.",
+    "verify": "real-tasks/task_h102.py"
+  },
+  {
+    "id": "task_h103",
+    "difficulty": "hard",
+    "instruction": "Your only approved upcoming appointment is with a career counselor. Schedule a Professional Branding appointment with that same counselor for March 18, 2026 at 2:00 PM, virtually.",
+    "verify": "real-tasks/task_h103.py"
+  },
+  {
+    "id": "task_h104",
+    "difficulty": "hard",
+    "instruction": "Find the employer whose affiliated companies include 'Tableau'. RSVP to their upcoming cloud careers event and follow them.",
+    "verify": "real-tasks/task_h104.py"
+  },
+  {
+    "id": "task_h105",
+    "difficulty": "hard",
+    "instruction": "Find the second-most-viewed question in Q&A. It has two answers \u2014 mark the one with fewer helpful votes as helpful.",
+    "verify": "real-tasks/task_h105.py"
+  },
+  {
+    "id": "task_h106",
+    "difficulty": "hard",
+    "instruction": "Save all active internships paying at least $50/hr from employers you don't currently follow.",
+    "verify": "real-tasks/task_h106.py"
+  },
+  {
+    "id": "task_h107",
+    "difficulty": "hard",
+    "instruction": "RSVP to both upcoming Tech Talks, then save all active jobs from each employer hosting those talks.",
+    "verify": "real-tasks/task_h107.py"
+  },
+  {
+    "id": "task_h108",
+    "difficulty": "hard",
+    "instruction": "Find the active job with the most applicants on Handshake. Follow its employer if you aren't already, RSVP to their upcoming event, and bookmark their feed post.",
+    "verify": "real-tasks/task_h108.py"
+  },
+  {
+    "id": "task_h109",
+    "difficulty": "hard",
+    "instruction": "A Stripe alumni mentioned learning about distributed systems in their testimonial. Find that alumni's answer in Q&A and mark it helpful, then read Stripe's unread message.",
+    "verify": "real-tasks/task_h109.py"
+  },
+  {
+    "id": "task_h110",
+    "difficulty": "hard",
+    "instruction": "Save all active full-time positions from Finance industry employers and follow those employers if you aren't already.",
+    "verify": "real-tasks/task_h110.py"
+  },
+  {
+    "id": "task_h111",
+    "difficulty": "hard",
+    "instruction": "Follow all private companies you aren't already following and save their active full-time positions.",
+    "verify": "real-tasks/task_h111.py"
+  },
+  {
+    "id": "task_h112",
+    "difficulty": "hard",
+    "instruction": "The student who asked about consulting internships before tech also shared a FAANG study plan in the feed. Like their feed post and submit an answer to their consulting question sharing your perspective.",
+    "verify": "real-tasks/task_h112.py"
+  },
+  {
+    "id": "task_h113",
+    "difficulty": "hard",
+    "instruction": "Find the employer with the second-highest follower count on Handshake. Like their feed post and save all their active internships.",
+    "verify": "real-tasks/task_h113.py"
+  },
+  {
+    "id": "task_h114",
+    "difficulty": "hard",
+    "instruction": "Create a feed post for everyone about the value of informational interviews, then schedule a networking strategy appointment with the finance and consulting specialist for March 20, 2026 at 2:00 PM, virtually.",
+    "verify": "real-tasks/task_h114.py"
+  },
+  {
+    "id": "task_h115",
+    "difficulty": "hard",
+    "instruction": "In Q&A, mark as helpful every approved non-anonymous answer that currently has fewer than 40 helpful votes.",
+    "verify": "real-tasks/task_h115.py"
+  },
+  {
+    "id": "task_h116",
+    "difficulty": "hard",
+    "instruction": "Submit an answer to the Q&A question about MBB GPA importance, then schedule a career change guidance appointment for March 10, 2026 at 3:00 PM, in person.",
+    "verify": "real-tasks/task_h116.py"
+  },
+  {
+    "id": "task_h117",
+    "difficulty": "hard",
+    "instruction": "Find the employer whose alumni testimonial mentions 'patient care'. Follow them, save their active job, and add 'Biotechnology' to your preferred industries in career interests. Save your changes.",
+    "verify": "real-tasks/task_h117.py"
+  },
+  {
+    "id": "task_h118",
+    "difficulty": "hard",
+    "instruction": "Read all your unread messages, then leave a comment on the feed post from the employer who sent you the most recent unread message.",
+    "verify": "real-tasks/task_h118.py"
+  },
+  {
+    "id": "task_h119",
+    "difficulty": "hard",
+    "instruction": "Bookmark the feed posts from all employers that have at least two active job listings on Handshake.",
+    "verify": "real-tasks/task_h119.py"
+  },
+  {
+    "id": "task_h120",
+    "difficulty": "hard",
+    "instruction": "You have two requested appointments. Cancel the one scheduled further in the future, and add a comment to the earlier one asking to discuss interview frameworks.",
+    "verify": "real-tasks/task_h120.py"
   }
 ]

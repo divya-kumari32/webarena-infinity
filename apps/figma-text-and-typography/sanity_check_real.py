@@ -892,6 +892,274 @@ def solve_task_h40(state):
     layer["variableAxes"] = {"wght": 400}
 
 
+# -- solve functions (hardening round 2) -----------------------------------
+
+def solve_task_h41(state):
+    """Duplicate the longest-content layer, rename to 'Content Summary', enable truncation (3 lines)."""
+    longest = max(state["textLayers"], key=lambda l: len(l.get("content", "")))
+    next_id = state.get("_nextTextLayerId", 100)
+    dup = deepcopy(longest)
+    dup["id"] = f"tl_{str(next_id).zfill(3)}"
+    dup["name"] = "Content Summary"
+    dup["truncation"] = {"enabled": True, "maxLines": 3}
+    dup["y"] = longest["y"] + 40
+    dup["createdAt"] = NOW
+    dup["updatedAt"] = NOW
+    state["textLayers"].append(dup)
+    state["_nextTextLayerId"] = next_id + 1
+
+
+def solve_task_h42(state):
+    """Apply the style with the widest letter spacing to Variable Font Demo."""
+    style = find_style(state, "Label/SmallCaps")
+    layer = find_layer(state, "Variable Font Demo")
+    apply_style_to_layer(layer, style)
+
+
+def solve_task_h43(state):
+    """Set spelling language to Arabic (bold RTL layer's script), hide that layer."""
+    state["preferences"]["spellingLanguage"] = "Arabic"
+    find_layer(state, "Arabic Welcome")["visible"] = False
+
+
+def solve_task_h44(state):
+    """Enable oldstyle figures and lining figures on Indented Quote (Spiekermann layer)."""
+    layer = find_layer(state, "Indented Quote")
+    layer["openTypeFeatures"]["onum"] = True
+    layer["openTypeFeatures"]["lnum"] = True
+
+
+def solve_task_h45(state):
+    """Montserrat disambiguation: smaller -> Inter Semi Bold, larger -> Playfair Display Bold."""
+    small_caps = find_layer(state, "Small Caps Header")
+    small_caps["fontFamily"] = "Inter"
+    small_caps["fontStyle"] = "Semi Bold"
+    small_caps["variableAxes"] = {"wght": 400, "slnt": 0}
+
+    section = find_layer(state, "Section Header")
+    section["fontFamily"] = "Playfair Display"
+    section["fontStyle"] = "Bold"
+    section["variableAxes"] = {"wght": 400}
+
+
+def solve_task_h46(state):
+    """Delete the unused style with the second-largest font size (Heading/H3, 24px)."""
+    used_ids = {l.get("textStyleId") for l in state["textLayers"] if l.get("textStyleId")}
+    unused = [s for s in state["textStyles"] if s["id"] not in used_ids]
+    unused.sort(key=lambda s: s["fontSize"], reverse=True)
+    target = unused[1]
+    state["textStyles"] = [s for s in state["textStyles"] if s["id"] != target["id"]]
+
+
+def solve_task_h47(state):
+    """Serif layers -> capitalize, monospace layers -> lowercase."""
+    cat_map = {f["name"]: f.get("category", "") for f in state["fontFamilies"]}
+    for layer in state["textLayers"]:
+        cat = cat_map.get(layer["fontFamily"], "")
+        if cat == "serif":
+            layer["letterCase"] = "capitalize"
+        elif cat == "monospace":
+            layer["letterCase"] = "lowercase"
+
+
+def solve_task_h48(state):
+    """Lock center/right-aligned layers, hide strikethrough layers."""
+    for layer in state["textLayers"]:
+        if layer["horizontalAlign"] in ("center", "right"):
+            layer["locked"] = True
+        if layer["textDecoration"] == "strikethrough":
+            layer["visible"] = False
+
+
+def solve_task_h49(state):
+    """Styled layers: left-aligned -> center, center-aligned -> right."""
+    for layer in state["textLayers"]:
+        if layer.get("textStyleId"):
+            if layer["horizontalAlign"] == "left":
+                layer["horizontalAlign"] = "center"
+            elif layer["horizontalAlign"] == "center":
+                layer["horizontalAlign"] = "right"
+
+
+def solve_task_h50(state):
+    """Change %-based line heights to 24px."""
+    for layer in state["textLayers"]:
+        lh = layer.get("lineHeight", {})
+        if lh.get("unit") == "%":
+            layer["lineHeight"] = {"value": 24, "unit": "px"}
+
+
+def solve_task_h51(state):
+    """Delete Heading/H1 and apply Heading/H3 to layers that had H1."""
+    h1 = find_style(state, "Heading/H1")
+    h3 = find_style(state, "Heading/H3")
+    h1_id = h1["id"]
+    for layer in state["textLayers"]:
+        if layer.get("textStyleId") == h1_id:
+            apply_style_to_layer(layer, h3)
+    state["textStyles"] = [s for s in state["textStyles"] if s["id"] != h1_id]
+
+
+def solve_task_h52(state):
+    """Create Code/Block style from Code Sample properties, apply to Code Sample."""
+    layer = find_layer(state, "Code Sample")
+    next_id = state.get("_nextTextStyleId", 100)
+    style = {
+        "id": f"ts_{str(next_id).zfill(3)}",
+        "name": "Code/Block",
+        "fontFamily": layer["fontFamily"],
+        "fontStyle": layer["fontStyle"],
+        "fontSize": layer["fontSize"],
+        "lineHeight": deepcopy(layer["lineHeight"]),
+        "letterSpacing": deepcopy(layer["letterSpacing"]),
+        "paragraphSpacing": layer["paragraphSpacing"],
+        "paragraphIndent": layer["paragraphIndent"],
+        "textDecoration": layer["textDecoration"],
+        "letterCase": layer["letterCase"],
+        "listStyle": layer["listStyle"],
+        "openTypeFeatures": deepcopy(layer["openTypeFeatures"]),
+        "description": "",
+        "createdAt": NOW,
+        "updatedAt": NOW,
+    }
+    state["textStyles"].append(style)
+    state["_nextTextStyleId"] = next_id + 1
+    apply_style_to_layer(layer, style)
+
+
+def solve_task_h53(state):
+    """Layers with custom weight axis below 500 -> increase to 500."""
+    for layer in state["textLayers"]:
+        axes = layer.get("variableAxes", {})
+        if "wght" in axes and axes["wght"] < 500:
+            axes["wght"] = 500
+
+
+def solve_task_h54(state):
+    """Update Body/Regular to 15px/22px line height, then detach from all layers."""
+    style = find_style(state, "Body/Regular")
+    style["fontSize"] = 15
+    style["lineHeight"] = {"value": 22, "unit": "px"}
+    propagate_style_to_layers(state, style)
+    for layer in state["textLayers"]:
+        if layer.get("textStyleId") == style["id"]:
+            layer["textStyleId"] = None
+
+
+def solve_task_h55(state):
+    """Create Serif/Quote style from the only serif layer (Indented Quote), apply it."""
+    layer = find_layer(state, "Indented Quote")
+    next_id = state.get("_nextTextStyleId", 100)
+    style = {
+        "id": f"ts_{str(next_id).zfill(3)}",
+        "name": "Serif/Quote",
+        "fontFamily": layer["fontFamily"],
+        "fontStyle": layer["fontStyle"],
+        "fontSize": layer["fontSize"],
+        "lineHeight": deepcopy(layer["lineHeight"]),
+        "letterSpacing": deepcopy(layer["letterSpacing"]),
+        "paragraphSpacing": layer["paragraphSpacing"],
+        "paragraphIndent": layer["paragraphIndent"],
+        "textDecoration": layer["textDecoration"],
+        "letterCase": layer["letterCase"],
+        "listStyle": layer["listStyle"],
+        "openTypeFeatures": deepcopy(layer["openTypeFeatures"]),
+        "description": "",
+        "createdAt": NOW,
+        "updatedAt": NOW,
+    }
+    state["textStyles"].append(style)
+    state["_nextTextStyleId"] = next_id + 1
+    apply_style_to_layer(layer, style)
+
+
+def solve_task_h56(state):
+    """Create 'Table of Contents' layer with numbered list, Open Sans Medium 15px, hanging list."""
+    next_id = state.get("_nextTextLayerId", 100)
+    prefs = state["preferences"]
+    layer = {
+        "id": f"tl_{str(next_id).zfill(3)}",
+        "name": "Table of Contents",
+        "content": "Table of Contents",
+        "fontFamily": "Open Sans",
+        "fontStyle": "Medium",
+        "fontSize": 15,
+        "lineHeight": {"value": 22, "unit": "px"},
+        "letterSpacing": deepcopy(prefs["defaultLetterSpacing"]),
+        "paragraphSpacing": 0,
+        "paragraphIndent": 0,
+        "horizontalAlign": prefs["defaultHorizontalAlign"],
+        "verticalAlign": "top",
+        "textDecoration": "none",
+        "letterCase": "none",
+        "textDirection": prefs["defaultTextDirection"],
+        "resizing": "auto-width",
+        "truncation": {"enabled": False, "maxLines": None},
+        "listStyle": "numbered",
+        "listSpacing": 8,
+        "hangingPunctuation": False,
+        "hangingList": True,
+        "verticalTrim": False,
+        "links": [],
+        "openTypeFeatures": {"liga": True, "kern": True},
+        "textStyleId": None,
+        "variableAxes": {},
+        "width": None,
+        "height": None,
+        "x": 40,
+        "y": 40 + len(state["textLayers"]) * 40,
+        "locked": False,
+        "visible": True,
+        "createdAt": NOW,
+        "updatedAt": NOW,
+    }
+    state["textLayers"].append(layer)
+    state["_nextTextLayerId"] = next_id + 1
+
+
+def solve_task_h57(state):
+    """Variable Font Demo: set weight to max (900), slant to min (-10)."""
+    layer = find_layer(state, "Variable Font Demo")
+    layer["variableAxes"]["wght"] = 900
+    layer["variableAxes"]["slnt"] = -10
+
+
+def solve_task_h58(state):
+    """Apply Body/Regular to all layers with fontSize 14."""
+    style = find_style(state, "Body/Regular")
+    for layer in state["textLayers"]:
+        if layer["fontSize"] == 14:
+            apply_style_to_layer(layer, style)
+
+
+def solve_task_h59(state):
+    """Duplicate Page Title as 'Page Subtitle', Lato Regular 20px, 28px lh, no style, 0.01em spacing."""
+    original = find_layer(state, "Page Title")
+    next_id = state.get("_nextTextLayerId", 100)
+    dup = deepcopy(original)
+    dup["id"] = f"tl_{str(next_id).zfill(3)}"
+    dup["name"] = "Page Subtitle"
+    dup["fontFamily"] = "Lato"
+    dup["fontStyle"] = "Regular"
+    dup["fontSize"] = 20
+    dup["lineHeight"] = {"value": 28, "unit": "px"}
+    dup["textStyleId"] = None
+    dup["letterSpacing"] = {"value": 0.01, "unit": "em"}
+    dup["variableAxes"] = {}
+    dup["y"] = original["y"] + 40
+    dup["createdAt"] = NOW
+    dup["updatedAt"] = NOW
+    state["textLayers"].append(dup)
+    state["_nextTextLayerId"] = next_id + 1
+
+
+def solve_task_h60(state):
+    """Add underline decoration to every layer that has at least one link."""
+    for layer in state["textLayers"]:
+        if layer.get("links") and len(layer["links"]) > 0:
+            layer["textDecoration"] = "underline"
+
+
 # -- solver registry --------------------------------------------------------
 
 SOLVERS = {
@@ -975,6 +1243,26 @@ SOLVERS = {
     "task_h38": solve_task_h38,
     "task_h39": solve_task_h39,
     "task_h40": solve_task_h40,
+    "task_h41": solve_task_h41,
+    "task_h42": solve_task_h42,
+    "task_h43": solve_task_h43,
+    "task_h44": solve_task_h44,
+    "task_h45": solve_task_h45,
+    "task_h46": solve_task_h46,
+    "task_h47": solve_task_h47,
+    "task_h48": solve_task_h48,
+    "task_h49": solve_task_h49,
+    "task_h50": solve_task_h50,
+    "task_h51": solve_task_h51,
+    "task_h52": solve_task_h52,
+    "task_h53": solve_task_h53,
+    "task_h54": solve_task_h54,
+    "task_h55": solve_task_h55,
+    "task_h56": solve_task_h56,
+    "task_h57": solve_task_h57,
+    "task_h58": solve_task_h58,
+    "task_h59": solve_task_h59,
+    "task_h60": solve_task_h60,
 }
 
 

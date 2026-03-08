@@ -907,9 +907,228 @@ def solve_task_h40(state):
     state["collaborators"] = [c for c in state["collaborators"] if c["name"] != "Elena Kowalski"]
 
 
+def solve_task_h41(state):
+    """Sensitive slide (Competitive Landscape): skip, lock all, disable slide numbers."""
+    slide = find_slide(state, "Competitive Landscape")
+    slide["skipped"] = True
+    for obj in slide["objects"]:
+        obj["locked"] = True
+    slide["slideNumberEnabled"] = False
+
+
+def solve_task_h42(state):
+    """Remove commenter who flagged outdated competitive data; flag table header."""
+    state["collaborators"] = [c for c in state["collaborators"] if c["name"] != "James O'Brien"]
+    slide = find_slide(state, "Competitive Landscape")
+    obj = find_object(slide, "Comparison Table")
+    obj["headerStyle"]["background"] = "#F24E1E"
+
+
+def solve_task_h43(state):
+    """Q4 Planning content-type standardization."""
+    slide = find_slide(state, "API Reference")
+    obj = find_object_by_type(slide, "code")
+    obj["theme"] = "solarized"
+
+    slide = find_slide(state, "Data Comparison")
+    obj = find_object(slide, "Adoption Table")
+    obj["headerStyle"]["background"] = "#172B4D"
+
+    slide = find_slide(state, "Team Survey Results")
+    for obj in slide["objects"]:
+        if obj.get("type") == "liveInteraction":
+            obj["hideResults"] = True
+
+
+def solve_task_h44(state):
+    """Flag Metric Card 3 with stroke (below SLA); resolve uptime comment."""
+    slide = find_slide(state, "Q3 Highlights")
+    obj = find_object(slide, "Metric Card 3")
+    obj["stroke"] = {"color": "#F24E1E", "width": 2}
+    comment = find_comment_by_author(state, "Marcus Rivera", "uptime")
+    comment["resolved"] = True
+
+
+def solve_task_h45(state):
+    """Highest priority slide (Design System 2.0): Corporate Blue, white bg, push left."""
+    slide = find_slide(state, "Design System 2.0")
+    slide["templateStyle"] = "ts_002"
+    slide["background"] = {"type": "solid", "color": "#FFFFFF"}
+    slide["transition"] = {
+        "type": "push",
+        "direction": "left",
+        "easing": "ease_in",
+        "duration": 600,
+        "timing": "immediately"
+    }
+
+
+def solve_task_h46(state):
+    """Lock competitive comparison table; Adoption Table fontSize to 16."""
+    slide = find_slide(state, "Competitive Landscape")
+    obj = find_object(slide, "Comparison Table")
+    obj["locked"] = True
+
+    slide = find_slide(state, "Data Comparison")
+    obj = find_object(slide, "Adoption Table")
+    obj["fontSize"] = 16
+
+
+def solve_task_h47(state):
+    """Animated slides: ease_in_out easing. Non-animated slides: transition none."""
+    for s in state["slides"]:
+        has_animation = any(
+            obj.get("animation") is not None for obj in s.get("objects", [])
+        )
+        if has_animation:
+            s["transition"]["easing"] = "ease_in_out"
+        else:
+            s["transition"]["type"] = "none"
+
+
+def solve_task_h48(state):
+    """Planning team card (Team C): fill #3D1010, stroke #FF6B6B, pop animation."""
+    slide = find_slide(state, "Resource Allocation")
+    obj = find_object(slide, "Team C Card")
+    obj["fill"] = "#3D1010"
+    obj["stroke"] = {"color": "#FF6B6B", "width": 2}
+    obj["animation"] = {
+        "style": "pop",
+        "duration": 600,
+        "timing": "on_click",
+        "direction": "in",
+        "order": 0
+    }
+
+
+def solve_task_h49(state):
+    """Disable most-components library; remove library with pending updates."""
+    lib = find_library(state, "Presentation Icons Pack")
+    lib["enabled"] = False
+    state["libraries"] = [
+        lib for lib in state["libraries"]
+        if lib["name"] != "DesignCraft Component Library"
+    ]
+
+
+def solve_task_h50(state):
+    """Thank You: Closing Title text + weight; hide Reaction Stamps."""
+    slide = find_slide(state, "Thank You")
+    obj = find_object(slide, "Closing Title")
+    obj["text"] = "Questions & Discussion"
+    obj["fontWeight"] = 800
+    stamps = find_object(slide, "Reaction Stamps")
+    stamps["visible"] = False
+
+
+def solve_task_h51(state):
+    """Reverse all directional transition directions."""
+    reverse_map = {"left": "right", "right": "left", "top": "bottom", "bottom": "top"}
+    directional_types = {"push", "slide_in", "slide_out", "move_in", "move_out"}
+    for s in state["slides"]:
+        trans = s.get("transition", {})
+        if trans.get("type") in directional_types and trans.get("direction") in reverse_map:
+            trans["direction"] = reverse_map[trans["direction"]]
+
+
+def solve_task_h52(state):
+    """Risk cards: HIGH->#5C1010, MED->#5C3D10, LOW unchanged; push top spring 500ms."""
+    slide = find_slide(state, "Key Risks & Mitigations")
+    find_object(slide, "Risk 1")["fill"] = "#5C1010"
+    find_object(slide, "Risk 2")["fill"] = "#5C3D10"
+    slide["transition"] = {
+        "type": "push",
+        "direction": "top",
+        "easing": "spring",
+        "duration": 500,
+        "timing": "immediately"
+    }
+
+
+def solve_task_h53(state):
+    """Title text with winning poll option; poll question to closed."""
+    slide = find_slide(state, "Team Survey Results")
+    title_obj = find_object(slide, "Title")
+    title_obj["text"] = "Team Survey Results \u2014 AI features"
+    for obj in slide["objects"]:
+        if obj.get("type") == "liveInteraction" and obj.get("interactionType") == "poll":
+            obj["question"] = "Q4 Priorities (Closed)"
+
+
+def solve_task_h54(state):
+    """Q4 Roadmap: notes, Section Title rotation+align, Subtitle opacity."""
+    slide = find_slide(state, "Q4 Roadmap")
+    slide["presenterNotes"] = "Key deliverables and milestones for Q4."
+    section_title = find_object(slide, "Section Title")
+    section_title["rotation"] = -5
+    section_title["textAlign"] = "left"
+    section_subtitle = find_object(slide, "Section Subtitle")
+    section_subtitle["opacity"] = 60
+
+
+def solve_task_h55(state):
+    """All objects named exactly 'Title' -> color #A78BFA."""
+    for s in state["slides"]:
+        for obj in s["objects"]:
+            if obj["name"] == "Title":
+                obj["color"] = "#A78BFA"
+
+
+def solve_task_h56(state):
+    """Borrowing team (Team C) stroke #FFAC33; lending team (Team B) stroke #FF6B6B."""
+    slide = find_slide(state, "Resource Allocation")
+    team_c = find_object(slide, "Team C Card")
+    team_c["stroke"] = {"color": "#FFAC33", "width": 2}
+    team_b = find_object(slide, "Team B Card")
+    team_b["stroke"] = {"color": "#FF6B6B", "width": 2}
+
+
+def solve_task_h57(state):
+    """Offline Editors with unresolved comments: resolve + Viewer."""
+    for c in state["comments"]:
+        if c["userId"] == "user_007" and c.get("resolved") is not True:
+            c["resolved"] = True
+    collab = find_collaborator(state, "Elena Kowalski")
+    collab["role"] = "Viewer"
+
+
+def solve_task_h58(state):
+    """Deck defaults: Warm Sunset, slide_out/bottom/bounce/500ms; Minimal Dark slides: with_total."""
+    state["deckSettings"]["defaultTemplateStyle"] = "ts_003"
+    state["deckSettings"]["defaultTransition"] = {
+        "type": "slide_out",
+        "direction": "bottom",
+        "easing": "bounce",
+        "duration": 500,
+        "timing": "immediately"
+    }
+    for s in state["slides"]:
+        if s.get("templateStyle") == "ts_001":
+            s["slideNumberFormat"] = "with_total"
+
+
+def solve_task_h59(state):
+    """Growth Metrics Right Column: weight 700, size 18; notes update."""
+    slide = find_slide(state, "Growth Metrics")
+    obj = find_object(slide, "Right Column")
+    obj["fontWeight"] = 700
+    obj["fontSize"] = 18
+    slide["presenterNotes"] = "Enterprise growth is our Q4 focus area."
+
+
+def solve_task_h60(state):
+    """Shapes with cornerRadius: +4. Shapes with 'Status' in text: fontWeight 700."""
+    for s in state["slides"]:
+        for obj in s["objects"]:
+            if obj.get("type") == "shape" and obj.get("cornerRadius") is not None:
+                obj["cornerRadius"] += 4
+            if obj.get("type") == "shape" and "Status" in obj.get("text", ""):
+                obj["fontWeight"] = 700
+
+
 SOLVERS = {}
 for _difficulty in ("e", "m", "h"):
-    for _i in range(1, 41):
+    for _i in range(1, 61):
         _task_id = f"task_{_difficulty}{_i}"
         _fn_name = f"solve_task_{_difficulty}{_i}"
         if _fn_name in globals():

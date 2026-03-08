@@ -83,7 +83,7 @@ const Views = {
                 ${Components.tabBar(tabs, AppState.feedTab, 'setFeedTab')}
 
                 ${!isSaved ? `
-                    ${AppState.currentUser.profileVisibility === 'Community' ? `
+                    ${(AppState.currentUser.profileVisibility === 'Community' || AppState.currentUser.profileVisibility === 'Public') ? `
                     <div class="create-post-box" data-action="openCreatePost">
                         ${Components.avatar(AppState.currentUser.fullName, AppState.currentUser.avatarColor, 'small')}
                         <span class="create-post-placeholder">Share something with the community...</span>
@@ -1106,9 +1106,9 @@ const Views = {
                     <h3>Profile Visibility</h3>
                     <div class="profile-field-row">
                         <label>Who can see your profile</label>
-                        ${Components.dropdown('profileVisibility', u.profileVisibility, ['Community', 'Employers', 'Private'], 'Select visibility')}
+                        ${Components.dropdown('profileVisibility', u.profileVisibility, ['Public', 'Community', 'Employers', 'Private'], 'Select visibility')}
                     </div>
-                    <p class="help-text">Community: visible to all Handshake users. Employers: visible to employers only. Private: visible only to you.</p>
+                    <p class="help-text">Public: visible to everyone. Community: visible to all Handshake users. Employers: visible to employers only. Private: visible only to you.</p>
                 </div>
 
                 <div class="profile-section">

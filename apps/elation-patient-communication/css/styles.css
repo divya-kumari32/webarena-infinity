@@ -1721,6 +1721,22 @@ img { max-width: 100%; display: block; }
   margin-bottom: var(--space-2);
 }
 
+.provider-role-label {
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  font-weight: 400;
+}
+
+.provider-notif-row {
+  padding: var(--space-3) 0;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.provider-notif-name {
+  display: block;
+  margin-bottom: var(--space-2);
+}
+
 .telehealth-status {
   font-size: var(--text-xs);
   font-weight: 600;

@@ -712,6 +712,21 @@ const Views = {
         html += '<div class="settings-save-bar">';
         html += '<button class="btn btn-primary" data-action="save-admin-settings" data-testid="save-admin-settings">Save Changes</button>';
         html += '</div>';
+
+        html += '<div class="setting-divider"></div>';
+        html += '<h2>Provider Notification Settings</h2>';
+        html += Components.infoBox('Manage unread letter alert timeframes for all providers in the practice.');
+        const notifOpts = AppState.notificationTimeframes.map(n => ({ value: n.value, label: n.label }));
+        for (const p of AppState.providers) {
+            html += '<div class="provider-notif-row" data-testid="provider-notif-' + p.id + '">';
+            html += `<span class="provider-notif-name"><strong>${Components.escapeHtml(p.firstName)} ${Components.escapeHtml(p.lastName)}</strong> <span class="provider-role-label">(${AppState.formatRole(p.role)})</span></span>`;
+            html += Components.dropdown('providerNotif_' + p.id, notifOpts, p.notificationTimeframe, { label: 'Alert Timeframe' });
+            html += '</div>';
+        }
+        html += '<div class="settings-save-bar">';
+        html += '<button class="btn btn-primary" data-action="save-provider-notifications" data-testid="save-provider-notifications">Save Notification Settings</button>';
+        html += '</div>';
+
         html += '</div>';
         return html;
     },
@@ -734,7 +749,7 @@ const Views = {
 
         // Provider selector
         html += '<div class="routing-provider-select">';
-        const provOpts = AppState.providers.map(p => ({ value: p.id, label: `${p.firstName} ${p.lastName}` }));
+        const provOpts = AppState.providers.map(p => ({ value: p.id, label: `${p.firstName} ${p.lastName} (${AppState.formatRole(p.role)})` }));
         html += Components.dropdown('routingProvider', provOpts, AppState._routingSelectedProvider || AppState.currentUser.id, { label: 'Configure routing for' });
         html += `<button class="btn btn-secondary btn-sm" data-action="update-all-routing" data-testid="update-all-routing">Update Routing for All Providers</button>`;
         html += '</div>';
@@ -777,7 +792,7 @@ const Views = {
         html += '<div class="telehealth-provider-settings">';
         for (const p of AppState.providers) {
             html += `<div class="telehealth-provider-card" data-testid="telehealth-${p.id}">`;
-            html += `<div class="telehealth-provider-header"><strong>${Components.escapeHtml(p.firstName)} ${Components.escapeHtml(p.lastName)}</strong>`;
+            html += `<div class="telehealth-provider-header"><strong>${Components.escapeHtml(p.firstName)} ${Components.escapeHtml(p.lastName)}</strong> <span class="provider-role-label">(${AppState.formatRole(p.role)})</span>`;
             html += `<span class="telehealth-status ${p.virtualVisitActivated ? 'active' : 'inactive'}">${p.virtualVisitActivated ? 'Activated' : 'Not Activated'}</span>`;
             html += '</div>';
             if (p.virtualVisitActivated) {

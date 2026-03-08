@@ -208,6 +208,11 @@ const AppState = {
         return p ? `${p.firstName} ${p.lastName}` : 'Unknown';
     },
 
+    formatRole(role) {
+        const roles = { physician: 'Physician', nurse_practitioner: 'Nurse Practitioner', physician_assistant: 'Physician Assistant' };
+        return roles[role] || role;
+    },
+
     getPatientName(id) {
         const p = this.getPatient(id);
         return p ? `${p.firstName} ${p.lastName}` : 'Unknown';

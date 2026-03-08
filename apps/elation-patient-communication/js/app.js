@@ -769,6 +769,18 @@ const App = {
                 break;
             }
 
+            case 'save-provider-notifications': {
+                for (const p of AppState.providers) {
+                    const val = this._getDropdownValue('providerNotif_' + p.id);
+                    if (val) {
+                        AppState.updateProviderSettings(p.id, { notificationTimeframe: val });
+                    }
+                }
+                Components.showToast('Provider notification settings saved.', 'success');
+                App.render();
+                break;
+            }
+
             case 'save-telehealth-settings': {
                 const screenSharing = document.getElementById('screenSharingPatients')?.checked;
                 const chatMode = this._getDropdownValue('chatMode');

@@ -727,12 +727,278 @@ def solve_task_h20(state):
                                   if c["email"] != email]
 
 
+# ── hardening round 1 solve functions ────────────────────────────────
+
+def solve_task_h21(state):
+    """Remove delegates whose corresponding contact has the Work label."""
+    contact_labels_by_email = {
+        c["email"]: c.get("labels", []) for c in state["contacts"]
+    }
+    state["delegates"] = [
+        d for d in state["delegates"]
+        if "clabel_3" not in contact_labels_by_email.get(d["email"], [])
+    ]
+
+
+def solve_task_h22(state):
+    """Remove Maya Patel's delegate access and unstar her contact."""
+    state["delegates"] = [
+        d for d in state["delegates"]
+        if d["email"] != "maya.patel@techcorp.io"
+    ]
+    c = find_contact(state, "Maya", "Patel")
+    c["isStarred"] = False
+
+
+def solve_task_h23(state):
+    """Add Emergency label to contact born March 8 (Emily Rodriguez)."""
+    c = find_contact(state, "Emily", "Rodriguez")
+    if "clabel_10" not in c["labels"]:
+        c["labels"].append("clabel_10")
+
+
+def solve_task_h24(state):
+    """Move Tina Marshall (DesignHub, same as Marcus Williams) to main contacts."""
+    other = find_other_contact(state, "tina.marshall@designhub.com")
+    nid = next_contact_id(state)
+    state["contacts"].append({
+        "id": f"contact_{nid:02d}",
+        "firstName": other.get("firstName", ""),
+        "lastName": other.get("lastName", ""),
+        "email": other["email"], "phone": "", "company": "",
+        "jobTitle": "", "address": "", "secondaryEmail": "",
+        "secondaryPhone": "", "birthday": "", "website": "",
+        "notes": "Auto-saved contact moved to main contacts.",
+        "labels": [], "isStarred": False, "avatarColor": "#EA4335",
+        "createdAt": NOW, "updatedAt": NOW, "source": "auto-promoted"
+    })
+    state["otherContacts"] = [
+        c for c in state["otherContacts"]
+        if c["email"] != "tina.marshall@designhub.com"
+    ]
+
+
+def solve_task_h25(state):
+    """Remove Work label from all CloudNine contacts (Priya Sharma's company)."""
+    for c in state["contacts"]:
+        if c.get("company") == "CloudNine":
+            c["labels"] = [lid for lid in c["labels"] if lid != "clabel_3"]
+
+
+def solve_task_h26(state):
+    """Star all Neighbors, remove Neighbors from those also in Book Club."""
+    for c in state["contacts"]:
+        if "clabel_7" in c.get("labels", []):
+            c["isStarred"] = True
+            if "clabel_8" in c.get("labels", []):
+                c["labels"] = [lid for lid in c["labels"] if lid != "clabel_7"]
+
+
+def solve_task_h27(state):
+    """Add VIP Clients to starred Work contacts who don't have it."""
+    for c in state["contacts"]:
+        if (c.get("isStarred")
+                and "clabel_3" in c.get("labels", [])
+                and "clabel_4" not in c.get("labels", [])):
+            c["labels"].append("clabel_4")
+
+
+def solve_task_h28(state):
+    """Delete EuroDesign contacts, dismiss merge_2, delete Travel Contacts label."""
+    state["contacts"] = [
+        c for c in state["contacts"]
+        if c.get("company") != "EuroDesign"
+    ]
+    merge2 = find_merge(state, "merge_2")
+    merge2["dismissed"] = True
+    state["contactLabels"] = [
+        l for l in state["contactLabels"] if l["id"] != "clabel_11"
+    ]
+    for c in state["contacts"]:
+        c["labels"] = [lid for lid in c["labels"] if lid != "clabel_11"]
+
+
+def solve_task_h29(state):
+    """Change profile name, create Priority label, add to Family contacts."""
+    state["currentUser"]["name"] = "Alex J. Johnson"
+    nid = next_label_id(state)
+    label_id = f"clabel_{nid}"
+    state["contactLabels"].append({
+        "id": label_id, "name": "Priority",
+        "color": "#EA4335", "contactCount": 0
+    })
+    for c in state["contacts"]:
+        if "clabel_1" in c.get("labels", []):
+            if label_id not in c["labels"]:
+                c["labels"].append(label_id)
+
+
+def solve_task_h30(state):
+    """Delete Elena Volkov (UX Research Lead), star Sophie Laurent."""
+    state["contacts"] = [
+        c for c in state["contacts"]
+        if not (c["firstName"] == "Elena" and c["lastName"] == "Volkov")
+    ]
+    c = find_contact(state, "Sophie", "Laurent")
+    c["isStarred"] = True
+
+
+def solve_task_h31(state):
+    """Delete Mike Chen (dentist), update Sarah Chen title."""
+    state["contacts"] = [
+        c for c in state["contacts"]
+        if not (c["firstName"] == "Mike" and c["lastName"] == "Chen")
+    ]
+    c = find_contact(state, "Sarah", "Chen")
+    c["jobTitle"] = "Chief Product Officer"
+
+
+def solve_task_h32(state):
+    """Toggle star on each TechCorp contact."""
+    for c in state["contacts"]:
+        if c.get("company") == "TechCorp":
+            c["isStarred"] = not c["isStarred"]
+
+
+def solve_task_h33(state):
+    """Move all @techcorp.io auto-saved contacts to main contacts."""
+    techcorp_others = [
+        c for c in state["otherContacts"]
+        if c["email"].endswith("@techcorp.io")
+    ]
+    for other in techcorp_others:
+        nid = next_contact_id(state)
+        state["contacts"].append({
+            "id": f"contact_{nid:02d}",
+            "firstName": other.get("firstName", ""),
+            "lastName": other.get("lastName", ""),
+            "email": other["email"], "phone": "", "company": "",
+            "jobTitle": "", "address": "", "secondaryEmail": "",
+            "secondaryPhone": "", "birthday": "", "website": "",
+            "notes": "Auto-saved contact moved to main contacts.",
+            "labels": [], "isStarred": False, "avatarColor": "#EA4335",
+            "createdAt": NOW, "updatedAt": NOW, "source": "auto-promoted"
+        })
+    state["otherContacts"] = [
+        c for c in state["otherContacts"]
+        if not c["email"].endswith("@techcorp.io")
+    ]
+
+
+def solve_task_h34(state):
+    """Security key 2FA, disable auto sign-in/remember password, all visibility contacts_only."""
+    ls = state["accountSettings"]["loginSettings"]
+    ls["twoFactorMethod"] = "security_key"
+    ls["autoSignIn"] = False
+    ls["rememberPassword"] = False
+    ps = state["accountSettings"]["privacySettings"]
+    ps["showProfilePhoto"] = "contacts_only"
+    ps["showEmail"] = "contacts_only"
+    ps["showPhone"] = "contacts_only"
+
+
+def solve_task_h35(state):
+    """Remove expired Jake Morrison delegate and re-invite."""
+    state["delegates"] = [
+        d for d in state["delegates"]
+        if d["email"] != "jake.morrison@gmail.com"
+    ]
+    nid = next_delegate_id(state)
+    state["delegates"].append({
+        "id": f"delegate_{nid}",
+        "email": "jake.morrison@gmail.com",
+        "name": "Jake Morrison",
+        "status": "pending",
+        "addedAt": NOW,
+        "activatedAt": None,
+        "permissions": {
+            "readEmail": True, "sendEmail": True, "deleteEmail": True,
+            "manageChat": False, "changePassword": False
+        }
+    })
+
+
+def solve_task_h36(state):
+    """Replace Healthcare with Emergency, delete Healthcare label."""
+    for c in state["contacts"]:
+        if "clabel_12" in c.get("labels", []):
+            c["labels"] = [lid for lid in c["labels"] if lid != "clabel_12"]
+            if "clabel_10" not in c["labels"]:
+                c["labels"].append("clabel_10")
+    state["contactLabels"] = [
+        l for l in state["contactLabels"] if l["id"] != "clabel_12"
+    ]
+
+
+def solve_task_h37(state):
+    """Move Alex Rivera, set company/title, add Work label."""
+    other = find_other_contact(state, "alex.rivera@notion.so")
+    nid = next_contact_id(state)
+    state["contacts"].append({
+        "id": f"contact_{nid:02d}",
+        "firstName": other.get("firstName", ""),
+        "lastName": other.get("lastName", ""),
+        "email": other["email"], "phone": "", "company": "Notion",
+        "jobTitle": "Product Manager", "address": "", "secondaryEmail": "",
+        "secondaryPhone": "", "birthday": "", "website": "",
+        "notes": "", "labels": ["clabel_3"], "isStarred": False,
+        "avatarColor": "#EA4335",
+        "createdAt": NOW, "updatedAt": NOW, "source": "auto-promoted"
+    })
+    state["otherContacts"] = [
+        c for c in state["otherContacts"]
+        if c["email"] != "alex.rivera@notion.so"
+    ]
+
+
+def solve_task_h38(state):
+    """Create Bay Area label, add to Menlo Park contacts."""
+    nid = next_label_id(state)
+    label_id = f"clabel_{nid}"
+    state["contactLabels"].append({
+        "id": label_id, "name": "Bay Area",
+        "color": "#4285F4", "contactCount": 0
+    })
+    for c in state["contacts"]:
+        if "Menlo Park" in c.get("address", ""):
+            if label_id not in c["labels"]:
+                c["labels"].append(label_id)
+
+
+def solve_task_h39(state):
+    """Unlink Chrome/Play, turn off contacts/email sync, disable auto-save."""
+    find_service(state, "Chrome")["isLinked"] = False
+    find_service(state, "Google Play")["isLinked"] = False
+    state["accountSettings"]["syncSettings"]["contactsSync"] = False
+    state["accountSettings"]["syncSettings"]["emailSync"] = False
+    state["accountSettings"]["autoSaveContacts"] = False
+
+
+def solve_task_h40(state):
+    """Create Key Contacts for starred+VIP, remove VIP from unstarred."""
+    nid = next_label_id(state)
+    label_id = f"clabel_{nid}"
+    state["contactLabels"].append({
+        "id": label_id, "name": "Key Contacts",
+        "color": "#FBBC04", "contactCount": 0
+    })
+    for c in state["contacts"]:
+        has_vip = "clabel_4" in c.get("labels", [])
+        if has_vip and c.get("isStarred"):
+            if label_id not in c["labels"]:
+                c["labels"].append(label_id)
+        elif has_vip and not c.get("isStarred"):
+            c["labels"] = [lid for lid in c["labels"] if lid != "clabel_4"]
+
+
 # ── solver registry ──────────────────────────────────────────────────
 
 SOLVERS = {}
 for _i in range(1, 21):
     SOLVERS[f"task_e{_i}"] = globals()[f"solve_task_e{_i}"]
     SOLVERS[f"task_m{_i}"] = globals()[f"solve_task_m{_i}"]
+    SOLVERS[f"task_h{_i}"] = globals()[f"solve_task_h{_i}"]
+for _i in range(21, 41):
     SOLVERS[f"task_h{_i}"] = globals()[f"solve_task_h{_i}"]
 
 

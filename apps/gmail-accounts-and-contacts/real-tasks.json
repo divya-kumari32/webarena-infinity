@@ -358,5 +358,125 @@
     "difficulty": "hard",
     "instruction": "Move all individual people from your other contacts to your main contacts — keep only the automated service and company accounts.",
     "verify": "real-tasks/task_h20.py"
+  },
+  {
+    "id": "task_h21",
+    "difficulty": "hard",
+    "instruction": "Remove any delegate whose corresponding contact entry has the Work label.",
+    "verify": "real-tasks/task_h21.py"
+  },
+  {
+    "id": "task_h22",
+    "difficulty": "hard",
+    "instruction": "The Engineering Manager at TechCorp is listed as one of your delegates. Remove her delegation and unstar her contact.",
+    "verify": "real-tasks/task_h22.py"
+  },
+  {
+    "id": "task_h23",
+    "difficulty": "hard",
+    "instruction": "Find the contact whose birthday is on March 8 and add the Emergency label to them.",
+    "verify": "real-tasks/task_h23.py"
+  },
+  {
+    "id": "task_h24",
+    "difficulty": "hard",
+    "instruction": "Check what company Marcus Williams works at, then move any auto-saved contacts from that company to your main contacts.",
+    "verify": "real-tasks/task_h24.py"
+  },
+  {
+    "id": "task_h25",
+    "difficulty": "hard",
+    "instruction": "Find what company Priya Sharma works at, then remove the Work label from all contacts at that company.",
+    "verify": "real-tasks/task_h25.py"
+  },
+  {
+    "id": "task_h26",
+    "difficulty": "hard",
+    "instruction": "Star all contacts with the Neighbors label, then remove the Neighbors label from any of those who are also in the Book Club.",
+    "verify": "real-tasks/task_h26.py"
+  },
+  {
+    "id": "task_h27",
+    "difficulty": "hard",
+    "instruction": "Add the VIP Clients label to every starred contact who has the Work label but doesn't already have VIP Clients.",
+    "verify": "real-tasks/task_h27.py"
+  },
+  {
+    "id": "task_h28",
+    "difficulty": "hard",
+    "instruction": "Delete both contacts who work at EuroDesign, dismiss the EuroDesign merge suggestion, and delete the Travel Contacts label.",
+    "verify": "real-tasks/task_h28.py"
+  },
+  {
+    "id": "task_h29",
+    "difficulty": "hard",
+    "instruction": "Change your profile name to 'Alex J. Johnson', create a new label called 'Priority' with red color (#EA4335), and add it to all contacts in the Family label.",
+    "verify": "real-tasks/task_h29.py"
+  },
+  {
+    "id": "task_h30",
+    "difficulty": "hard",
+    "instruction": "There are two EuroDesign contacts. Delete the one who leads UX Research and star the other.",
+    "verify": "real-tasks/task_h30.py"
+  },
+  {
+    "id": "task_h31",
+    "difficulty": "hard",
+    "instruction": "You have two contacts with the last name Chen. Delete the dentist and update the other one's title to 'Chief Product Officer'.",
+    "verify": "real-tasks/task_h31.py"
+  },
+  {
+    "id": "task_h32",
+    "difficulty": "hard",
+    "instruction": "Toggle the star on each TechCorp contact: unstar those currently starred, star those currently unstarred.",
+    "verify": "real-tasks/task_h32.py"
+  },
+  {
+    "id": "task_h33",
+    "difficulty": "hard",
+    "instruction": "Move all auto-saved contacts with a @techcorp.io email address to your main contacts.",
+    "verify": "real-tasks/task_h33.py"
+  },
+  {
+    "id": "task_h34",
+    "difficulty": "hard",
+    "instruction": "Switch your 2FA method to security key, turn off both auto sign-in and remember password, then set all three profile visibility options to 'contacts_only'.",
+    "verify": "real-tasks/task_h34.py"
+  },
+  {
+    "id": "task_h35",
+    "difficulty": "hard",
+    "instruction": "Your Stripe contact has an expired delegate invitation. Remove the expired entry and re-invite them as a delegate.",
+    "verify": "real-tasks/task_h35.py"
+  },
+  {
+    "id": "task_h36",
+    "difficulty": "hard",
+    "instruction": "Replace the Healthcare label with Emergency for all contacts that have it: remove Healthcare, add Emergency if missing, then delete the Healthcare label entirely.",
+    "verify": "real-tasks/task_h36.py"
+  },
+  {
+    "id": "task_h37",
+    "difficulty": "hard",
+    "instruction": "Move the auto-saved contact Alex Rivera to your main contacts, then set their company to 'Notion' and job title to 'Product Manager', and add the Work label.",
+    "verify": "real-tasks/task_h37.py"
+  },
+  {
+    "id": "task_h38",
+    "difficulty": "hard",
+    "instruction": "Create a label called 'Bay Area' with color #4285F4 and add it to every contact whose address is in Menlo Park.",
+    "verify": "real-tasks/task_h38.py"
+  },
+  {
+    "id": "task_h39",
+    "difficulty": "hard",
+    "instruction": "Unlink Chrome and Google Play, turn off contacts sync and email sync in settings, and disable auto-save contacts.",
+    "verify": "real-tasks/task_h39.py"
+  },
+  {
+    "id": "task_h40",
+    "difficulty": "hard",
+    "instruction": "Create a label called 'Key Contacts' with color #FBBC04, assign it to every contact who is both starred and has VIP Clients. Then remove the VIP Clients label from any contact who has it but isn't starred.",
+    "verify": "real-tasks/task_h40.py"
   }
 ]

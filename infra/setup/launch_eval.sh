@@ -40,7 +40,7 @@ fi
 INSTANCE_TYPE="m5.4xlarge"
 KEY_PAIR="${KEY_PAIR_NAME:-}"
 REGION="${AWS_REGION:-us-east-1}"
-AMI="ami-0f823fef8f3404ec5"
+AMI="ami-02bc6252ab845cd87"
 COUNT=1
 SG_ID=""
 SUBNET_ID=""

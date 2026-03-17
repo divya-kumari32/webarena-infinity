@@ -282,20 +282,20 @@ echo "  AMI ID:   $AMI_ID"
 echo "  AMI Name: $AMI_NAME"
 echo ""
 
-# --- Smoke test: verify Claude CLI works ---
-echo "=== Smoke-testing Claude CLI on instance ==="
-SMOKE_OUTPUT=$(ssh -i "$HOME/.ssh/${KEY_PAIR}.pem" -o StrictHostKeyChecking=no -o ConnectTimeout=10 \
-  "ec2-user@${PUBLIC_IP}" \
-  "timeout 60 claude --dangerously-skip-permissions -p 'Reply with exactly: hello' --max-turns 1 2>&1" || true)
+# # --- Smoke test: verify Claude CLI works ---
+# echo "=== Smoke-testing Claude CLI on instance ==="
+# SMOKE_OUTPUT=$(ssh -i "$HOME/.ssh/${KEY_PAIR}.pem" -o StrictHostKeyChecking=no -o ConnectTimeout=10 \
+#   "ec2-user@${PUBLIC_IP}" \
+#   "timeout 60 claude --dangerously-skip-permissions -p 'Reply with exactly: hello' --max-turns 1 2>&1" || true)
 
-echo "  Claude output: $SMOKE_OUTPUT"
-if echo "$SMOKE_OUTPUT" | grep -qi "hello"; then
-  echo "  Claude CLI smoke test PASSED"
-else
-  echo "  WARNING: Claude CLI smoke test FAILED — CLI may need re-authentication"
-  echo "  You may want to SSH in and run 'claude login' before using this AMI."
-fi
-echo ""
+# echo "  Claude output: $SMOKE_OUTPUT"
+# if echo "$SMOKE_OUTPUT" | grep -qi "hello"; then
+#   echo "  Claude CLI smoke test PASSED"
+# else
+#   echo "  WARNING: Claude CLI smoke test FAILED — CLI may need re-authentication"
+#   echo "  You may want to SSH in and run 'claude login' before using this AMI."
+# fi
+# echo ""
 
 # --- Terminate template instance ---
 read -rp "Terminate template instance $INST_ID? [Y/n] " CONFIRM

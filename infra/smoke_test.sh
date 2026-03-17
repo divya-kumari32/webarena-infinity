@@ -25,10 +25,14 @@ skip() { echo "SKIP $1"; SKIP=$((SKIP + 1)); }
 
 # ── 1. Model API ──
 case "$MODEL" in
-  gemini)
+  gemini|gemini-flash|gemini-pro|gemini-cu)
     if [ -z "${GOOGLE_API_KEY:-}" ]; then fail "GOOGLE_API_KEY not set"; else
+      case "$MODEL" in
+        gemini-pro) GEMINI_SMOKE_MODEL="gemini-3-pro-preview" ;;
+        *)          GEMINI_SMOKE_MODEL="gemini-3-flash-preview" ;;
+      esac
       RESP=$(curl -s -w "\n%{http_code}" \
-        "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GOOGLE_API_KEY}" \
+        "https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_SMOKE_MODEL}:generateContent?key=${GOOGLE_API_KEY}" \
         -H 'Content-Type: application/json' \
         -d '{"contents":[{"parts":[{"text":"Say hello in one word"}]}]}' 2>&1)
       HTTP_CODE=$(echo "$RESP" | tail -1); BODY=$(echo "$RESP" | sed '$d')

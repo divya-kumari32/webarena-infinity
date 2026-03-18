@@ -1208,6 +1208,268 @@ def solve_task_h60(state):
                 approve_invoice(state, inv)
 
 
+# ---------- HARD (Hardening Round 3) ----------
+
+def solve_task_h61(state):
+    """Void the overdue invoice with the second-highest total."""
+    overdue = [inv for inv in state["invoices"] if inv["status"] == "overdue"]
+    overdue.sort(key=lambda i: i["total"], reverse=True)
+    void_invoice(state, overdue[1])
+
+
+def solve_task_h62(state):
+    """Void 2025-due overdue invoices, pay 2026-due overdue invoices."""
+    for inv in list(state["invoices"]):
+        if inv["status"] == "overdue":
+            if inv["dueDate"] < "2026-01-01":
+                void_invoice(state, inv)
+            else:
+                add_payment(state, inv["id"], inv["amountDue"], "bank_1")
+
+
+def solve_task_h63(state):
+    """Update company phone and email to match Atlas Import/Export Ltd."""
+    atlas = find_contact_by_name(state, "Atlas Import/Export Ltd")
+    state["settings"]["companyPhone"] = atlas["phone"]
+    state["settings"]["companyEmail"] = atlas["email"]
+
+
+def solve_task_h64(state):
+    """Three-region conditional: void Otago, pay Waikato, $500 partial BOP."""
+    contact_region = {}
+    for c in state["contacts"]:
+        addr = c.get("billingAddress", {})
+        contact_region[c["id"]] = addr.get("region", "")
+    for inv in list(state["invoices"]):
+        if inv["status"] == "overdue":
+            region = contact_region.get(inv["contactId"], "")
+            if region == "Otago":
+                void_invoice(state, inv)
+            elif region == "Waikato":
+                add_payment(state, inv["id"], inv["amountDue"], "bank_1")
+            elif region == "Bay of Plenty":
+                add_payment(state, inv["id"], 500, "bank_1")
+
+
+def solve_task_h65(state):
+    """Copy INV-0004, change contact to Heritage Craft Brewery, ref HCB-COPY-2026, Bold Corporate."""
+    orig = find_invoice_by_number(state, "INV-0004")
+    con = find_contact_by_name(state, "Heritage Craft Brewery")
+    li_raw = [{"description": li["description"], "quantity": li["quantity"],
+               "unitPrice": li["unitPrice"], "taxRateId": li["taxRateId"],
+               "accountCode": li["accountCode"]} for li in orig["lineItems"]]
+    make_invoice(state, con["id"], li_raw,
+                 reference="HCB-COPY-2026", notes=orig["notes"], currency=orig["currency"],
+                 brandingThemeId="theme_4")
+
+
+def solve_task_h66(state):
+    """Prepend 'archived-' to email for contacts with voided invoices."""
+    voided_contact_ids = set()
+    for inv in state["invoices"]:
+        if inv["status"] == "voided":
+            voided_contact_ids.add(inv["contactId"])
+    for con in state["contacts"]:
+        if con["id"] in voided_contact_ids:
+            con["email"] = "archived-" + con["email"]
+
+
+def solve_task_h67(state):
+    """Change prefix FINAL-, padding 6, create draft for Atlas Import/Export."""
+    state["settings"]["invoiceNumberPrefix"] = "FINAL-"
+    state["settings"]["invoiceNumberPadding"] = 6
+    con = find_contact_by_name(state, "Atlas Import/Export Ltd")
+    make_invoice(state, con["id"], [
+        {"description": "Customs clearance services", "quantity": 1, "unitPrice": 1200,
+         "taxRateId": "tax_1", "accountCode": "200"},
+        {"description": "International freight handling", "quantity": 3, "unitPrice": 850,
+         "taxRateId": "tax_1", "accountCode": "200"},
+    ], issueDate="2026-03-18", dueDate="2026-04-17", reference="AIE-FINAL-001")
+
+
+def solve_task_h68(state):
+    """$1,000 partial payment + notes update on QUO- overdue invoices."""
+    for inv in list(state["invoices"]):
+        if inv["status"] == "overdue" and inv.get("reference", "").startswith("QUO-"):
+            add_payment(state, inv["id"], 1000, "bank_1")
+            inv["notes"] = "Quote accepted - installment plan active"
+            inv["updatedAt"] = NOW
+
+
+def solve_task_h69(state):
+    """Delete drafts for contacts with voided invoices, approve remaining drafts."""
+    voided_contact_ids = set()
+    for inv in state["invoices"]:
+        if inv["status"] == "voided":
+            voided_contact_ids.add(inv["contactId"])
+    # Delete drafts for voided-invoice contacts
+    to_delete = [inv["id"] for inv in state["invoices"]
+                 if inv["status"] == "draft" and inv["contactId"] in voided_contact_ids]
+    for inv_id in to_delete:
+        state["invoices"] = [i for i in state["invoices"] if i["id"] != inv_id]
+        state["payments"] = [p for p in state["payments"] if p["invoiceId"] != inv_id]
+    # Approve remaining drafts
+    for inv in state["invoices"]:
+        if inv["status"] == "draft":
+            approve_invoice(state, inv)
+
+
+def solve_task_h70(state):
+    """Mark as sent all awaiting_payment invoices for contacts with overdue invoices."""
+    overdue_contact_ids = set()
+    for inv in state["invoices"]:
+        if inv["status"] == "overdue":
+            overdue_contact_ids.add(inv["contactId"])
+    for inv in state["invoices"]:
+        if (inv["status"] == "awaiting_payment"
+                and inv["contactId"] in overdue_contact_ids):
+            inv["sentAt"] = NOW
+            inv["updatedAt"] = NOW
+            con = next((c for c in state["contacts"] if c["id"] == inv["contactId"]), None)
+            email = con["email"] if con else "contact"
+            inv["activity"].append({
+                "type": "sent", "date": NOW, "user": "System",
+                "detail": f"Email sent to {email}",
+            })
+
+
+def solve_task_h71(state):
+    """Half-payment on every overdue invoice."""
+    for inv in list(state["invoices"]):
+        if inv["status"] == "overdue":
+            half = round(inv["total"] / 2, 2)
+            add_payment(state, inv["id"], half, "bank_1")
+
+
+def solve_task_h72(state):
+    """Create Rotorua Geothermal Energy Ltd, invoice with 3 line items, approve+send, $5k payment."""
+    contact = create_contact(state, "Rotorua Geothermal Energy Ltd", "power@rotoruageo.co.nz",
+                             phone="+64 7 348 9900", street="1167 Fenton Street",
+                             city="Rotorua", region="Bay of Plenty", postal_code="3010",
+                             country="New Zealand", tax_id="NZ-77-444-555")
+    inv = make_invoice(state, contact["id"], [
+        {"description": "Geothermal survey", "quantity": 5, "unitPrice": 1500,
+         "taxRateId": "tax_1", "accountCode": "200"},
+        {"description": "Drilling consultation", "quantity": 10, "unitPrice": 800,
+         "taxRateId": "tax_1", "accountCode": "200"},
+        {"description": "Safety compliance report", "quantity": 1, "unitPrice": 3000,
+         "taxRateId": "tax_1", "accountCode": "200"},
+    ], issueDate="2026-03-18", dueDate="2026-05-17", reference="GEO-2026-001",
+       status="awaiting_payment", sentAt=NOW)
+    add_payment(state, inv["id"], 5000, "bank_1")
+
+
+def solve_task_h73(state):
+    """Update tax ID based on overdue count: SINGLE-OVERDUE or MULTI-OVERDUE."""
+    overdue_counts = {}
+    for inv in state["invoices"]:
+        if inv["status"] == "overdue":
+            cid = inv["contactId"]
+            overdue_counts[cid] = overdue_counts.get(cid, 0) + 1
+    for con in state["contacts"]:
+        cid = con["id"]
+        cnt = overdue_counts.get(cid, 0)
+        if cnt == 1:
+            con["taxId"] = "SINGLE-OVERDUE"
+        elif cnt >= 2:
+            con["taxId"] = "MULTI-OVERDUE"
+
+
+def solve_task_h74(state):
+    """Replace REF- with ARCHIVED- and JOB- with COMPLETED- on draft references."""
+    for inv in state["invoices"]:
+        if inv["status"] == "draft":
+            ref = inv.get("reference", "")
+            if ref.startswith("REF-"):
+                inv["reference"] = "ARCHIVED-" + ref[4:]
+                inv["updatedAt"] = NOW
+            elif ref.startswith("JOB-"):
+                inv["reference"] = "COMPLETED-" + ref[4:]
+                inv["updatedAt"] = NOW
+
+
+def solve_task_h75(state):
+    """Pay Wellington overdue, void Bay of Plenty overdue."""
+    contact_region = {}
+    for c in state["contacts"]:
+        addr = c.get("billingAddress", {})
+        contact_region[c["id"]] = addr.get("region", "")
+    for inv in list(state["invoices"]):
+        if inv["status"] == "overdue":
+            region = contact_region.get(inv["contactId"], "")
+            if region == "Wellington":
+                add_payment(state, inv["id"], inv["amountDue"], "bank_1")
+            elif region == "Bay of Plenty":
+                void_invoice(state, inv)
+
+
+def solve_task_h76(state):
+    """Update notes on PROJ- awaiting_payment invoices."""
+    for inv in state["invoices"]:
+        if (inv["status"] == "awaiting_payment"
+                and inv.get("reference", "").startswith("PROJ-")):
+            inv["notes"] = "Project invoice - quarterly review required"
+            inv["updatedAt"] = NOW
+
+
+def solve_task_h77(state):
+    """Set branding Minimal Clean, late penalties 1.5% daily, due terms 7, create draft for Swift Courier."""
+    state["settings"]["defaultBrandingThemeId"] = "theme_3"
+    state["settings"]["latePenaltyEnabled"] = True
+    state["settings"]["latePenaltyRate"] = 1.5
+    state["settings"]["latePenaltyFrequency"] = "daily"
+    state["settings"]["defaultDueDateTerms"] = "7"
+    con = find_contact_by_name(state, "Swift Courier Services")
+    make_invoice(state, con["id"], [
+        {"description": "Express parcel delivery", "quantity": 50, "unitPrice": 15,
+         "taxRateId": "tax_1", "accountCode": "200"},
+        {"description": "Overnight freight service", "quantity": 10, "unitPrice": 95,
+         "taxRateId": "tax_1", "accountCode": "200"},
+    ], issueDate="2026-03-18", dueDate="2026-03-25", reference="SCS-2026-EXPRESS")
+
+
+def solve_task_h78(state):
+    """Update postal code to 1142 for Auckland contacts with outstanding > $3,000."""
+    balances = {}
+    for inv in state["invoices"]:
+        if inv["status"] in ("awaiting_payment", "overdue"):
+            cid = inv["contactId"]
+            balances[cid] = balances.get(cid, 0) + inv.get("amountDue", 0)
+    for con in state["contacts"]:
+        cid = con["id"]
+        addr = con.get("billingAddress", {})
+        if (addr.get("city") == "Auckland" or addr.get("region") == "Auckland"):
+            if balances.get(cid, 0) > 3000:
+                addr["postalCode"] = "1142"
+
+
+def solve_task_h79(state):
+    """Update phone for contacts with invoices in at least 4 different statuses."""
+    status_sets = {}
+    for inv in state["invoices"]:
+        cid = inv["contactId"]
+        status_sets.setdefault(cid, set()).add(inv["status"])
+    for con in state["contacts"]:
+        cid = con["id"]
+        if len(status_sets.get(cid, set())) >= 4:
+            con["phone"] = "+64 800 200 300"
+
+
+def solve_task_h80(state):
+    """JOB- invoices: pay overdue, approve draft, update AP notes."""
+    for inv in list(state["invoices"]):
+        ref = inv.get("reference", "")
+        if "JOB-" not in ref:
+            continue
+        if inv["status"] == "overdue":
+            add_payment(state, inv["id"], inv["amountDue"], "bank_1")
+        elif inv["status"] == "draft":
+            approve_invoice(state, inv)
+        elif inv["status"] == "awaiting_payment":
+            inv["notes"] = "Job complete - pending final review"
+            inv["updatedAt"] = NOW
+
+
 SOLVERS = {
     "task_e1": solve_task_e1,
     "task_e2": solve_task_e2,
@@ -1309,6 +1571,26 @@ SOLVERS = {
     "task_h58": solve_task_h58,
     "task_h59": solve_task_h59,
     "task_h60": solve_task_h60,
+    "task_h61": solve_task_h61,
+    "task_h62": solve_task_h62,
+    "task_h63": solve_task_h63,
+    "task_h64": solve_task_h64,
+    "task_h65": solve_task_h65,
+    "task_h66": solve_task_h66,
+    "task_h67": solve_task_h67,
+    "task_h68": solve_task_h68,
+    "task_h69": solve_task_h69,
+    "task_h70": solve_task_h70,
+    "task_h71": solve_task_h71,
+    "task_h72": solve_task_h72,
+    "task_h73": solve_task_h73,
+    "task_h74": solve_task_h74,
+    "task_h75": solve_task_h75,
+    "task_h76": solve_task_h76,
+    "task_h77": solve_task_h77,
+    "task_h78": solve_task_h78,
+    "task_h79": solve_task_h79,
+    "task_h80": solve_task_h80,
 }
 
 

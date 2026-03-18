@@ -8,8 +8,8 @@ def verify(server_url: str) -> tuple[bool, str]:
 
     # #1 blocks #2. #2 is in milestone 3, iteration 7.
     # All other open issues in milestone 3 with iteration 7 should have weight 8.
-    # Targets: #8, #12, #43, #45, #55, #73, #76, #102, #113
-    target_ids = [8, 12, 43, 45, 55, 73, 76, 102, 113]
+    # Targets: #8, #12, #23, #43, #45, #55, #73, #76, #102, #113
+    target_ids = [8, 12, 23, 43, 45, 55, 73, 76, 102, 113]
 
     for issue_id in target_ids:
         issue = next((i for i in state["issues"] if i["id"] == issue_id), None)

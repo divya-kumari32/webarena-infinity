@@ -7,9 +7,9 @@ def verify(server_url: str) -> tuple[bool, str]:
     state = resp.json()
 
     # v2.0 (milestoneId 3) open bugs (label 1) with due < 2026-04-01:
-    # #28, #35, #78, #101, #104
+    # #28, #31, #33, #35, #41, #78, #101, #104
     # Each should have priority::critical (11) and timeEstimate 72000 (20h)
-    target_ids = [28, 35, 78, 101, 104]
+    target_ids = [28, 31, 33, 35, 41, 78, 101, 104]
 
     for issue_id in target_ids:
         issue = next((i for i in state["issues"] if i["id"] == issue_id), None)

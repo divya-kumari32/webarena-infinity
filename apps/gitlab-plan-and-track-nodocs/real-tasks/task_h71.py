@@ -7,9 +7,9 @@ def verify(server_url: str) -> tuple[bool, str]:
     state = resp.json()
 
     # Jun Nakamura (4) open issues with original weight 3:
-    # #66, #73, #77, #96, #102, #117, #123
+    # #28, #66, #73, #77, #96, #102, #117, #123
     # All should now have weight 5
-    target_ids = [66, 73, 77, 96, 102, 117, 123]
+    target_ids = [28, 66, 73, 77, 96, 102, 117, 123]
 
     for issue_id in target_ids:
         issue = next((i for i in state["issues"] if i["id"] == issue_id), None)

@@ -6,9 +6,9 @@ def verify(server_url: str) -> tuple[bool, str]:
         return False, "Could not retrieve application state."
     state = resp.json()
 
-    # Emily (8) open issues in v2.0 (milestoneId 3): #22, #23, #31, #78
+    # Emily (8) open issues in v2.0 (milestoneId 3): #22, #23, #31, #55, #78
     # Each should have priority::high (12) and dueDate 2026-04-15
-    target_ids = [22, 23, 31, 78]
+    target_ids = [22, 23, 31, 55, 78]
 
     for issue_id in target_ids:
         issue = next((i for i in state["issues"] if i["id"] == issue_id), None)

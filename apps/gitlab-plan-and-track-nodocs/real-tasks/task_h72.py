@@ -20,8 +20,8 @@ def verify(server_url: str) -> tuple[bool, str]:
     sprint10_id = sprint10["id"]
 
     # Sprint 7 status::to-do (label 15) issues moved to Sprint 10:
-    # #2, #8, #12, #19, #45, #55
-    for issue_id in [2, 8, 12, 19, 45, 55]:
+    # #2, #8, #12, #16, #19, #23, #45, #55
+    for issue_id in [2, 8, 12, 16, 19, 23, 45, 55]:
         issue = next((i for i in state["issues"] if i["id"] == issue_id), None)
         if issue is None:
             return False, f"Issue #{issue_id} not found."

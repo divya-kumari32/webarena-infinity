@@ -947,6 +947,183 @@ def solve_task_h60(state):
     modify_rx(state, "rx_027", {"dosage": "25mg"})
 
 
+# ── solve functions: HARDENING ROUND 3 ─────────────────────────────
+
+def solve_task_h61(state):
+    """Specialty pharmacy rx (Semaglutide) on hold + settings changes."""
+    hold_rx(state, "rx_030", "Pending prior-auth review")
+    state["settings"]["defaultPharmacy"] = "pharm_009"
+    state["settings"]["defaultRefills"] = 5
+
+
+def solve_task_h62(state):
+    """All pending refills: approve urgent, deny routine."""
+    approve_rr(state, "rr_003")
+    approve_rr(state, "rr_010")
+    deny_rr(state, "rr_001", "Need appointment - overdue for follow-up")
+    deny_rr(state, "rr_002", "Need appointment - overdue for follow-up")
+    deny_rr(state, "rr_005", "Need appointment - overdue for follow-up")
+    deny_rr(state, "rr_007", "Need appointment - overdue for follow-up")
+    deny_rr(state, "rr_011", "Need appointment - overdue for follow-up")
+
+
+def solve_task_h63(state):
+    """Aspirin allergy patient (David) statin to 80mg, NKDA (Aisha) prescribe Amlodipine."""
+    state["currentPatientId"] = "pat_002"
+    modify_rx(state, "rx_017", {"dosage": "80mg"})
+    state["currentPatientId"] = "pat_003"
+    new_rx(state, "pat_003", "drug_005", "Amlodipine", "Norvasc",
+           "5mg Tablet", "5mg", "Once daily", "Oral", 30, 30, 5,
+           "Take 1 tablet by mouth once daily", "pharm_002")
+
+
+def solve_task_h64(state):
+    """Nov 2025 rxs: discontinue PCP's (Pantoprazole), double cardiologist's (Apixaban) qty."""
+    discontinue_rx(state, "rx_005", "Referred to GI specialist")
+    modify_rx(state, "rx_014", {"quantity": 120})
+
+
+def solve_task_h65(state):
+    """Resume on-hold HCTZ, increase qty to 60, frequency twice daily."""
+    resume_rx(state, "rx_012")
+    modify_rx(state, "rx_012", {"quantity": 60, "frequency": "Twice daily"})
+
+
+def solve_task_h66(state):
+    """Kaiser patient (William): ARB to 320mg, approve urgent, deny routine."""
+    state["currentPatientId"] = "pat_004"
+    modify_rx(state, "rx_022", {"dosage": "320mg"})
+    approve_rr(state, "rr_010")
+    deny_rr(state, "rr_007", "Need appointment - overdue for follow-up")
+
+
+def solve_task_h67(state):
+    """Remove allergy-discontinued drug (Amoxicillin) + other antibiotic (Azithromycin) from favorites."""
+    favs = state["settings"]["favoritesDrugIds"]
+    if "drug_025" in favs:
+        favs.remove("drug_025")
+    if "drug_028" in favs:
+        favs.remove("drug_028")
+
+
+def solve_task_h68(state):
+    """Medicare Part D: approve older's (William) urgent, deny younger's (Margaret) Atorvastatin."""
+    approve_rr(state, "rr_010")
+    deny_rr(state, "rr_001", "Need lab work before renewal")
+
+
+def solve_task_h69(state):
+    """Full settings overhaul + favorites reconfiguration."""
+    state["settings"]["defaultPharmacy"] = "pharm_015"
+    state["settings"]["defaultDaysSupply"] = 90
+    state["settings"]["defaultRefills"] = 5
+    state["settings"]["printFormat"] = "detailed"
+    state["settings"]["signatureRequired"] = False
+    state["settings"]["showGenericFirst"] = False
+    favs = state["settings"]["favoritesDrugIds"]
+    if "drug_025" in favs:
+        favs.remove("drug_025")
+    if "drug_028" in favs:
+        favs.remove("drug_028")
+    if "drug_035" not in favs:
+        favs.append("drug_035")
+    if "drug_056" not in favs:
+        favs.append("drug_056")
+
+
+def solve_task_h70(state):
+    """Renew Margaret's rxs: 1 remaining -> 5 refills, 2 remaining -> 3 refills."""
+    # 1 remaining: rx_005 Pantoprazole
+    renew_rx(state, "rx_005", 5)
+    # 2 remaining: rx_001 Atorvastatin, rx_006 Albuterol, rx_008 Flonase
+    renew_rx(state, "rx_001", 3)
+    renew_rx(state, "rx_006", 3)
+    renew_rx(state, "rx_008", 3)
+
+
+def solve_task_h71(state):
+    """Discontinue Robert's Empagliflozin, hold William's insulin, approve Margaret's urgent refill."""
+    state["currentPatientId"] = "pat_006"
+    discontinue_rx(state, "rx_027", "Developed UTI")
+    state["currentPatientId"] = "pat_004"
+    hold_rx(state, "rx_023", "Pending dose review")
+    state["currentPatientId"] = "pat_001"
+    approve_rr(state, "rr_003")
+
+
+def solve_task_h72(state):
+    """Discontinue Margaret's IR Metformin, hold David's ER Metformin."""
+    discontinue_rx(state, "rx_003", "Needs updated A1C results")
+    hold_rx(state, "rx_019", "Needs updated A1C results")
+
+
+def solve_task_h73(state):
+    """Non-Mitchell rxs: family med (Levothyroxine) renew 6, internal med (Gabapentin) hold, cardiology (Apixaban) qty 120."""
+    renew_rx(state, "rx_004", 6)
+    hold_rx(state, "rx_007", "Placed on hold")
+    modify_rx(state, "rx_014", {"quantity": 120})
+
+
+def solve_task_h74(state):
+    """Amlodipine 10mg, Atorvastatin qty 90, approve urgent, modify-approve Atorvastatin refill."""
+    modify_rx(state, "rx_002", {"dosage": "10mg"})
+    modify_rx(state, "rx_001", {"quantity": 90})
+    approve_rr(state, "rr_003")
+    modify_approve_rr(state, "rr_001", "Dose appropriate, 90-day supply approved")
+
+
+def solve_task_h75(state):
+    """4-patient SSRI: renew David's 5, increase Aisha's 10mg, discontinue Margaret's, increase Jessica's 40mg."""
+    renew_rx(state, "rx_018", 5)
+    modify_rx(state, "rx_021", {"dosage": "10mg"})
+    discontinue_rx(state, "rx_013", "Switching to SNRI")
+    modify_rx(state, "rx_026", {"dosage": "40mg"})
+
+
+def solve_task_h76(state):
+    """Beta blockers: David Metoprolol qty 90, Robert Carvedilol 25mg. Settings: refills 3, no auto-interactions."""
+    modify_rx(state, "rx_016", {"quantity": 90})
+    modify_rx(state, "rx_028", {"dosage": "25mg"})
+    state["settings"]["defaultRefills"] = 3
+    state["settings"]["autoCheckInteractions"] = False
+
+
+def solve_task_h77(state):
+    """Discontinue Pantoprazole, prescribe Esomeprazole, compact print."""
+    discontinue_rx(state, "rx_005", "Switching PPI")
+    new_rx(state, "pat_001", "drug_020", "Esomeprazole", "Nexium",
+           "20mg Capsule, Delayed Release", "20mg", "Once daily", "Oral", 30, 30, 2,
+           "Take 1 capsule by mouth once daily before breakfast", "pharm_001")
+    state["settings"]["printFormat"] = "compact"
+
+
+def solve_task_h78(state):
+    """3-patient: David Metoprolol qty 90, Margaret Sertraline twice daily, Robert Carvedilol hold."""
+    modify_rx(state, "rx_016", {"quantity": 90})
+    modify_rx(state, "rx_013", {"frequency": "Twice daily"})
+    hold_rx(state, "rx_028", "Scheduled for procedure")
+
+
+def solve_task_h79(state):
+    """Urgent refill (rr_003) modify-approve, deny all other pending Margaret refills."""
+    modify_approve_rr(state, "rr_003", "Bridging until next visit")
+    deny_rr(state, "rr_001", "Need appointment - overdue for follow-up")
+    deny_rr(state, "rr_002", "Need appointment - overdue for follow-up")
+    deny_rr(state, "rr_011", "Need appointment - overdue for follow-up")
+
+
+def solve_task_h80(state):
+    """Prescribe Rosuvastatin for David, Amlodipine for William."""
+    state["currentPatientId"] = "pat_002"
+    new_rx(state, "pat_002", "drug_003", "Rosuvastatin", "Crestor",
+           "10mg Tablet", "10mg", "Once daily", "Oral", 90, 90, 3,
+           "Take 1 tablet by mouth once daily at bedtime", "pharm_003")
+    state["currentPatientId"] = "pat_004"
+    new_rx(state, "pat_004", "drug_005", "Amlodipine", "Norvasc",
+           "5mg Tablet", "5mg", "Once daily", "Oral", 30, 30, 5,
+           "Take 1 tablet by mouth once daily", "pharm_005")
+
+
 SOLVERS = {
     "task_e1": solve_task_e1, "task_e2": solve_task_e2, "task_e3": solve_task_e3,
     "task_e4": solve_task_e4, "task_e5": solve_task_e5, "task_e6": solve_task_e6,
@@ -983,6 +1160,13 @@ SOLVERS = {
     "task_h53": solve_task_h53, "task_h54": solve_task_h54, "task_h55": solve_task_h55,
     "task_h56": solve_task_h56, "task_h57": solve_task_h57, "task_h58": solve_task_h58,
     "task_h59": solve_task_h59, "task_h60": solve_task_h60,
+    "task_h61": solve_task_h61, "task_h62": solve_task_h62, "task_h63": solve_task_h63,
+    "task_h64": solve_task_h64, "task_h65": solve_task_h65, "task_h66": solve_task_h66,
+    "task_h67": solve_task_h67, "task_h68": solve_task_h68, "task_h69": solve_task_h69,
+    "task_h70": solve_task_h70, "task_h71": solve_task_h71, "task_h72": solve_task_h72,
+    "task_h73": solve_task_h73, "task_h74": solve_task_h74, "task_h75": solve_task_h75,
+    "task_h76": solve_task_h76, "task_h77": solve_task_h77, "task_h78": solve_task_h78,
+    "task_h79": solve_task_h79, "task_h80": solve_task_h80,
 }
 
 

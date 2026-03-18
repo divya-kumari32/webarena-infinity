@@ -19,7 +19,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 APP_DIR = os.path.dirname(os.path.abspath(__file__))
 TASKS_FILE = os.path.join(APP_DIR, "function-tasks.json")
-NUM_TASKS = 57
+NUM_TASKS = 93
 
 
 # ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -616,6 +616,405 @@ def solve_task_57(state):
         state["subscriptions"] = []
     if 33 not in state["subscriptions"]:
         state["subscriptions"].append(33)
+
+
+def solve_task_58(state):
+    """Create issue 'Production database outage alert' with type 'incident'."""
+    nid = get_next_id(state, "issues")
+    state["issues"].append({
+        "id": nid,
+        "title": "Production database outage alert",
+        "description": "",
+        "type": "incident",
+        "status": "open",
+        "authorId": state["currentUserId"],
+        "assigneeIds": [],
+        "labelIds": [],
+        "milestoneId": None,
+        "iterationId": None,
+        "weight": None,
+        "dueDate": None,
+        "confidential": False,
+        "timeEstimate": 0,
+        "timeSpent": 0,
+        "createdAt": "2026-03-18T00:00:00Z",
+        "updatedAt": "2026-03-18T00:00:00Z",
+        "closedAt": None,
+        "relatedIssues": [],
+    })
+
+
+def solve_task_59(state):
+    """Edit description of issue #30."""
+    issue = find_issue(state, 30)
+    issue["description"] = "Implement dark mode with system preference detection and manual toggle."
+
+
+def solve_task_60(state):
+    """Mark issue #34 as confidential."""
+    issue = find_issue(state, 34)
+    issue["confidential"] = True
+
+
+def solve_task_61(state):
+    """Clear weight of issue #28."""
+    issue = find_issue(state, 28)
+    issue["weight"] = None
+
+
+def solve_task_62(state):
+    """Clear due date of issue #28."""
+    issue = find_issue(state, 28)
+    issue["dueDate"] = None
+
+
+def solve_task_63(state):
+    """Remove milestone from issue #29."""
+    issue = find_issue(state, 29)
+    issue["milestoneId"] = None
+
+
+def solve_task_64(state):
+    """Remove iteration from issue #1."""
+    issue = find_issue(state, 1)
+    issue["iterationId"] = None
+
+
+def solve_task_65(state):
+    """Close issue #9 via /close quick action."""
+    issue = find_issue(state, 9)
+    issue["status"] = "closed"
+    issue["closedAt"] = "2026-03-18T00:00:00Z"
+
+
+def solve_task_66(state):
+    """Reopen issue #4 via /reopen quick action."""
+    issue = find_issue(state, 4)
+    issue["status"] = "open"
+    issue["closedAt"] = None
+
+
+def solve_task_67(state):
+    """Remove Li Wei (id 7) from issue #3 via /unassign."""
+    issue = find_issue(state, 3)
+    issue["assigneeIds"] = [a for a in issue["assigneeIds"] if a != 7]
+
+
+def solve_task_68(state):
+    """Remove 'performance' label (id 4) from issue #9 via /unlabel."""
+    issue = find_issue(state, 9)
+    issue["labelIds"] = [l for l in issue["labelIds"] if l != 4]
+
+
+def solve_task_69(state):
+    """Create issue 'Add user activity dashboard' with description."""
+    nid = get_next_id(state, "issues")
+    state["issues"].append({
+        "id": nid,
+        "title": "Add user activity dashboard",
+        "description": "Build a dashboard showing user login history, recent actions, and usage statistics.",
+        "type": "issue",
+        "status": "open",
+        "authorId": state["currentUserId"],
+        "assigneeIds": [],
+        "labelIds": [],
+        "milestoneId": None,
+        "iterationId": None,
+        "weight": None,
+        "dueDate": None,
+        "confidential": False,
+        "timeEstimate": 0,
+        "timeSpent": 0,
+        "createdAt": "2026-03-18T00:00:00Z",
+        "updatedAt": "2026-03-18T00:00:00Z",
+        "closedAt": None,
+        "relatedIssues": [],
+    })
+
+
+def solve_task_70(state):
+    """Create issue 'Update SSL certificates' with due date."""
+    nid = get_next_id(state, "issues")
+    state["issues"].append({
+        "id": nid,
+        "title": "Update SSL certificates",
+        "description": "",
+        "type": "issue",
+        "status": "open",
+        "authorId": state["currentUserId"],
+        "assigneeIds": [],
+        "labelIds": [],
+        "milestoneId": None,
+        "iterationId": None,
+        "weight": None,
+        "dueDate": "2026-07-15",
+        "confidential": False,
+        "timeEstimate": 0,
+        "timeSpent": 0,
+        "createdAt": "2026-03-18T00:00:00Z",
+        "updatedAt": "2026-03-18T00:00:00Z",
+        "closedAt": None,
+        "relatedIssues": [],
+    })
+
+
+def solve_task_71(state):
+    """Create issue 'Sprint 7 planning notes' with iteration Sprint 7 (id 7)."""
+    nid = get_next_id(state, "issues")
+    state["issues"].append({
+        "id": nid,
+        "title": "Sprint 7 planning notes",
+        "description": "",
+        "type": "issue",
+        "status": "open",
+        "authorId": state["currentUserId"],
+        "assigneeIds": [],
+        "labelIds": [],
+        "milestoneId": None,
+        "iterationId": 7,
+        "weight": None,
+        "dueDate": None,
+        "confidential": False,
+        "timeEstimate": 0,
+        "timeSpent": 0,
+        "createdAt": "2026-03-18T00:00:00Z",
+        "updatedAt": "2026-03-18T00:00:00Z",
+        "closedAt": None,
+        "relatedIssues": [],
+    })
+
+
+def solve_task_72(state):
+    """Rename 'tech-debt' label (id 10) to 'technical-debt'."""
+    label = find_label(state, "tech-debt")
+    label["name"] = "technical-debt"
+
+
+def solve_task_73(state):
+    """Create label 'blocked' with color and description."""
+    nid = get_next_id(state, "labels")
+    state["labels"].append({
+        "id": nid,
+        "name": "blocked",
+        "description": "Work is blocked by external dependencies",
+        "color": "#e74c3c",
+        "textColor": "#fff",
+        "scoped": False,
+    })
+
+
+def solve_task_74(state):
+    """Rename 'Backlog' milestone (id 6) to 'Product Backlog'."""
+    ms = find_milestone(state, "Backlog")
+    ms["title"] = "Product Backlog"
+
+
+def solve_task_75(state):
+    """Update v2.1 — Integrations milestone dates."""
+    ms = find_milestone(state, "v2.1 \u2014 Integrations")
+    ms["startDate"] = "2026-05-15"
+    ms["dueDate"] = "2026-07-15"
+
+
+def solve_task_76(state):
+    """Create iteration 'Design Cycle 6' in Design Cycles cadence."""
+    nid = get_next_id(state, "iterations")
+    state["iterations"].append({
+        "id": nid,
+        "cadenceId": 2,  # Design Cycles
+        "title": "Design Cycle 6",
+        "startDate": "2026-04-21",
+        "endDate": "2026-05-11",
+        "status": "upcoming",
+    })
+
+
+def solve_task_77(state):
+    """Create epic 'Documentation Overhaul' with dates."""
+    nid = get_next_id(state, "epics")
+    state["epics"].append({
+        "id": nid,
+        "title": "Documentation Overhaul",
+        "description": "",
+        "status": "open",
+        "startDate": "2026-06-01",
+        "dueDate": "2026-08-31",
+        "labels": [],
+        "authorId": state["currentUserId"],
+        "confidential": False,
+        "childIssueIds": [],
+        "childEpicIds": [],
+        "createdAt": "2026-03-18T00:00:00Z",
+        "updatedAt": "2026-03-18T00:00:00Z",
+    })
+
+
+def solve_task_78(state):
+    """Create confidential epic 'Security Penetration Testing'."""
+    nid = get_next_id(state, "epics")
+    state["epics"].append({
+        "id": nid,
+        "title": "Security Penetration Testing",
+        "description": "",
+        "status": "open",
+        "startDate": None,
+        "dueDate": None,
+        "labels": [],
+        "authorId": state["currentUserId"],
+        "confidential": True,
+        "childIssueIds": [],
+        "childEpicIds": [],
+        "createdAt": "2026-03-18T00:00:00Z",
+        "updatedAt": "2026-03-18T00:00:00Z",
+    })
+
+
+def solve_task_79(state):
+    """Add is_blocked_by from #16 to #15, blocks from #15 to #16."""
+    issue16 = find_issue(state, 16)
+    issue15 = find_issue(state, 15)
+    if not any(r["issueId"] == 15 for r in issue16["relatedIssues"]):
+        issue16["relatedIssues"].append({"issueId": 15, "type": "is_blocked_by"})
+    if not any(r["issueId"] == 16 for r in issue15["relatedIssues"]):
+        issue15["relatedIssues"].append({"issueId": 16, "type": "blocks"})
+
+
+def solve_task_80(state):
+    """Delete 'documentation' label (id 3) and clean up references."""
+    label = find_label(state, "documentation")
+    label_id = label["id"]
+    state["labels"] = [l for l in state["labels"] if l["id"] != label_id]
+    for issue in state["issues"]:
+        issue["labelIds"] = [l for l in issue["labelIds"] if l != label_id]
+    for epic in state["epics"]:
+        epic["labels"] = [l for l in epic["labels"] if l != label_id]
+    for board in state["boards"]:
+        board["lists"] = [l for l in board["lists"] if l.get("labelId") != label_id]
+
+
+def solve_task_81(state):
+    """Delete 'Backlog' milestone (id 6) and clean up references."""
+    ms = find_milestone(state, "Backlog")
+    ms_id = ms["id"]
+    state["milestones"] = [m for m in state["milestones"] if m["id"] != ms_id]
+    for issue in state["issues"]:
+        if issue["milestoneId"] == ms_id:
+            issue["milestoneId"] = None
+
+
+def solve_task_82(state):
+    """Create issue 'Investigate flaky test suite' with labels bug (1) and backend (7)."""
+    nid = get_next_id(state, "issues")
+    state["issues"].append({
+        "id": nid,
+        "title": "Investigate flaky test suite",
+        "description": "",
+        "type": "issue",
+        "status": "open",
+        "authorId": state["currentUserId"],
+        "assigneeIds": [],
+        "labelIds": [1, 7],
+        "milestoneId": None,
+        "iterationId": None,
+        "weight": None,
+        "dueDate": None,
+        "confidential": False,
+        "timeEstimate": 0,
+        "timeSpent": 0,
+        "createdAt": "2026-03-18T00:00:00Z",
+        "updatedAt": "2026-03-18T00:00:00Z",
+        "closedAt": None,
+        "relatedIssues": [],
+    })
+
+
+def solve_task_83(state):
+    """Assign Ana Garcia (id 3) to issue #57."""
+    issue = find_issue(state, 57)
+    if 3 not in issue["assigneeIds"]:
+        issue["assigneeIds"].append(3)
+
+
+def solve_task_84(state):
+    """Add labels 'devops' (9) and 'tech-debt' (10) to issue #52."""
+    issue = find_issue(state, 52)
+    if 9 not in issue["labelIds"]:
+        issue["labelIds"].append(9)
+    if 10 not in issue["labelIds"]:
+        issue["labelIds"].append(10)
+
+
+def solve_task_85(state):
+    """Disable email notifications."""
+    state["notificationSettings"]["email"] = False
+
+
+def solve_task_86(state):
+    """Change notification level to 'disabled'."""
+    state["notificationSettings"]["level"] = "disabled"
+
+
+def solve_task_87(state):
+    """Add board list for 'feature' label (id 2) to Development Board."""
+    board = find_board(state, "Development Board")
+    nid = get_next_id(state, "boardLists")
+    closed_idx = next((i for i, l in enumerate(board["lists"]) if l["type"] == "closed"), len(board["lists"]))
+    board["lists"].insert(closed_idx, {
+        "id": nid,
+        "type": "label",
+        "title": "feature",
+        "position": closed_idx,
+        "labelId": 2,
+    })
+    for i, lst in enumerate(board["lists"]):
+        lst["position"] = i
+
+
+def solve_task_88(state):
+    """Change issue #42 type from 'task' to 'issue'."""
+    issue = find_issue(state, 42)
+    issue["type"] = "issue"
+
+
+def solve_task_89(state):
+    """Change issue #11 priority from critical (11) to medium (13)."""
+    issue = find_issue(state, 11)
+    issue["labelIds"] = [l for l in issue["labelIds"] if l != 11]
+    if 13 not in issue["labelIds"]:
+        issue["labelIds"].append(13)
+
+
+def solve_task_90(state):
+    """Add issue #66 to epic 'Notification System Revamp'."""
+    epic = find_epic(state, "Notification System Revamp")
+    if 66 not in epic["childIssueIds"]:
+        epic["childIssueIds"].append(66)
+
+
+def solve_task_91(state):
+    """Delete iteration 'Sprint 3' and clean up references."""
+    iteration = find_iteration(state, "Sprint 3")
+    iter_id = iteration["id"]
+    state["iterations"] = [i for i in state["iterations"] if i["id"] != iter_id]
+    for issue in state["issues"]:
+        if issue["iterationId"] == iter_id:
+            issue["iterationId"] = None
+
+
+def solve_task_92(state):
+    """Bulk close issues #33, #42, #50."""
+    for issue_id in [33, 42, 50]:
+        issue = find_issue(state, issue_id)
+        issue["status"] = "closed"
+        issue["closedAt"] = "2026-03-18T00:00:00Z"
+
+
+def solve_task_93(state):
+    """Bulk assign issues #52, #57, #58 to David Kim (id 11)."""
+    for issue_id in [52, 57, 58]:
+        issue = find_issue(state, issue_id)
+        if 11 not in issue["assigneeIds"]:
+            issue["assigneeIds"].append(11)
 
 
 # ─── Solver Registry ──────────────────────────────────────────────────────────

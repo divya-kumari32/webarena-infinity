@@ -374,6 +374,11 @@ const App = (() => {
                 _navigate('iteration-detail', { iterationId: parseInt(target.dataset.iterationId) });
                 break;
             case 'create-iteration-confirm': _createIteration(); break;
+            case 'delete-iteration':
+                AppState.deleteIteration(parseInt(target.dataset.iterationId));
+                AppState.showToast('Iteration deleted', 'success');
+                _navigate('iterations');
+                break;
 
             // ─── Epics ────────────────────────────────────────────
             case 'new-epic':
@@ -747,6 +752,14 @@ const App = (() => {
                     AppState.showToast('Child issue added', 'success');
                     render();
                 }
+                break;
+            }
+
+            // Remove child issue from epic
+            case 'remove-child-issue': {
+                AppState.removeChildIssueFromEpic(parseInt(target.dataset.epicId), parseInt(target.dataset.issueId));
+                AppState.showToast('Child issue removed', 'success');
+                render();
                 break;
             }
         }

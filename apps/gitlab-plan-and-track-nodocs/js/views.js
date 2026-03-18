@@ -788,6 +788,7 @@ const Views = (() => {
             <h1>${C._esc(iter.title)}</h1>
             <div class="header-actions">
                 <span class="iteration-status-badge ${iter.status}">${iter.status}</span>
+                <button class="btn btn-sm btn-danger" data-action="delete-iteration" data-iteration-id="${iter.id}">Delete</button>
             </div>
         </div>`;
 
@@ -963,7 +964,9 @@ const Views = (() => {
             <h3>Child issues (${childIssues.length})</h3>`;
         if (childIssues.length > 0) {
             html += `<table class="issues-table"><tbody>`;
-            childIssues.forEach(i => { html += C.issueRow(i); });
+            childIssues.forEach(i => {
+                html += C.issueRow(i).replace('</tr>', `<td class="row-actions"><button class="btn-icon" data-action="remove-child-issue" data-epic-id="${epic.id}" data-issue-id="${i.id}" title="Remove from epic">&times;</button></td></tr>`);
+            });
             html += `</tbody></table>`;
         } else {
             html += `<p class="text-muted">No child issues.</p>`;

@@ -839,6 +839,505 @@ def solve_task_55(state):
     })
 
 
+def solve_task_56(state):
+    """Switch to Aisha Rahman, prescribe Ciprofloxacin 500mg."""
+    state["currentPatientId"] = "pat_003"
+    rx_id = next_rx_id(state)
+    pname = provider_display_name(state)
+    state["prescriptions"].append({
+        "id": rx_id,
+        "patientId": "pat_003",
+        "drugId": "drug_030",
+        "drugName": "Ciprofloxacin",
+        "brandName": "Cipro",
+        "formStrength": "500mg Tablet",
+        "dosage": "500mg",
+        "frequency": "Twice daily",
+        "route": "Oral",
+        "quantity": 14,
+        "daysSupply": 7,
+        "refillsTotal": 0,
+        "refillsRemaining": 0,
+        "sig": "Take 1 tablet by mouth twice daily for 7 days",
+        "daw": False,
+        "pharmacyId": "pharm_002",
+        "prescriberId": "prov_001",
+        "status": "active",
+        "startDate": NOW,
+        "endDate": None,
+        "priorAuth": False,
+        "priorAuthNumber": None,
+        "discontinuedReason": None,
+        "discontinuedDate": None,
+        "fillHistory": [],
+        "history": [{"action": "prescribed", "date": NOW, "provider": pname, "note": "New prescription"}]
+    })
+
+
+def solve_task_57(state):
+    """Switch to William Thornton, prescribe Advair Diskus 250/50mcg inhaler."""
+    state["currentPatientId"] = "pat_004"
+    rx_id = next_rx_id(state)
+    pname = provider_display_name(state)
+    state["prescriptions"].append({
+        "id": rx_id,
+        "patientId": "pat_004",
+        "drugId": "drug_023",
+        "drugName": "Fluticasone/Salmeterol",
+        "brandName": "Advair Diskus",
+        "formStrength": "250/50mcg Dry Powder Inhaler",
+        "dosage": "250/50mcg",
+        "frequency": "Twice daily",
+        "route": "Inhalation",
+        "quantity": 1,
+        "daysSupply": 30,
+        "refillsTotal": 2,
+        "refillsRemaining": 2,
+        "sig": "Inhale 1 puff twice daily, rinse mouth after use",
+        "daw": False,
+        "pharmacyId": "pharm_005",
+        "prescriberId": "prov_001",
+        "status": "active",
+        "startDate": NOW,
+        "endDate": None,
+        "priorAuth": False,
+        "priorAuthNumber": None,
+        "discontinuedReason": None,
+        "discontinuedDate": None,
+        "fillHistory": [],
+        "history": [{"action": "prescribed", "date": NOW, "provider": pname, "note": "New prescription"}]
+    })
+
+
+def solve_task_58(state):
+    """Switch to Jessica Morales, prescribe Diclofenac 1% Topical Gel."""
+    state["currentPatientId"] = "pat_005"
+    rx_id = next_rx_id(state)
+    pname = provider_display_name(state)
+    state["prescriptions"].append({
+        "id": rx_id,
+        "patientId": "pat_005",
+        "drugId": "drug_044",
+        "drugName": "Diclofenac",
+        "brandName": "Voltaren",
+        "formStrength": "1% Topical Gel",
+        "dosage": "1%",
+        "frequency": "Four times daily",
+        "route": "Topical",
+        "quantity": 1,
+        "daysSupply": 30,
+        "refillsTotal": 1,
+        "refillsRemaining": 1,
+        "sig": "Apply gel to affected area four times daily",
+        "daw": False,
+        "pharmacyId": "pharm_001",
+        "prescriberId": "prov_001",
+        "status": "active",
+        "startDate": NOW,
+        "endDate": None,
+        "priorAuth": False,
+        "priorAuthNumber": None,
+        "discontinuedReason": None,
+        "discontinuedDate": None,
+        "fillHistory": [],
+        "history": [{"action": "prescribed", "date": NOW, "provider": pname, "note": "New prescription"}]
+    })
+
+
+def solve_task_59(state):
+    """Switch to Robert Fitzgerald, prescribe Clopidogrel 75mg."""
+    state["currentPatientId"] = "pat_006"
+    rx_id = next_rx_id(state)
+    pname = provider_display_name(state)
+    state["prescriptions"].append({
+        "id": rx_id,
+        "patientId": "pat_006",
+        "drugId": "drug_048",
+        "drugName": "Clopidogrel",
+        "brandName": "Plavix",
+        "formStrength": "75mg Tablet",
+        "dosage": "75mg",
+        "frequency": "Once daily",
+        "route": "Oral",
+        "quantity": 30,
+        "daysSupply": 30,
+        "refillsTotal": 5,
+        "refillsRemaining": 5,
+        "sig": "Take 1 tablet by mouth once daily",
+        "daw": False,
+        "pharmacyId": "pharm_004",
+        "prescriberId": "prov_001",
+        "status": "active",
+        "startDate": NOW,
+        "endDate": None,
+        "priorAuth": False,
+        "priorAuthNumber": None,
+        "discontinuedReason": None,
+        "discontinuedDate": None,
+        "fillHistory": [],
+        "history": [{"action": "prescribed", "date": NOW, "provider": pname, "note": "New prescription"}]
+    })
+
+
+def solve_task_60(state):
+    """Switch to David Kowalski, prescribe Alprazolam 0.25mg (Schedule IV)."""
+    state["currentPatientId"] = "pat_002"
+    rx_id = next_rx_id(state)
+    pname = provider_display_name(state)
+    state["prescriptions"].append({
+        "id": rx_id,
+        "patientId": "pat_002",
+        "drugId": "drug_039",
+        "drugName": "Alprazolam",
+        "brandName": "Xanax",
+        "formStrength": "0.25mg Tablet",
+        "dosage": "0.25mg",
+        "frequency": "Twice daily",
+        "route": "Oral",
+        "quantity": 60,
+        "daysSupply": 30,
+        "refillsTotal": 0,
+        "refillsRemaining": 0,
+        "sig": "Take 0.25mg by mouth twice daily as needed",
+        "daw": False,
+        "pharmacyId": "pharm_003",
+        "prescriberId": "prov_001",
+        "status": "active",
+        "startDate": NOW,
+        "endDate": None,
+        "priorAuth": False,
+        "priorAuthNumber": None,
+        "discontinuedReason": None,
+        "discontinuedDate": None,
+        "fillHistory": [],
+        "history": [{"action": "prescribed", "date": NOW, "provider": pname, "note": "New prescription"}]
+    })
+
+
+def solve_task_61(state):
+    """Prescribe Zolpidem 5mg (Schedule IV) for Margaret Chen."""
+    rx_id = next_rx_id(state)
+    pname = provider_display_name(state)
+    state["prescriptions"].append({
+        "id": rx_id,
+        "patientId": "pat_001",
+        "drugId": "drug_038",
+        "drugName": "Zolpidem",
+        "brandName": "Ambien",
+        "formStrength": "5mg Tablet",
+        "dosage": "5mg",
+        "frequency": "At bedtime",
+        "route": "Oral",
+        "quantity": 30,
+        "daysSupply": 30,
+        "refillsTotal": 0,
+        "refillsRemaining": 0,
+        "sig": "Take 1 tablet by mouth at bedtime as needed for insomnia",
+        "daw": False,
+        "pharmacyId": "pharm_001",
+        "prescriberId": "prov_001",
+        "status": "active",
+        "startDate": NOW,
+        "endDate": None,
+        "priorAuth": False,
+        "priorAuthNumber": None,
+        "discontinuedReason": None,
+        "discontinuedDate": None,
+        "fillHistory": [],
+        "history": [{"action": "prescribed", "date": NOW, "provider": pname, "note": "New prescription"}]
+    })
+
+
+def solve_task_62(state):
+    """Switch to Aisha Rahman, prescribe Flonase nasal spray."""
+    state["currentPatientId"] = "pat_003"
+    rx_id = next_rx_id(state)
+    pname = provider_display_name(state)
+    state["prescriptions"].append({
+        "id": rx_id,
+        "patientId": "pat_003",
+        "drugId": "drug_047",
+        "drugName": "Fluticasone Propionate Nasal",
+        "brandName": "Flonase",
+        "formStrength": "50mcg/spray Nasal Spray",
+        "dosage": "50mcg",
+        "frequency": "Once daily",
+        "route": "Intranasal",
+        "quantity": 1,
+        "daysSupply": 30,
+        "refillsTotal": 3,
+        "refillsRemaining": 3,
+        "sig": "Spray 2 sprays in each nostril once daily",
+        "daw": False,
+        "pharmacyId": "pharm_002",
+        "prescriberId": "prov_001",
+        "status": "active",
+        "startDate": NOW,
+        "endDate": None,
+        "priorAuth": False,
+        "priorAuthNumber": None,
+        "discontinuedReason": None,
+        "discontinuedDate": None,
+        "fillHistory": [],
+        "history": [{"action": "prescribed", "date": NOW, "provider": pname, "note": "New prescription"}]
+    })
+
+
+def solve_task_63(state):
+    """Switch to Jessica Morales, prescribe Valacyclovir 500mg."""
+    state["currentPatientId"] = "pat_005"
+    rx_id = next_rx_id(state)
+    pname = provider_display_name(state)
+    state["prescriptions"].append({
+        "id": rx_id,
+        "patientId": "pat_005",
+        "drugId": "drug_060",
+        "drugName": "Valacyclovir",
+        "brandName": "Valtrex",
+        "formStrength": "500mg Tablet",
+        "dosage": "500mg",
+        "frequency": "Twice daily",
+        "route": "Oral",
+        "quantity": 20,
+        "daysSupply": 10,
+        "refillsTotal": 0,
+        "refillsRemaining": 0,
+        "sig": "Take 1 tablet by mouth twice daily for 7-10 days",
+        "daw": False,
+        "pharmacyId": "pharm_001",
+        "prescriberId": "prov_001",
+        "status": "active",
+        "startDate": NOW,
+        "endDate": None,
+        "priorAuth": False,
+        "priorAuthNumber": None,
+        "discontinuedReason": None,
+        "discontinuedDate": None,
+        "fillHistory": [],
+        "history": [{"action": "prescribed", "date": NOW, "provider": pname, "note": "New prescription"}]
+    })
+
+
+def solve_task_64(state):
+    """Switch to Jessica Morales."""
+    state["currentPatientId"] = "pat_005"
+
+
+def solve_task_65(state):
+    """Switch to Robert Fitzgerald."""
+    state["currentPatientId"] = "pat_006"
+
+
+def solve_task_66(state):
+    """Switch to David Kowalski, discontinue rx_018 (Escitalopram)."""
+    state["currentPatientId"] = "pat_002"
+    rx = find_rx(state, "rx_018")
+    rx["status"] = "discontinued"
+    rx["discontinuedReason"] = "Patient reports side effects, switching medication"
+    rx["discontinuedDate"] = NOW
+    rx["endDate"] = NOW
+    rx["history"].append({
+        "action": "discontinued", "date": NOW,
+        "provider": provider_display_name(state),
+        "note": "Patient reports side effects, switching medication"
+    })
+
+
+def solve_task_67(state):
+    """Switch to David Kowalski, place rx_019 (Metformin ER) on hold."""
+    state["currentPatientId"] = "pat_002"
+    rx = find_rx(state, "rx_019")
+    rx["status"] = "on-hold"
+    rx["history"].append({
+        "action": "on-hold", "date": NOW,
+        "provider": provider_display_name(state),
+        "note": "Pending renal function labs"
+    })
+
+
+def solve_task_68(state):
+    """Switch to Aisha Rahman, cancel rx_021 (Escitalopram)."""
+    state["currentPatientId"] = "pat_003"
+    rx = find_rx(state, "rx_021")
+    rx["status"] = "cancelled"
+    rx["endDate"] = NOW
+    rx["history"].append({
+        "action": "cancelled", "date": NOW,
+        "provider": provider_display_name(state),
+        "note": "Prescription cancelled"
+    })
+
+
+def solve_task_69(state):
+    """Switch to David Kowalski, renew rx_017 (Atorvastatin) with 3 refills."""
+    state["currentPatientId"] = "pat_002"
+    rx = find_rx(state, "rx_017")
+    rx["refillsRemaining"] = 3
+    rx["refillsTotal"] = 3
+    rx["status"] = "active"
+    rx["history"].append({
+        "action": "renewed", "date": NOW,
+        "provider": provider_display_name(state),
+        "note": "Renewed with 3 refills"
+    })
+
+
+def solve_task_70(state):
+    """Switch to David Kowalski, modify rx_016 (Metoprolol ER) dosage to 100mg."""
+    state["currentPatientId"] = "pat_002"
+    rx = find_rx(state, "rx_016")
+    rx["dosage"] = "100mg"
+    rx["history"].append({
+        "action": "modified", "date": NOW,
+        "provider": provider_display_name(state),
+        "note": "dosage: 50mg → 100mg"
+    })
+
+
+def solve_task_71(state):
+    """Modify rx_030 (Semaglutide) sig."""
+    rx = find_rx(state, "rx_030")
+    rx["sig"] = "Inject 1mg subcutaneously once weekly on the same day each week"
+    rx["history"].append({
+        "action": "modified", "date": NOW,
+        "provider": provider_display_name(state),
+        "note": "sig updated"
+    })
+
+
+def solve_task_72(state):
+    """Modify rx_007 (Gabapentin) quantity to 180."""
+    rx = find_rx(state, "rx_007")
+    rx["quantity"] = 180
+    rx["history"].append({
+        "action": "modified", "date": NOW,
+        "provider": provider_display_name(state),
+        "note": "quantity: 90 → 180"
+    })
+
+
+def solve_task_73(state):
+    """Renew rx_005 (Pantoprazole) with 3 refills."""
+    rx = find_rx(state, "rx_005")
+    rx["refillsRemaining"] = 3
+    rx["refillsTotal"] = 3
+    rx["status"] = "active"
+    rx["history"].append({
+        "action": "renewed", "date": NOW,
+        "provider": provider_display_name(state),
+        "note": "Renewed with 3 refills"
+    })
+
+
+def solve_task_74(state):
+    """Switch to Jessica Morales, discontinue rx_026 (Fluoxetine)."""
+    state["currentPatientId"] = "pat_005"
+    rx = find_rx(state, "rx_026")
+    rx["status"] = "discontinued"
+    rx["discontinuedReason"] = "Medication no longer needed, mood stable for 6 months"
+    rx["discontinuedDate"] = NOW
+    rx["endDate"] = NOW
+    rx["history"].append({
+        "action": "discontinued", "date": NOW,
+        "provider": provider_display_name(state),
+        "note": "Medication no longer needed, mood stable for 6 months"
+    })
+
+
+def solve_task_75(state):
+    """Switch to Robert Fitzgerald, place rx_029 (Spironolactone) on hold."""
+    state["currentPatientId"] = "pat_006"
+    rx = find_rx(state, "rx_029")
+    rx["status"] = "on-hold"
+    rx["history"].append({
+        "action": "on-hold", "date": NOW,
+        "provider": provider_display_name(state),
+        "note": "Hyperkalemia detected, K+ 5.8"
+    })
+
+
+def solve_task_76(state):
+    """Switch to David Kowalski, cancel rx_019 (Metformin ER)."""
+    state["currentPatientId"] = "pat_002"
+    rx = find_rx(state, "rx_019")
+    rx["status"] = "cancelled"
+    rx["endDate"] = NOW
+    rx["history"].append({
+        "action": "cancelled", "date": NOW,
+        "provider": provider_display_name(state),
+        "note": "Prescription cancelled"
+    })
+
+
+def solve_task_77(state):
+    """Change default pharmacy to Costco (pharm_006)."""
+    state["settings"]["defaultPharmacy"] = "pharm_006"
+
+
+def solve_task_78(state):
+    """Change default pharmacy to Capsule (pharm_009)."""
+    state["settings"]["defaultPharmacy"] = "pharm_009"
+
+
+def solve_task_79(state):
+    """Change default days supply to 7."""
+    state["settings"]["defaultDaysSupply"] = 7
+
+
+def solve_task_80(state):
+    """Change default refills to 11."""
+    state["settings"]["defaultRefills"] = 11
+
+
+def solve_task_81(state):
+    """Change default refills to 5 and disable signature requirement."""
+    state["settings"]["defaultRefills"] = 5
+    state["settings"]["signatureRequired"] = False
+
+
+def solve_task_82(state):
+    """Change default pharmacy to BioPlus and days supply to 60."""
+    state["settings"]["defaultPharmacy"] = "pharm_010"
+    state["settings"]["defaultDaysSupply"] = 60
+
+
+def solve_task_83(state):
+    """Modify rx_002 (Amlodipine) dosage to 10mg."""
+    rx = find_rx(state, "rx_002")
+    rx["dosage"] = "10mg"
+    rx["history"].append({
+        "action": "modified", "date": NOW,
+        "provider": provider_display_name(state),
+        "note": "dosage: 5mg → 10mg"
+    })
+
+
+def solve_task_84(state):
+    """Switch to Robert Fitzgerald, renew rx_028 (Carvedilol) with 5 refills."""
+    state["currentPatientId"] = "pat_006"
+    rx = find_rx(state, "rx_028")
+    rx["refillsRemaining"] = 5
+    rx["refillsTotal"] = 5
+    rx["status"] = "active"
+    rx["history"].append({
+        "action": "renewed", "date": NOW,
+        "provider": provider_display_name(state),
+        "note": "Renewed with 5 refills"
+    })
+
+
+def solve_task_85(state):
+    """Switch to William Thornton, modify rx_023 (Insulin Glargine) dosage to 30 units."""
+    state["currentPatientId"] = "pat_004"
+    rx = find_rx(state, "rx_023")
+    rx["dosage"] = "30 units"
+    rx["history"].append({
+        "action": "modified", "date": NOW,
+        "provider": provider_display_name(state),
+        "note": "dosage: 24 units → 30 units"
+    })
+
+
 SOLVERS = {
     "task_1": solve_task_1,
     "task_2": solve_task_2,
@@ -895,6 +1394,36 @@ SOLVERS = {
     "task_53": solve_task_53,
     "task_54": solve_task_54,
     "task_55": solve_task_55,
+    "task_56": solve_task_56,
+    "task_57": solve_task_57,
+    "task_58": solve_task_58,
+    "task_59": solve_task_59,
+    "task_60": solve_task_60,
+    "task_61": solve_task_61,
+    "task_62": solve_task_62,
+    "task_63": solve_task_63,
+    "task_64": solve_task_64,
+    "task_65": solve_task_65,
+    "task_66": solve_task_66,
+    "task_67": solve_task_67,
+    "task_68": solve_task_68,
+    "task_69": solve_task_69,
+    "task_70": solve_task_70,
+    "task_71": solve_task_71,
+    "task_72": solve_task_72,
+    "task_73": solve_task_73,
+    "task_74": solve_task_74,
+    "task_75": solve_task_75,
+    "task_76": solve_task_76,
+    "task_77": solve_task_77,
+    "task_78": solve_task_78,
+    "task_79": solve_task_79,
+    "task_80": solve_task_80,
+    "task_81": solve_task_81,
+    "task_82": solve_task_82,
+    "task_83": solve_task_83,
+    "task_84": solve_task_84,
+    "task_85": solve_task_85,
 }
 
 

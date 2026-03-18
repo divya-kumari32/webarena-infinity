@@ -1399,7 +1399,7 @@ def solve_task_h62(state):
 
 def solve_task_h63(state):
     """v2.0 bugs due before 2026-04-01: set critical + 20h estimate."""
-    for issue_id in [28, 35, 78, 101, 104]:
+    for issue_id in [28, 31, 33, 35, 41, 78, 101, 104]:
         issue = find_issue(state, issue_id)
         issue["labelIds"] = [l for l in issue["labelIds"] if l not in (12, 13, 14)]
         if 11 not in issue["labelIds"]:
@@ -1524,7 +1524,7 @@ def solve_task_h70(state):
 
 def solve_task_h71(state):
     """Jun's weight-3 issues → weight 5."""
-    for issue_id in [66, 73, 77, 96, 102, 117, 123]:
+    for issue_id in [28, 66, 73, 77, 96, 102, 117, 123]:
         issue = find_issue(state, issue_id)
         issue["weight"] = 5
 
@@ -1540,7 +1540,7 @@ def solve_task_h72(state):
         "endDate": "2026-05-25",
         "status": "upcoming",
     })
-    for issue_id in [2, 8, 12, 19, 45, 55]:
+    for issue_id in [2, 8, 12, 16, 19, 23, 45, 55]:
         issue = find_issue(state, issue_id)
         issue["iterationId"] = nid
 
@@ -1571,7 +1571,7 @@ def solve_task_h74(state):
 
 def solve_task_h75(state):
     """Emily's v2.0 issues: priority high + due 2026-04-15."""
-    for issue_id in [22, 23, 31, 78]:
+    for issue_id in [22, 23, 31, 55, 78]:
         issue = find_issue(state, issue_id)
         issue["labelIds"] = [l for l in issue["labelIds"] if l not in (11, 13, 14)]
         if 12 not in issue["labelIds"]:

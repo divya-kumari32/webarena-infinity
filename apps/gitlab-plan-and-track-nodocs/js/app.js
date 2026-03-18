@@ -399,6 +399,12 @@ const App = (() => {
                 render();
                 break;
             case 'create-epic-confirm': _createEpic(); break;
+            case 'remove-child-issue': {
+                AppState.removeChildIssueFromEpic(parseInt(target.dataset.epicId), parseInt(target.dataset.issueId));
+                AppState.showToast('Child issue removed', 'success');
+                render();
+                break;
+            }
             case 'filter-epics-status': {
                 AppState.getUI().epicFilters.status = target.dataset.status;
                 render();
@@ -755,13 +761,6 @@ const App = (() => {
                 break;
             }
 
-            // Remove child issue from epic
-            case 'remove-child-issue': {
-                AppState.removeChildIssueFromEpic(parseInt(target.dataset.epicId), parseInt(target.dataset.issueId));
-                AppState.showToast('Child issue removed', 'success');
-                render();
-                break;
-            }
         }
     }
 

@@ -598,5 +598,125 @@
     "difficulty": "hard",
     "instruction": "End-of-shift wrap-up: Deny Margaret's Atorvastatin refill — her cholesterol needs rechecking. Modify and approve the Metformin refill with a note saying 'Reduce to 500mg once daily per GI tolerance.' Switch to William Thornton and increase his Furosemide to 80mg. Switch to Jessica Morales and renew her Fluoxetine with 6 refills. Finally, remove Ibuprofen from the favorites.",
     "verify": "real-tasks/task_h60.py"
+  },
+  {
+    "id": "task_h61",
+    "difficulty": "hard",
+    "instruction": "Review Margaret Chen's active oral prescriptions. Increase the quantity to 60 on every one that currently has a quantity of exactly 30.",
+    "verify": "real-tasks/task_h61.py"
+  },
+  {
+    "id": "task_h62",
+    "difficulty": "hard",
+    "instruction": "Two patients take Escitalopram at different doses. Renew the prescription that has fewer refills remaining with 6 refills, and increase the dosage on the other to 20mg.",
+    "verify": "real-tasks/task_h62.py"
+  },
+  {
+    "id": "task_h63",
+    "difficulty": "hard",
+    "instruction": "Margaret's Pantoprazole dose is too high — reduce it to 20mg. Then switch to Aisha Rahman and prescribe Omeprazole 20mg once daily before breakfast — 30 capsules, 30 days supply, 3 refills, send to Walgreens.",
+    "verify": "real-tasks/task_h63.py"
+  },
+  {
+    "id": "task_h64",
+    "difficulty": "hard",
+    "instruction": "Remove all NSAIDs and all corticosteroids from the prescription favorites. Set the default days supply to 60 and the default refills to 2. Then renew Margaret's rescue inhaler with 5 refills.",
+    "verify": "real-tasks/task_h64.py"
+  },
+  {
+    "id": "task_h65",
+    "difficulty": "hard",
+    "instruction": "Three patients need status changes today. Put David Kowalski's Metoprolol on hold — he's having fatigue. Renew William Thornton's Valsartan with 5 refills. Discontinue Jessica Morales's Cephalexin — the infection has cleared. End on Jessica's chart.",
+    "verify": "real-tasks/task_h65.py"
+  },
+  {
+    "id": "task_h66",
+    "difficulty": "hard",
+    "instruction": "Process Margaret Chen's pending refill requests. Approve each request where the underlying prescription still has 3 or more refills remaining. Deny the rest — she needs to be seen for those renewals.",
+    "verify": "real-tasks/task_h66.py"
+  },
+  {
+    "id": "task_h67",
+    "difficulty": "hard",
+    "instruction": "Dr. Tanaka (the cardiologist) is being audited. Find all his active prescriptions across all patients. Put on hold every one that carries a prior authorization. Renew the rest with 5 refills.",
+    "verify": "real-tasks/task_h67.py"
+  },
+  {
+    "id": "task_h68",
+    "difficulty": "hard",
+    "instruction": "Update settings: default pharmacy to Walgreens and print format to detailed. Then prescribe Omeprazole 20mg once daily before breakfast for David Kowalski — 30 capsules, 30 days supply, 2 refills, send to Rite Aid. Also prescribe the same for Aisha Rahman — send hers to Walgreens.",
+    "verify": "real-tasks/task_h68.py"
+  },
+  {
+    "id": "task_h69",
+    "difficulty": "hard",
+    "instruction": "Two patients are on beta blockers — one takes Metoprolol and the other Carvedilol. Double the Metoprolol patient's dosage to 100mg. Renew the Carvedilol patient's prescription with 6 refills.",
+    "verify": "real-tasks/task_h69.py"
+  },
+  {
+    "id": "task_h70",
+    "difficulty": "hard",
+    "instruction": "Margaret Chen has two active prescriptions started in 2025 that were written by someone other than Dr. Mitchell. Find them and renew both with 5 refills.",
+    "verify": "real-tasks/task_h70.py"
+  },
+  {
+    "id": "task_h71",
+    "difficulty": "hard",
+    "instruction": "Audit all active diabetes medications across the practice. For patients on Metformin (any formulation), increase the quantity to 90. For patients on a non-Metformin diabetes medication, renew with 5 refills.",
+    "verify": "real-tasks/task_h71.py"
+  },
+  {
+    "id": "task_h72",
+    "difficulty": "hard",
+    "instruction": "Margaret is switching from Sertraline to Duloxetine. Deny her pending Sertraline refill — the medication is being changed. Discontinue the Sertraline. Then prescribe Duloxetine 60mg once daily — 30 capsules, 30 days supply, 3 refills, send to CVS.",
+    "verify": "real-tasks/task_h72.py"
+  },
+  {
+    "id": "task_h73",
+    "difficulty": "hard",
+    "instruction": "Aisha Rahman needs Fluconazole 150mg as a one-time dose — send to Walgreens, quantity 1, no refills. Jessica Morales also needs Fluconazole 150mg one-time at CVS. While on Jessica's chart, discontinue her Cephalexin — the cellulitis has cleared — and renew her Fluoxetine with 5 refills.",
+    "verify": "real-tasks/task_h73.py"
+  },
+  {
+    "id": "task_h74",
+    "difficulty": "hard",
+    "instruction": "One of our patients is taking both a statin and a beta blocker. Find that patient, switch to their chart, increase the statin dosage to 80mg, and change the beta blocker quantity to 60.",
+    "verify": "real-tasks/task_h74.py"
+  },
+  {
+    "id": "task_h75",
+    "difficulty": "hard",
+    "instruction": "Morning clinic: Approve Margaret's urgent Pantoprazole refill. Modify and approve her Metformin refill with the note 'Continue current dose — recheck A1C in 3 months.' Deny her Sertraline refill — changing medications. Leave her Atorvastatin refill pending. Then set the default pharmacy to Walgreens and disable the signature requirement.",
+    "verify": "real-tasks/task_h75.py"
+  },
+  {
+    "id": "task_h76",
+    "difficulty": "hard",
+    "instruction": "Both William Thornton and Jessica Morales need a short course of Prednisone 20mg once daily for 5 days — 5 tablets, no refills. Send William's to Kaiser and Jessica's to CVS.",
+    "verify": "real-tasks/task_h76.py"
+  },
+  {
+    "id": "task_h77",
+    "difficulty": "hard",
+    "instruction": "The patient born before 1950 is going on a 3-month trip. Find him, switch to his chart, and renew all three of his active prescriptions with 6 refills each.",
+    "verify": "real-tasks/task_h77.py"
+  },
+  {
+    "id": "task_h78",
+    "difficulty": "hard",
+    "instruction": "End-of-week tasks: Change the print format to compact and set default refills to 3. Remove Prednisone from the favorites. Switch to William Thornton — approve his urgent Furosemide refill and renew his Valsartan with 5 refills. Then switch to Jessica Morales and discontinue her Cephalexin — the infection has resolved.",
+    "verify": "real-tasks/task_h78.py"
+  },
+  {
+    "id": "task_h79",
+    "difficulty": "hard",
+    "instruction": "Margaret's specialty pharmacy (BioPlus) is closing. Discontinue her Semaglutide there and write a new prescription: Semaglutide 1mg subcutaneously once weekly — quantity 1, 28 days supply, 3 refills, with prior authorization number PA-2026-12345. Send it to Accredo Specialty Pharmacy.",
+    "verify": "real-tasks/task_h79.py"
+  },
+  {
+    "id": "task_h80",
+    "difficulty": "hard",
+    "instruction": "Weekly review: Increase Margaret's Amlodipine dosage to 10mg and renew her Apixaban with 5 refills. Switch to David Kowalski and increase his Atorvastatin quantity to 90. Switch to Robert Fitzgerald, put his Carvedilol on hold — bradycardia episodes — and renew his Spironolactone with 4 refills. End on Robert's chart.",
+    "verify": "real-tasks/task_h80.py"
   }
 ]

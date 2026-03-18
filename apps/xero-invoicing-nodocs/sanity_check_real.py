@@ -739,6 +739,213 @@ def solve_task_h20(state):
     ], issueDate="2026-03-18", dueDate="2026-04-17")
 
 
+# ---------- HARD (Hardening Round 1) ----------
+
+def solve_task_h21(state):
+    """Void all overdue invoices for Auckland contacts."""
+    auckland_ids = set()
+    for c in state["contacts"]:
+        if c.get("billingAddress", {}).get("city") == "Auckland":
+            auckland_ids.add(c["id"])
+    for inv in state["invoices"]:
+        if inv["contactId"] in auckland_ids and inv["status"] == "overdue":
+            void_invoice(state, inv)
+
+
+def solve_task_h22(state):
+    """Record full payment for the highest-total overdue invoice."""
+    overdue = [inv for inv in state["invoices"] if inv["status"] == "overdue"]
+    target = max(overdue, key=lambda i: i["total"])
+    add_payment(state, target["id"], target["amountDue"], "bank_1")
+
+
+def solve_task_h23(state):
+    """Approve drafts > $5k, delete drafts <= $5k."""
+    to_approve = []
+    to_delete = []
+    for inv in state["invoices"]:
+        if inv["status"] == "draft":
+            if inv["total"] > 5000:
+                to_approve.append(inv)
+            else:
+                to_delete.append(inv["id"])
+    for inv in to_approve:
+        approve_invoice(state, inv)
+    for inv_id in to_delete:
+        state["invoices"] = [i for i in state["invoices"] if i["id"] != inv_id]
+        state["payments"] = [p for p in state["payments"] if p["invoiceId"] != inv_id]
+
+
+def solve_task_h24(state):
+    """Create Alpine Ventures Ltd, create invoice, approve and send."""
+    contact = create_contact(state, "Alpine Ventures Ltd", "finance@alpineventures.co.nz",
+                             phone="+64 3 450 8800", street="42 Beach Street",
+                             city="Queenstown", region="Otago", postal_code="9300",
+                             country="New Zealand")
+    inv = make_invoice(state, contact["id"], [
+        {"description": "Strategic consulting engagement", "quantity": 20, "unitPrice": 250,
+         "taxRateId": "tax_1", "accountCode": "200"},
+        {"description": "Market research report", "quantity": 1, "unitPrice": 3500,
+         "taxRateId": "tax_1", "accountCode": "200"},
+    ], issueDate="2026-03-18", dueDate="2026-04-17", reference="AV-2026-001",
+       status="awaiting_payment", sentAt=NOW)
+
+
+def solve_task_h25(state):
+    """Send all awaiting_approval invoices for Auckland contacts."""
+    auckland_ids = set()
+    for c in state["contacts"]:
+        if c.get("billingAddress", {}).get("city") == "Auckland":
+            auckland_ids.add(c["id"])
+    for inv in state["invoices"]:
+        if inv["contactId"] in auckland_ids and inv["status"] == "awaiting_approval":
+            send_invoice(state, inv)
+
+
+def solve_task_h26(state):
+    """Pay all AUD overdue via AUD Holding, all NZD overdue > $10k via Business Cheque."""
+    for inv in state["invoices"]:
+        if inv["status"] == "overdue":
+            if inv["currency"] == "AUD":
+                add_payment(state, inv["id"], inv["amountDue"], "bank_4")
+            elif inv["currency"] == "NZD" and inv["total"] > 10000:
+                add_payment(state, inv["id"], inv["amountDue"], "bank_1")
+
+
+def solve_task_h27(state):
+    """$5k partial payment on top 3 overdue by outstanding amount."""
+    overdue = [inv for inv in state["invoices"] if inv["status"] == "overdue"]
+    overdue.sort(key=lambda i: i["amountDue"], reverse=True)
+    for inv in overdue[:3]:
+        add_payment(state, inv["id"], 5000, "bank_1")
+
+
+def solve_task_h28(state):
+    """Copy INV-0009, change contact to Velocity Sports, ref VSE-COPY-001."""
+    orig = find_invoice_by_number(state, "INV-0009")
+    con = find_contact_by_name(state, "Velocity Sports Equipment")
+    li_raw = [{"description": li["description"], "quantity": li["quantity"],
+               "unitPrice": li["unitPrice"], "taxRateId": li["taxRateId"],
+               "accountCode": li["accountCode"]} for li in orig["lineItems"]]
+    make_invoice(state, con["id"], li_raw,
+                 reference="VSE-COPY-001", notes=orig["notes"], currency=orig["currency"],
+                 brandingThemeId=orig["brandingThemeId"])
+
+
+def solve_task_h29(state):
+    """Update Bay of Plenty region to BOP."""
+    for con in state["contacts"]:
+        if con.get("billingAddress", {}).get("region") == "Bay of Plenty":
+            con["billingAddress"]["region"] = "BOP"
+
+
+def solve_task_h30(state):
+    """Change prefix to KPS-, create draft for Summit Financial Advisors."""
+    state["settings"]["invoiceNumberPrefix"] = "KPS-"
+    con = find_contact_by_name(state, "Summit Financial Advisors")
+    make_invoice(state, con["id"], [
+        {"description": "Annual advisory retainer", "quantity": 1, "unitPrice": 12000,
+         "taxRateId": "tax_1", "accountCode": "200"},
+    ], issueDate="2026-03-18", dueDate="2026-04-17")
+
+
+def solve_task_h31(state):
+    """Void PO- overdue, pay JOB- overdue."""
+    for inv in state["invoices"]:
+        if inv["status"] == "overdue":
+            ref = inv.get("reference", "")
+            if ref.startswith("PO-"):
+                void_invoice(state, inv)
+            elif ref.startswith("JOB-"):
+                add_payment(state, inv["id"], inv["amountDue"], "bank_1")
+
+
+def solve_task_h32(state):
+    """Send all awaiting_approval, change due terms to 60."""
+    for inv in state["invoices"]:
+        if inv["status"] == "awaiting_approval":
+            send_invoice(state, inv)
+    state["settings"]["defaultDueDateTerms"] = "60"
+
+
+def solve_task_h33(state):
+    """Void the overdue invoice with the earliest due date."""
+    overdue = [inv for inv in state["invoices"] if inv["status"] == "overdue"]
+    target = min(overdue, key=lambda i: i["dueDate"])
+    void_invoice(state, target)
+
+
+def solve_task_h34(state):
+    """Approve and send all draft invoices with total > $10k."""
+    for inv in state["invoices"]:
+        if inv["status"] == "draft" and inv["total"] > 10000:
+            send_invoice(state, inv)
+
+
+def solve_task_h35(state):
+    """$1k partial payment on every Auckland overdue invoice."""
+    auckland_ids = set()
+    for c in state["contacts"]:
+        if c.get("billingAddress", {}).get("region") == "Auckland":
+            auckland_ids.add(c["id"])
+    for inv in state["invoices"]:
+        if inv["contactId"] in auckland_ids and inv["status"] == "overdue":
+            add_payment(state, inv["id"], 1000, "bank_1")
+
+
+def solve_task_h36(state):
+    """Void every overdue invoice with empty reference."""
+    for inv in state["invoices"]:
+        if inv["status"] == "overdue" and not inv.get("reference", "").strip():
+            void_invoice(state, inv)
+
+
+def solve_task_h37(state):
+    """Update notes on every partially-paid invoice."""
+    for inv in state["invoices"]:
+        if (inv["status"] in ("awaiting_payment", "overdue")
+                and inv.get("amountPaid", 0) > 0
+                and inv.get("amountDue", 0) > 0.01):
+            inv["notes"] = "Partial payment received - follow up required"
+            inv["updatedAt"] = NOW
+
+
+def solve_task_h38(state):
+    """Delete all draft invoices with no reference."""
+    to_delete = [inv["id"] for inv in state["invoices"]
+                 if inv["status"] == "draft" and not inv.get("reference", "").strip()]
+    for inv_id in to_delete:
+        state["invoices"] = [i for i in state["invoices"] if i["id"] != inv_id]
+        state["payments"] = [p for p in state["payments"] if p["invoiceId"] != inv_id]
+
+
+def solve_task_h39(state):
+    """Update phone for contacts with voided invoices."""
+    voided_contact_ids = set()
+    for inv in state["invoices"]:
+        if inv["status"] == "voided":
+            voided_contact_ids.add(inv["contactId"])
+    for con in state["contacts"]:
+        if con["id"] in voided_contact_ids:
+            con["phone"] = "+64 0 000 0000"
+
+
+def solve_task_h40(state):
+    """Create Aotearoa Digital Agency and draft invoice with 3 line items."""
+    contact = create_contact(state, "Aotearoa Digital Agency", "hello@aotearoadigital.co.nz",
+                             phone="+64 4 900 1234", street="30 Courtenay Place",
+                             city="Wellington", region="Wellington", postal_code="6011",
+                             country="New Zealand", tax_id="NZ-99-111-222")
+    make_invoice(state, contact["id"], [
+        {"description": "Brand strategy workshop", "quantity": 2, "unitPrice": 1800,
+         "taxRateId": "tax_1", "accountCode": "200"},
+        {"description": "Logo design package", "quantity": 1, "unitPrice": 4500,
+         "taxRateId": "tax_1", "accountCode": "200"},
+        {"description": "Style guide document", "quantity": 1, "unitPrice": 2200,
+         "taxRateId": "tax_1", "accountCode": "200"},
+    ], issueDate="2026-03-18", dueDate="2026-05-17", reference="BRAND-2026-001")
+
+
 SOLVERS = {
     "task_e1": solve_task_e1,
     "task_e2": solve_task_e2,
@@ -800,6 +1007,26 @@ SOLVERS = {
     "task_h18": solve_task_h18,
     "task_h19": solve_task_h19,
     "task_h20": solve_task_h20,
+    "task_h21": solve_task_h21,
+    "task_h22": solve_task_h22,
+    "task_h23": solve_task_h23,
+    "task_h24": solve_task_h24,
+    "task_h25": solve_task_h25,
+    "task_h26": solve_task_h26,
+    "task_h27": solve_task_h27,
+    "task_h28": solve_task_h28,
+    "task_h29": solve_task_h29,
+    "task_h30": solve_task_h30,
+    "task_h31": solve_task_h31,
+    "task_h32": solve_task_h32,
+    "task_h33": solve_task_h33,
+    "task_h34": solve_task_h34,
+    "task_h35": solve_task_h35,
+    "task_h36": solve_task_h36,
+    "task_h37": solve_task_h37,
+    "task_h38": solve_task_h38,
+    "task_h39": solve_task_h39,
+    "task_h40": solve_task_h40,
 }
 
 

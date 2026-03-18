@@ -1183,6 +1183,248 @@ def solve_task_h60(state):
     ], issueDate="2026-03-18", dueDate="2026-03-25", reference="EMRG-001")
 
 
+# ---------- HARD (hardening round 3) ----------
+
+def solve_task_h61(state):
+    """Pay all overdue invoices for the contact with the highest total overdue balance."""
+    # Bloom & Branch Florists (con_15): inv_15 ($35,937.50) + inv_40 ($121,725) = $157,662.50
+    con = find_contact_by_name(state, "Bloom & Branch Florists")
+    for inv in state["invoices"]:
+        if inv["contactId"] == con["id"] and inv["status"] == "overdue":
+            add_payment(state, inv["id"], inv["amountDue"], "bank_1")
+
+
+def solve_task_h62(state):
+    """AUD invoices: approve AA, void overdue."""
+    for inv in state["invoices"]:
+        if inv.get("currency") == "AUD":
+            if inv["status"] == "awaiting_approval":
+                approve_invoice(state, inv)
+            elif inv["status"] == "overdue":
+                void_invoice(state, inv)
+
+
+def solve_task_h63(state):
+    """Pay smallest AP balance via Credit Card."""
+    ap = [i for i in state["invoices"] if i["status"] == "awaiting_payment"]
+    ap.sort(key=lambda i: i["amountDue"])
+    inv = ap[0]  # inv_55, amountDue=37.20
+    add_payment(state, inv["id"], inv["amountDue"], "bank_5")
+
+
+def solve_task_h64(state):
+    """Prefix PAY-, next 300, create drafts for Bay of Plenty contacts."""
+    state["settings"]["invoiceNumberPrefix"] = "PAY-"
+    state["settings"]["invoiceNumberNextNumber"] = 300
+    bop_contacts = [c for c in state["contacts"]
+                    if c.get("billingAddress", {}).get("region") == "Bay of Plenty"]
+    for con in bop_contacts:
+        make_invoice(state, con["id"], [
+            {"description": "Regional service fee", "quantity": 1, "unitPrice": 500,
+             "taxRateId": "tax_1", "accountCode": "200"},
+        ], issueDate="2026-03-18", dueDate="2026-04-17")
+
+
+def solve_task_h65(state):
+    """Waikato: Hamilton first → approve AA + pay overdue; Velocity → delete drafts."""
+    # Hamilton Plumbing (alphabetically first)
+    con_hp = find_contact_by_name(state, "Hamilton Plumbing Services")
+    for inv in state["invoices"]:
+        if inv["contactId"] == con_hp["id"]:
+            if inv["status"] == "awaiting_approval":
+                approve_invoice(state, inv)
+            elif inv["status"] == "overdue":
+                add_payment(state, inv["id"], inv["amountDue"], "bank_1")
+    # Velocity Sports (alphabetically second)
+    con_vs = find_contact_by_name(state, "Velocity Sports Equipment")
+    to_delete = [inv["id"] for inv in state["invoices"]
+                 if inv["contactId"] == con_vs["id"] and inv["status"] == "draft"]
+    for inv_id in to_delete:
+        state["invoices"] = [i for i in state["invoices"] if i["id"] != inv_id]
+        state["payments"] = [p for p in state["payments"] if p["invoiceId"] != inv_id]
+
+
+def solve_task_h66(state):
+    """$2,000 partial payment on overdue invoices for INV-0079's contact via Business Savings."""
+    inv_79 = find_invoice_by_number(state, "INV-0079")
+    con_id = inv_79["contactId"]  # Nexus Technologies (con_4)
+    for inv in state["invoices"]:
+        if inv["contactId"] == con_id and inv["status"] == "overdue":
+            add_payment(state, inv["id"], 2000, "bank_2")
+
+
+def solve_task_h67(state):
+    """Pay all AP invoices for the contact with the most expensive paid invoice."""
+    paid = [i for i in state["invoices"] if i["status"] == "paid"]
+    paid.sort(key=lambda i: i["total"], reverse=True)
+    top_con_id = paid[0]["contactId"]  # inv_48, Redwood PM (con_23)
+    for inv in state["invoices"]:
+        if inv["contactId"] == top_con_id and inv["status"] == "awaiting_payment":
+            add_payment(state, inv["id"], inv["amountDue"], "bank_1")
+
+
+def solve_task_h68(state):
+    """Settings + create Peninsula Consulting Group + approved invoice."""
+    state["settings"]["latePenaltyEnabled"] = True
+    state["settings"]["latePenaltyRate"] = 2
+    state["settings"]["latePenaltyFrequency"] = "weekly"
+    state["settings"]["defaultBrandingThemeId"] = "theme_3"
+    contact = create_contact(state, "Peninsula Consulting Group", "billing@peninsula.co.nz",
+                             phone="+64 9 445 2200", street="75 Hurstmere Road",
+                             city="Takapuna", region="Auckland", postal_code="0622",
+                             country="New Zealand")
+    make_invoice(state, contact["id"], [
+        {"description": "Strategic planning workshop", "quantity": 2, "unitPrice": 1500,
+         "taxRateId": "tax_1", "accountCode": "200"},
+        {"description": "Follow-up review session", "quantity": 1, "unitPrice": 800,
+         "taxRateId": "tax_1", "accountCode": "200"},
+    ], issueDate="2026-03-18", dueDate="2026-04-17", reference="PEN-001",
+       status="awaiting_payment")
+
+
+def solve_task_h69(state):
+    """$500 partial payment on PROJ- overdue invoices via Business Savings."""
+    for inv in list(state["invoices"]):
+        if inv["status"] == "overdue" and inv.get("reference", "").startswith("PROJ-"):
+            add_payment(state, inv["id"], 500, "bank_2")
+
+
+def solve_task_h70(state):
+    """Void earliest-due overdue invoice, create draft for same contact."""
+    overdue = [i for i in state["invoices"] if i["status"] == "overdue"]
+    overdue.sort(key=lambda i: i["dueDate"])
+    earliest = overdue[0]  # inv_87 Swift Courier, dueDate 2025-10-27
+    void_invoice(state, earliest)
+    make_invoice(state, earliest["contactId"], [
+        {"description": "Replacement order", "quantity": 1, "unitPrice": 1000,
+         "taxRateId": "tax_1", "accountCode": "200"},
+    ], issueDate="2026-03-18", dueDate="2026-04-17")
+
+
+def solve_task_h71(state):
+    """S-contacts: approve all AA, pay all overdue via Business Cheque."""
+    s_contacts = [c for c in state["contacts"] if c["name"].startswith("S")]
+    s_ids = {c["id"] for c in s_contacts}
+    for inv in state["invoices"]:
+        if inv["contactId"] in s_ids:
+            if inv["status"] == "awaiting_approval":
+                approve_invoice(state, inv)
+            elif inv["status"] == "overdue":
+                add_payment(state, inv["id"], inv["amountDue"], "bank_1")
+
+
+def solve_task_h72(state):
+    """PO-2025 invoices: approve AA, void overdue."""
+    for inv in state["invoices"]:
+        if "PO-2025" in inv.get("reference", ""):
+            if inv["status"] == "awaiting_approval":
+                approve_invoice(state, inv)
+            elif inv["status"] == "overdue":
+                void_invoice(state, inv)
+
+
+def solve_task_h73(state):
+    """Copy most expensive paid DataFlow invoice, set reference RENEWAL-2026."""
+    con = find_contact_by_name(state, "DataFlow Analytics Inc")
+    paid_df = [i for i in state["invoices"]
+               if i["contactId"] == con["id"] and i["status"] == "paid"]
+    paid_df.sort(key=lambda i: i["total"], reverse=True)
+    orig = paid_df[0]  # inv_86, $53,216.25
+    li_raw = [{"description": li["description"], "quantity": li["quantity"],
+               "unitPrice": li["unitPrice"], "taxRateId": li["taxRateId"],
+               "accountCode": li["accountCode"]} for li in orig["lineItems"]]
+    make_invoice(state, orig["contactId"], li_raw,
+                 reference="RENEWAL-2026", notes=orig["notes"], currency=orig["currency"],
+                 brandingThemeId=orig["brandingThemeId"])
+
+
+def solve_task_h74(state):
+    """Update Wellington contacts postal code to 6140."""
+    for con in state["contacts"]:
+        if con.get("billingAddress", {}).get("region") == "Wellington":
+            con["billingAddress"]["postalCode"] = "6140"
+
+
+def solve_task_h75(state):
+    """Pay INV-0107, create approved invoice for Green Valley Organics."""
+    inv_107 = find_invoice_by_number(state, "INV-0107")
+    add_payment(state, inv_107["id"], inv_107["amountDue"], "bank_1")
+    con = find_contact_by_name(state, "Green Valley Organics")
+    make_invoice(state, con["id"], [
+        {"description": "Organic produce supply Q2", "quantity": 20, "unitPrice": 175,
+         "taxRateId": "tax_1", "accountCode": "200"},
+        {"description": "Delivery charges", "quantity": 4, "unitPrice": 85,
+         "taxRateId": "tax_1", "accountCode": "200"},
+    ], issueDate="2026-03-18", dueDate="2026-05-18", status="awaiting_payment")
+
+
+def solve_task_h76(state):
+    """Pay Rotorua contact overdue invoices, update phone."""
+    # Pacific Timber Supplies (Rotorua)
+    con = next(c for c in state["contacts"]
+               if c.get("billingAddress", {}).get("city") == "Rotorua")
+    for inv in state["invoices"]:
+        if inv["contactId"] == con["id"] and inv["status"] == "overdue":
+            add_payment(state, inv["id"], inv["amountDue"], "bank_1")
+    con["phone"] = "+64 7 347 0000"
+
+
+def solve_task_h77(state):
+    """Settings: tax ID + late penalties. Void overdue < $5K."""
+    state["settings"]["companyTaxId"] = "NZ-99-999-999"
+    state["settings"]["latePenaltyEnabled"] = True
+    state["settings"]["latePenaltyRate"] = 4
+    state["settings"]["latePenaltyFrequency"] = "daily"
+    for inv in state["invoices"]:
+        if inv["status"] == "overdue" and inv["total"] < 5000:
+            void_invoice(state, inv)
+
+
+def solve_task_h78(state):
+    """San Francisco contact: pay AP via USD Holding, approve AA."""
+    # DataFlow Analytics (San Francisco)
+    con = next(c for c in state["contacts"]
+               if c.get("billingAddress", {}).get("city") == "San Francisco")
+    for inv in state["invoices"]:
+        if inv["contactId"] == con["id"]:
+            if inv["status"] == "awaiting_payment":
+                add_payment(state, inv["id"], inv["amountDue"], "bank_3")
+            elif inv["status"] == "awaiting_approval":
+                approve_invoice(state, inv)
+
+
+def solve_task_h79(state):
+    """Create Wairau Valley Vineyards + approved AUD invoice."""
+    contact = create_contact(state, "Wairau Valley Vineyards", "wine@wairauvalley.co.nz",
+                             phone="+64 3 572 8800", street="120 Rapaura Road",
+                             city="Blenheim", region="Marlborough", postal_code="7273",
+                             country="New Zealand", tax_id="NZ-71-234-567")
+    make_invoice(state, contact["id"], [
+        {"description": "Premium wine tasting event", "quantity": 1, "unitPrice": 2500,
+         "taxRateId": "tax_1", "accountCode": "200"},
+        {"description": "Vineyard tour - group of 20", "quantity": 2, "unitPrice": 600,
+         "taxRateId": "tax_1", "accountCode": "200"},
+        {"description": "Souvenir gift packs", "quantity": 20, "unitPrice": 45,
+         "taxRateId": "tax_1", "accountCode": "200"},
+    ], currency="AUD", issueDate="2026-03-18", dueDate="2026-05-18",
+       reference="WVV-2026-001", status="awaiting_payment")
+
+
+def solve_task_h80(state):
+    """Settings: Bold Corporate + AU GST. Create AUD invoice for CloudBridge, approve + send."""
+    state["settings"]["defaultBrandingThemeId"] = "theme_4"
+    state["settings"]["defaultTaxRateId"] = "tax_7"
+    con = next(c for c in state["contacts"]
+               if c.get("billingAddress", {}).get("country") == "Australia")
+    make_invoice(state, con["id"], [
+        {"description": "Annual support contract", "quantity": 1, "unitPrice": 12000,
+         "taxRateId": "tax_7", "accountCode": "200"},
+        {"description": "Implementation fee", "quantity": 1, "unitPrice": 5000,
+         "taxRateId": "tax_7", "accountCode": "200"},
+    ], currency="AUD", issueDate="2026-03-18", dueDate="2026-06-18",
+       reference="AU-SUPPORT-2026", status="awaiting_payment", sentAt=NOW)
+
+
 SOLVERS = {
     "task_e1": solve_task_e1,
     "task_e2": solve_task_e2,
@@ -1284,6 +1526,26 @@ SOLVERS = {
     "task_h58": solve_task_h58,
     "task_h59": solve_task_h59,
     "task_h60": solve_task_h60,
+    "task_h61": solve_task_h61,
+    "task_h62": solve_task_h62,
+    "task_h63": solve_task_h63,
+    "task_h64": solve_task_h64,
+    "task_h65": solve_task_h65,
+    "task_h66": solve_task_h66,
+    "task_h67": solve_task_h67,
+    "task_h68": solve_task_h68,
+    "task_h69": solve_task_h69,
+    "task_h70": solve_task_h70,
+    "task_h71": solve_task_h71,
+    "task_h72": solve_task_h72,
+    "task_h73": solve_task_h73,
+    "task_h74": solve_task_h74,
+    "task_h75": solve_task_h75,
+    "task_h76": solve_task_h76,
+    "task_h77": solve_task_h77,
+    "task_h78": solve_task_h78,
+    "task_h79": solve_task_h79,
+    "task_h80": solve_task_h80,
 }
 
 

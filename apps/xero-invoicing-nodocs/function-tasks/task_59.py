@@ -14,4 +14,7 @@ def verify(server_url: str) -> tuple[bool, str]:
         return False, f"Expected status 'awaiting_payment', got '{inv['status']}'"
     if not inv.get("sentAt"):
         return False, "sentAt is null — invoice was not sent."
+    sent_activities = [a for a in inv.get("activity", []) if a.get("type") == "sent"]
+    if len(sent_activities) < 2:
+        return False, f"Expected at least 2 'sent' activity entries (seed + agent send), found {len(sent_activities)}."
     return True, "Invoice INV-0011 sent successfully."

@@ -22,3 +22,7 @@ infra/logs/
 *.log
 /tmp/mirror-mirror-logs/
 /tmp/mirror-mirror-infra.env
+
+# Local tool/IDE config
+.claude/
+.vscode/

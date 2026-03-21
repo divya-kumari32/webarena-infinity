@@ -1,0 +1,146 @@
+<svg viewBox="0 0 1200 118" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <marker id="ah" viewBox="0 0 10 10" refX="9" refY="5"
+            markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M 1 1 L 9 5 L 1 9 Z" fill="#555"/>
+    </marker>
+    <marker id="al" viewBox="0 0 10 10" refX="9" refY="5"
+            markerWidth="5" markerHeight="5" orient="auto">
+      <path d="M 1 1 L 9 5 L 1 9 Z" fill="#888"/>
+    </marker>
+  </defs>
+
+  <style>
+    text {
+      font-family: 'DejaVu Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+      fill: #282828;
+    }
+  </style>
+
+  <!-- ═══ MAIN BOXES (y=6, h=80) ═══ -->
+
+  <!-- 1. Static Artifacts -->
+  <rect x="10" y="6" width="76" height="80" rx="8"
+        fill="#f0f0f0" stroke="#999" stroke-width="1" stroke-dasharray="5 3"/>
+  <g transform="translate(48, 22)">
+    <path d="M-5,-8 L-5,8 L5,8 L5,-3 L1,-8 Z" fill="none" stroke="#555" stroke-width="1.2" stroke-linejoin="round"/>
+    <path d="M1,-8 L1,-3 L5,-3" fill="none" stroke="#555" stroke-width="1.2" stroke-linejoin="round"/>
+  </g>
+  <text x="48" y="48" text-anchor="middle" font-size="14">
+    <tspan x="48">Static</tspan>
+    <tspan x="48" dy="16">Artifacts</tspan>
+  </text>
+  <line x1="86" y1="46" x2="100" y2="46" stroke="#555" stroke-width="1.2" marker-end="url(#ah)"/>
+
+  <!-- 2. Web Environment Generation -->
+  <rect x="100" y="6" width="128" height="80" rx="8" fill="#77B1F2"/>
+  <g transform="translate(164, 22)">
+    <rect x="-8" y="-6" width="16" height="12" rx="2" fill="none" stroke="#444" stroke-width="1.2"/>
+    <line x1="-8" y1="-2" x2="8" y2="-2" stroke="#444" stroke-width="1"/>
+    <circle cx="-5" cy="-4" r="1" fill="#444"/>
+    <circle cx="-2" cy="-4" r="1" fill="#444"/>
+  </g>
+  <text x="164" y="48" text-anchor="middle" font-size="14">
+    <tspan x="164">Web Environment</tspan>
+    <tspan x="164" dy="16">Generation</tspan>
+  </text>
+  <line x1="228" y1="46" x2="242" y2="46" stroke="#555" stroke-width="1.2" marker-end="url(#ah)"/>
+
+  <!-- 3. Functional Testing Task + Verifier Generation -->
+  <rect x="242" y="6" width="150" height="80" rx="8" fill="#8BC7A3"/>
+  <g transform="translate(317, 22)">
+    <path d="M-4.5,-1.5 L-1.5,3 L5,-4" fill="none" stroke="#444" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+  <text x="317" y="42" text-anchor="middle" font-size="14">
+    <tspan x="317">Functional Testing</tspan>
+    <tspan x="317" dy="14">Task + Verifier</tspan>
+    <tspan x="317" dy="14">Generation</tspan>
+  </text>
+  <line x1="392" y1="46" x2="406" y2="46" stroke="#555" stroke-width="1.2" marker-end="url(#ah)"/>
+
+  <!-- ─── Eval / Audit 1 (centered at y=46) ─── -->
+  <rect x="406" y="20" width="80" height="22" rx="5" fill="#A68BBF"/>
+  <text x="446" y="32" text-anchor="middle" dominant-baseline="central" font-size="12">Evaluate</text>
+
+  <rect x="406" y="50" width="80" height="22" rx="5" fill="#D98BA3"/>
+  <text x="446" y="62" text-anchor="middle" dominant-baseline="central" font-size="12">Audit &amp; Fix</text>
+
+  <!-- circular arrow -->
+  <g transform="translate(500, 46)">
+    <path d="M 4.5,-7.8 A 9,9 0 1 1 -4.5,-7.8"
+          fill="none" stroke="#888" stroke-width="1.2" marker-end="url(#al)"/>
+  </g>
+  <text x="500" y="67" text-anchor="middle" font-size="12" fill="#888" font-style="italic">&#xd7;N</text>
+
+  <line x1="512" y1="46" x2="528" y2="46" stroke="#555" stroke-width="1.2" marker-end="url(#ah)"/>
+
+  <!-- 4. Real Browser-Use Task + Verifier Generation -->
+  <rect x="528" y="6" width="140" height="80" rx="8" fill="#F2CB6C"/>
+  <g transform="translate(598, 22)">
+    <path d="M-2,-7 L-2,5 L2,2 L5.5,7 L7,5 L3,-0.5 L6,-0.5 Z" fill="#444" stroke="none"/>
+  </g>
+  <text x="598" y="42" text-anchor="middle" font-size="14">
+    <tspan x="598">Real Browser-Use</tspan>
+    <tspan x="598" dy="14">Task + Verifier</tspan>
+    <tspan x="598" dy="14">Generation</tspan>
+  </text>
+  <line x1="668" y1="46" x2="682" y2="46" stroke="#555" stroke-width="1.2" marker-end="url(#ah)"/>
+
+  <!-- ─── Eval / Audit 2 ─── -->
+  <rect x="682" y="20" width="80" height="22" rx="5" fill="#A68BBF"/>
+  <text x="722" y="32" text-anchor="middle" dominant-baseline="central" font-size="12">Evaluate</text>
+
+  <rect x="682" y="50" width="80" height="22" rx="5" fill="#D98BA3"/>
+  <text x="722" y="62" text-anchor="middle" dominant-baseline="central" font-size="12">Audit &amp; Fix</text>
+
+  <g transform="translate(776, 46)">
+    <path d="M 4.5,-7.8 A 9,9 0 1 1 -4.5,-7.8"
+          fill="none" stroke="#888" stroke-width="1.2" marker-end="url(#al)"/>
+  </g>
+  <text x="776" y="67" text-anchor="middle" font-size="12" fill="#888" font-style="italic">&#xd7;N</text>
+
+  <line x1="788" y1="46" x2="804" y2="46" stroke="#555" stroke-width="1.2" marker-end="url(#ah)"/>
+
+  <!-- 5. Self Challenging -->
+  <rect x="804" y="6" width="100" height="80" rx="8" fill="#E8956A"/>
+  <g transform="translate(854, 22)">
+    <path d="M1.5,-8 L-3.5,0 L0.5,0 L-1.5,8 L3.5,0 L-0.5,0 Z" fill="#444" stroke="none"/>
+  </g>
+  <text x="854" y="48" text-anchor="middle" font-size="14">
+    <tspan x="854">Self</tspan>
+    <tspan x="854" dy="16">Challenging</tspan>
+  </text>
+  <line x1="904" y1="46" x2="918" y2="46" stroke="#555" stroke-width="1.2" marker-end="url(#ah)"/>
+
+  <!-- ─── Eval / Audit 3 ─── -->
+  <rect x="918" y="20" width="80" height="22" rx="5" fill="#A68BBF"/>
+  <text x="958" y="32" text-anchor="middle" dominant-baseline="central" font-size="12">Evaluate</text>
+
+  <rect x="918" y="50" width="80" height="22" rx="5" fill="#D98BA3"/>
+  <text x="958" y="62" text-anchor="middle" dominant-baseline="central" font-size="12">Audit &amp; Fix</text>
+
+  <g transform="translate(1012, 46)">
+    <path d="M 4.5,-7.8 A 9,9 0 1 1 -4.5,-7.8"
+          fill="none" stroke="#888" stroke-width="1.2" marker-end="url(#al)"/>
+  </g>
+  <text x="1012" y="67" text-anchor="middle" font-size="12" fill="#888" font-style="italic">&#xd7;N</text>
+
+  <line x1="1024" y1="46" x2="1040" y2="46" stroke="#555" stroke-width="1.2" marker-end="url(#ah)"/>
+
+  <!-- Hardening bracket (×R rounds) -->
+  <path d="M 808,88 L 808,94 L 1018,94 L 1018,88"
+        fill="none" stroke="#888" stroke-width="1"
+        stroke-linejoin="round" stroke-linecap="round"/>
+  <text x="913" y="108" text-anchor="middle" font-size="12" fill="#888" font-style="italic">&#xd7;R</text>
+
+  <!-- 6. Final Regression Test -->
+  <rect x="1040" y="6" width="150" height="80" rx="8" fill="#A68BBF"/>
+  <g transform="translate(1115, 22)">
+    <line x1="-4" y1="-8" x2="-4" y2="8" stroke="#444" stroke-width="1.2" stroke-linecap="round"/>
+    <path d="M-4,-8 L6,-4 L-4,0 Z" fill="#444" opacity="0.85"/>
+  </g>
+  <text x="1115" y="48" text-anchor="middle" font-size="14">
+    <tspan x="1115">Final</tspan>
+    <tspan x="1115" dy="16">Regression Test</tspan>
+  </text>
+</svg>

@@ -22,43 +22,49 @@ import textwrap
 from pathlib import Path
 
 APPS_DIR = Path(__file__).parent / "apps"
-SKIP_DIRS = {"app-description", "user-manuals"}
+ABLATIONS_DIR = APPS_DIR / "ablations"
+SKIP_DIRS = {"app-description", "user-manuals", "ablations"}
 
 
 def discover_apps():
     apps = []
-    for app_dir in sorted(APPS_DIR.iterdir()):
-        if not app_dir.is_dir() or app_dir.name in SKIP_DIRS:
-            continue
-        if not (app_dir / "server.py").exists() or not (app_dir / "index.html").exists():
-            continue
+    # Scan top-level apps and ablation subdirectory
+    search_dirs = [APPS_DIR]
+    if ABLATIONS_DIR.is_dir():
+        search_dirs.append(ABLATIONS_DIR)
+    for parent in search_dirs:
+        for app_dir in sorted(parent.iterdir()):
+            if not app_dir.is_dir() or app_dir.name in SKIP_DIRS:
+                continue
+            if not (app_dir / "server.py").exists() or not (app_dir / "index.html").exists():
+                continue
 
-        title = app_dir.name.replace("-", " ").title()
-        desc_file = app_dir / "APP_DESCRIPTION.md"
-        if desc_file.exists():
-            for line in desc_file.read_text().splitlines()[:10]:
-                if line.startswith("#"):
-                    raw = line.lstrip("#").strip()
-                    for suffix in [" — App Description", " - App Description"]:
-                        if raw.endswith(suffix):
-                            raw = raw[: -len(suffix)]
-                    title = raw
-                    break
+            title = app_dir.name.replace("-", " ").title()
+            desc_file = app_dir / "APP_DESCRIPTION.md"
+            if desc_file.exists():
+                for line in desc_file.read_text().splitlines()[:10]:
+                    if line.startswith("#"):
+                        raw = line.lstrip("#").strip()
+                        for suffix in [" — App Description", " - App Description"]:
+                            if raw.endswith(suffix):
+                                raw = raw[: -len(suffix)]
+                        title = raw
+                        break
 
-        task_count = 0
-        tasks_file = app_dir / "real-tasks.json"
-        if tasks_file.exists():
-            try:
-                task_count = len(json.loads(tasks_file.read_text()))
-            except Exception:
-                pass
+            task_count = 0
+            tasks_file = app_dir / "real-tasks.json"
+            if tasks_file.exists():
+                try:
+                    task_count = len(json.loads(tasks_file.read_text()))
+                except Exception:
+                    pass
 
-        apps.append({
-            "name": app_dir.name,
-            "dir": str(app_dir),
-            "title": title,
-            "task_count": task_count,
-        })
+            apps.append({
+                "name": app_dir.name,
+                "dir": str(app_dir),
+                "title": title,
+                "task_count": task_count,
+            })
     return apps
 
 

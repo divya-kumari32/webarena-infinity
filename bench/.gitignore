@@ -1,0 +1,20 @@
+# Raw results pulled from S3 (too large to track)
+s3_results*/
+
+# LLM feature extraction cache
+cache/
+
+# Generated frame directories (regenerable from scripts)
+output/trajectory_collage_frames/
+output/trajectory_grid_hires_frames/
+
+# Large media (regenerable)
+output/*.mp4
+output/trajectory_grid_hires.gif
+
+# Trajectory recordings
+output/trajectories/
+
+# Python
+__pycache__/
+*.py[oc]

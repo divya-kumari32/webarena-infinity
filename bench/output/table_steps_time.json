@@ -1,0 +1,23 @@
+[
+  {
+    "model": "Gemini 3 Flash w/ Browser Use",
+    "avg_steps": 14.6,
+    "median_steps": 12.0,
+    "avg_time_s": 163.8,
+    "median_time_s": 135.0
+  },
+  {
+    "model": "Qwen 3.5 Plus",
+    "avg_steps": 23.3,
+    "median_steps": 15.0,
+    "avg_time_s": 267.6,
+    "median_time_s": 152.2
+  },
+  {
+    "model": "Kimi K2.5",
+    "avg_steps": 12.0,
+    "median_steps": 10.0,
+    "avg_time_s": 351.7,
+    "median_time_s": 326.0
+  }
+]

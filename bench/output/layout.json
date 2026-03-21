@@ -1,0 +1,137 @@
+[
+  {
+    "path": "superhuman-general/01_div8.0_task_h66_report_13frames.gif",
+    "label": "Superhuman General",
+    "x": 1889,
+    "y": 970,
+    "w": 701,
+    "h": 438,
+    "z": 0.0032493798390305084
+  },
+  {
+    "path": "gitlab-plan-and-track/78_div4.5_task_h81_report_11frames.gif",
+    "label": "Gitlab Plan And Track",
+    "x": -10,
+    "y": 3,
+    "w": 665,
+    "h": 433,
+    "z": 0.11160536907441138
+  },
+  {
+    "path": "gitlab-plan-and-track/24_div45.0_task_h7_report_5frames.gif",
+    "label": "Gitlab Plan And Track",
+    "x": 1152,
+    "y": 4,
+    "w": 759,
+    "h": 474,
+    "z": 0.2526776440516812
+  },
+  {
+    "path": "gitlab-plan-and-track/44_div27.6_task_h33_report_9frames.gif",
+    "label": "Gitlab Plan And Track",
+    "x": 1736,
+    "y": 436,
+    "w": 855,
+    "h": 534,
+    "z": 0.27247074030160834
+  },
+  {
+    "path": "elation-prescriptions/03_div22.9_task_h13_report_29frames.gif",
+    "label": "Elation Prescriptions",
+    "x": 1918,
+    "y": 11,
+    "w": 680,
+    "h": 425,
+    "z": 1.0229121918278312
+  },
+  {
+    "path": "handshake-career-exploration/06_div3.3_task_h63_report_9frames.gif",
+    "label": "Handshake Career Exploration",
+    "x": 519,
+    "y": 608,
+    "w": 577,
+    "h": 341,
+    "z": 1.0777397499058907
+  },
+  {
+    "path": "paypal-my-wallet/01_div82.8_task_h55_report_10frames.gif",
+    "label": "Paypal My Wallet",
+    "x": 1085,
+    "y": 917,
+    "w": 816,
+    "h": 510,
+    "z": 1.1794896902423142
+  },
+  {
+    "path": "paypal-my-wallet/03_div10.9_task_h64_report_4frames.gif",
+    "label": "Paypal My Wallet",
+    "x": 400,
+    "y": 949,
+    "w": 755,
+    "h": 472,
+    "z": 2.116395443180515
+  },
+  {
+    "path": "xero-invoicing/18_div1.7_task_h49_report_10frames.gif",
+    "label": "Xero Invoicing",
+    "x": 0,
+    "y": 441,
+    "w": 540,
+    "h": 357,
+    "z": 2.182416089485042
+  },
+  {
+    "path": "elation-patient-communication/03_div17.7_task_h67_report_21frames.gif",
+    "label": "Elation Patient Communication",
+    "x": -4,
+    "y": 1162,
+    "w": 415,
+    "h": 259,
+    "z": 2.314319899747222
+  },
+  {
+    "path": "elation-clinical-records/03_div18.1_task_h3_claude-cu_20260316_225748_para_9frames.gif",
+    "label": "Elation Clinical Records",
+    "x": 1085,
+    "y": 659,
+    "w": 583,
+    "h": 364,
+    "z": 2.3199998799270465
+  },
+  {
+    "path": "figma-slides-browsing/00_all_23frames.gif",
+    "label": "Figma Slides Browsing",
+    "x": 3,
+    "y": 765,
+    "w": 640,
+    "h": 400,
+    "z": 2.468327293856247
+  },
+  {
+    "path": "linear-account-settings-v2/05_div2.4_task_h74_report_19frames.gif",
+    "label": "Linear Account Settings V2",
+    "x": 579,
+    "y": 3,
+    "w": 569,
+    "h": 331,
+    "z": 3.3645633989751746
+  },
+  {
+    "path": "figma-slides/02_div2.4_task_h11_report_8frames.gif",
+    "label": "Figma Slides",
+    "x": 403,
+    "y": 255,
+    "w": 569,
+    "h": 356,
+    "z": 3.3879999557731226
+  },
+  {
+    "path": "gmail/12_div13.8_task_h10_kimi_20260317_014707_parallel_16frames.gif",
+    "label": "Gmail",
+    "x": 971,
+    "y": 175,
+    "w": 770,
+    "h": 481,
+    "z": 5
+  }
+]

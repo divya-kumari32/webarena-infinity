@@ -1,6 +1,16 @@
-# WebArena-Infinity: Generating Browser Environments with Verifiable Tasks at Scale
+<p align="center">
+  <img src="bench/output/trajectory_collage.gif" alt="Browser agents navigating generated environments" width="800">
+</p>
 
-**Blog post:** _(coming soon)_
+<h1 align="center">WebArena-Infinity</h1>
+<h3 align="center">Generating Browser Environments with Verifiable Tasks at Scale</h3>
+
+<p align="center">
+  <a href="https://web-arena-x.github.io/webarena-infinity/"><img src="https://img.shields.io/badge/Blog_Post-blue?style=flat&logo=googlechrome&logoColor=white" alt="Blog Post"></a>
+  <a href="http://35.168.80.130/"><img src="https://img.shields.io/badge/Environment_Hub-green?style=flat&logo=globe&logoColor=white" alt="Environment Hub"></a>
+  <a href="https://huggingface.co/datasets/webarena-x/webarena-infinity-trajectories"><img src="https://img.shields.io/badge/Dataset-yellow?style=flat&logo=huggingface&logoColor=white" alt="Dataset"></a>
+  <a href="https://github.com/web-arena-x/webarena-infinity"><img src="https://img.shields.io/badge/GitHub-black?style=flat&logo=github&logoColor=white" alt="GitHub"></a>
+</p>
 
 WebArena-Infinity is a scalable approach for automatically generating realistic web environments paired with verifiable tasks, enabling robust training and evaluation of general-purpose browser agents. Instead of relying on labor-intensive manual construction, our approach uses a multi-agent system that coordinates coding agents with privileged access to environment internals and browser agents that interact through the UI—to iteratively generate, test, audit, and refine environments. Starting from real-world artifacts such as product manuals and workflows, the approach produces high-fidelity applications, difficulty-graded tasks, and reliable programmatic verifiers, all optimized for future reinforcement learning. The result is a cost-efficient, reproducible, and extensible benchmark suite that captures meaningful real-world complexity while remaining fully automated.
 
@@ -211,3 +221,16 @@ python infra/collect_results.py
 ```
 
 This generates a cross-environment summary and uploads an HTML dashboard to `http://{MM_S3_BUCKET}.s3-website-{MM_REGION}.amazonaws.com/`.
+
+## Citation
+
+```bibtex
+@article{zhou2026wainf,
+  title   = "WebArena-Infinity: Generating Browser Environments with Verifiable Tasks at Scale",
+  author  = "Shuyan Zhou",
+  journal = "shuyanzhou.com",
+  year    = "2026",
+  month   = "March",
+  url     = "https://webarena.dev/webarena-infinity/"
+}
+```

@@ -150,7 +150,7 @@ from pathlib import Path
 from huggingface_hub import snapshot_download
 
 # Download dataset
-local_dir = snapshot_download("your-org/webarena-infinity-trajectories", repo_type="dataset")
+local_dir = snapshot_download("webarena-x/webarena-infinity-trajectories", repo_type="dataset")
 data_dir = Path(local_dir) / "data"
 
 # Load manifest
@@ -267,8 +267,12 @@ This dataset was built from the [WebArena-Infinity](https://github.com/web-arena
 ## Citation
 
 ```bibtex
-@misc{webarenainfinity2026,
-  title={WebArena-Infinity: Generating Browser Environments with Verifiable Tasks at Scale},
-  year={2026},
+@article{zhou2026wainf,
+  title   = "WebArena-Infinity: Generating Browser Environments with Verifiable Tasks at Scale",
+  author  = "Shuyan Zhou",
+  journal = "shuyanzhou.com",
+  year    = "2026",
+  month   = "March",
+  url     = "https://webarena.dev/webarena-infinity/"
 }
 ```

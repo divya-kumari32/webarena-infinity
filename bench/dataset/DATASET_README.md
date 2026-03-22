@@ -117,7 +117,7 @@ Kimi and Qwen are vision-based agents that interact via pixel coordinates on scr
 from datasets import load_dataset
 import json
 
-ds = load_dataset("your-org/webarena-infinity-trajectories")
+ds = load_dataset("webarena-x/webarena-infinity-trajectories")
 
 # Get one trajectory
 traj = ds["train"][0]
@@ -152,8 +152,12 @@ This dataset was built from the [WebArena-Infinity](https://github.com/web-arena
 ## Citation
 
 ```bibtex
-@misc{webarenainfinity2026,
-  title={WebArena-Infinity: Generating Browser Environments with Verifiable Tasks at Scale},
-  year={2026},
+@article{zhou2026wainf,
+  title   = "WebArena-Infinity: Generating Browser Environments with Verifiable Tasks at Scale",
+  author  = "Shuyan Zhou",
+  journal = "shuyanzhou.com",
+  year    = "2026",
+  month   = "March",
+  url     = "https://webarena.dev/webarena-infinity/"
 }
 ```

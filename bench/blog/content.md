@@ -7,7 +7,8 @@ date: March 2026
 ---
 
 <p style="text-align: center; color: #6b6866; margin-top: -0.5rem; margin-bottom: 2rem;">
-  <a href="https://TODO" style="text-decoration: none;"><svg width="16" height="16" viewBox="0 0 16 16" style="margin-right:3px"><circle cx="8" cy="8" r="6.5" fill="none" stroke="#4a7ec2" stroke-width="1.3"/><path d="M2,8 h12 M8,2 v12 M2.5,5 h11 M2.5,11 h11" fill="none" stroke="#4a7ec2" stroke-width="0.8"/><ellipse cx="8" cy="8" rx="3.5" ry="6.5" fill="none" stroke="#4a7ec2" stroke-width="1"/></svg>[Environment Hub]</a> &nbsp;&nbsp; <a href="https://github.com/TODO" style="text-decoration: none;"><svg width="16" height="16" viewBox="0 0 16 16" style="vertical-align:-2px;margin-right:3px"><path d="M8,1 C4.13,1 1,4.13 1,8 c0,3.09 2,5.71 4.78,6.64 .35,.06 .48-.15 .48-.34 0-.17-.01-.71-.01-1.29 -1.74,.32-2.2-.43-2.34-.82 -.08-.2-.42-.82-.72-.99 -.25-.13-.6-.45-.01-.46 .55-.01 .94,.51 1.07,.72 .63,1.05 1.63,.76 2.03,.58 .06-.45 .25-.76 .44-.93 -1.54-.17-3.15-.77-3.15-3.42 0-.76 .27-1.38 .72-1.87 -.07-.17-.31-.88 .07-1.84 0,0 .58-.19 1.92,.72 .56-.16 1.15-.23 1.74-.24 .59,.01 1.18,.08 1.74,.24 1.34-.91 1.92-.72 1.92-.72 .38,.96 .14,1.67 .07,1.84 .45,.49 .72,1.1 .72,1.87 0,2.66-1.62,3.25-3.16,3.42 .25,.22 .46,.63 .46,1.28 0,.93-.01,1.67-.01,1.9 0,.19 .13,.41 .48,.34 C13,13.71 15,11.08 15,8 15,4.13 11.87,1 8,1Z" fill="#6e40c9"/></svg>[GitHub]</a>
+ <a href="https://github.com/web-arena-x/webarena-infinity" style="text-decoration: none;"><svg width="16" height="16" viewBox="0 0 16 16" style="vertical-align:-2px;margin-right:3px"><path d="M8,1 C4.13,1 1,4.13 1,8 c0,3.09 2,5.71 4.78,6.64 .35,.06 .48-.15 .48-.34 0-.17-.01-.71-.01-1.29 -1.74,.32-2.2-.43-2.34-.82 -.08-.2-.42-.82-.72-.99 -.25-.13-.6-.45-.01-.46 .55-.01 .94,.51 1.07,.72 .63,1.05 1.63,.76 2.03,.58 .06-.45 .25-.76 .44-.93 -1.54-.17-3.15-.77-3.15-3.42 0-.76 .27-1.38 .72-1.87 -.07-.17-.31-.88 .07-1.84 0,0 .58-.19 1.92,.72 .56-.16 1.15-.23 1.74-.24 .59,.01 1.18,.08 1.74,.24 1.34-.91 1.92-.72 1.92-.72 .38,.96 .14,1.67 .07,1.84 .45,.49 .72,1.1 .72,1.87 0,2.66-1.62,3.25-3.16,3.42 .25,.22 .46,.63 .46,1.28 0,.93-.01,1.67-.01,1.9 0,.19 .13,.41 .48-.34 C13,13.71 15,11.08 15,8 15,4.13 11.87,1 8,1Z" fill="#6e40c9"/></svg>GitHub</a>&nbsp;&nbsp;
+  <a href="http://35.168.80.130/" style="text-decoration: none;"><svg width="16" height="16" viewBox="0 0 16 16" style="margin-right:3px"><circle cx="8" cy="8" r="6.5" fill="none" stroke="#4a7ec2" stroke-width="1.3"/><path d="M2,8 h12 M8,2 v12 M2.5,5 h11 M2.5,11 h11" fill="none" stroke="#4a7ec2" stroke-width="0.8"/><ellipse cx="8" cy="8" rx="3.5" ry="6.5" fill="none" stroke="#4a7ec2" stroke-width="1"/></svg>Environment Hub</a> &nbsp;&nbsp; <a href="https://huggingface.co/datasets/webarena-x/webarena-infinity-trajectories" style="text-decoration: none;"><svg width="16" height="16" viewBox="0 0 16 16" style="vertical-align:-2px;margin-right:3px"><path d="M5.5,2.5 C5.5,2.5 4,4.5 4,6.5 C2.5,6.5 1,8 1,10 C1,12 2.5,14 5,14 L11,14 C13.5,14 15,12 15,10 C15,8 13.5,6.5 12,6.5 C12,4.5 10.5,2.5 10.5,2.5" fill="none" stroke="#FFB800" stroke-width="1.3" stroke-linecap="round"/><circle cx="6" cy="10" r="1.2" fill="#FFB800"/><circle cx="10" cy="10" r="1.2" fill="#FFB800"/></svg>Dataset</a>
 </p>
 
 <figure class="wide">
@@ -426,10 +427,6 @@ To assess this, we compare the functional task pass rate at two points: immediat
 We observe that five out of seven environments maintain pass rates close to their initial levels, while two exhibit substantial regressions. These results suggest that, in most cases, functional correctness is preserved throughout the iterative process.
 This analysis also enables us to filter out low-quality environments using simple heuristics without requiring manual inspection. For example, we manually interacted with the Elation Patient Communication environment and found it to be largely unusable, consistent with its degraded functional task pass rate. This reinforces the value of functional pass rate as an effective quality gate.
 
-
----
-
-
 [^webarena]: Zhou et al. <a href="https://arxiv.org/abs/2307.13854">"WebArena: A Realistic Web Environment for Building Autonomous Agents."</a> ICLR, 2024.
 
 [^osworld]: Xie et al. <a href="https://arxiv.org/abs/2404.07972">"OSWorld: Benchmarking Multimodal Agents for Open-Ended Tasks in Real Computer Environments."</a> NeurIPS, 2024.
@@ -441,5 +438,20 @@ This analysis also enables us to filter out low-quality environments using simpl
 [^browseruse]: Browser Use. <a href="https://github.com/browser-use/browser-use">"Enable AI to Access the Web."</a> GitHub, 2024.
 
 [^kimik25]: Kimi Team. <a href="https://arxiv.org/abs/2602.02276">"Kimi K2.5: Visual Agentic Intelligence."</a> arXiv:2602.02276, 2026.
+
+---
+
+## Citation
+
+```bibtex
+@article{zhou2026wainf,
+  title   = "WebArena-Infinity: Generating Browser Environments with Verifiable Tasks at Scale",
+  author  = "Shuyan Zhou",
+  journal = "shuyanzhou.com",
+  year    = "2026",
+  month   = "March",
+  url     = "https://webarena.dev/webarena-infinity/"
+}
+```
 
 [^qwen35]: Qwen Team. <a href="https://qwen.ai/blog?id=qwen3.5">"Qwen3.5: Towards Native Multimodal Agents."</a> 2026.

@@ -812,7 +812,7 @@ def main() -> None:
     parser.add_argument(
         "--model",
         default="gemini-pro",
-        choices=["gemini-flash", "gemini-pro", "gpt", "claude"],
+        choices=["gemini-flash", "gemini-pro", "gpt", "claude", "kimi", "gpt-oss"],
         help="Eval agent model (default: gemini-pro)",
     )
     parser.add_argument(

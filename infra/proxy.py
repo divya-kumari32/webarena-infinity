@@ -33,7 +33,7 @@ log = logging.getLogger("proxy")
 app = FastAPI()
 
 TARGET_URL = os.environ.get("PROXY_TARGET_URL", "https://ete-litellm.ai-models.vpc.res.ibm.com")
-TARGET_KEY = os.environ.get("PROXY_TARGET_KEY", "sk-RWMz_-kGpO4Q-dbfiIE1IQ")
+TARGET_KEY = os.environ.get("PROXY_TARGET_KEY", "")
 TARGET_MODEL = os.environ.get("PROXY_TARGET_MODEL", "azure/gpt-oss-120b")
 
 # ---------------------------------------------------------------------------

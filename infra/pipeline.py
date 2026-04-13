@@ -102,11 +102,51 @@ def load_prompt(name: str, **kwargs: str) -> str:
 # ---------------------------------------------------------------------------
 
 
+def start_proxy(
+    target_url: str, target_key: str, target_model: str, port: int = 4000
+) -> subprocess.Popen:
+    """Start infra/proxy.py as a background process. Returns Popen handle."""
+    env = {
+        **os.environ,
+        "PROXY_TARGET_URL": target_url,
+        "PROXY_TARGET_KEY": target_key,
+        "PROXY_TARGET_MODEL": target_model,
+    }
+    proc = subprocess.Popen(
+        [sys.executable, str(SCRIPT_DIR / "proxy.py"), "--port", str(port)],
+        env=env,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+    # Wait for the proxy to be ready
+    import urllib.request
+    for _ in range(30):
+        time.sleep(0.5)
+        try:
+            urllib.request.urlopen(f"http://localhost:{port}/")
+            log.info("Translation proxy started on port %d (pid=%d)", port, proc.pid)
+            return proc
+        except Exception:
+            continue
+    log.error("Translation proxy failed to start within 15s")
+    proc.kill()
+    raise RuntimeError("Translation proxy failed to start")
+
+
+def stop_proxy(proc: subprocess.Popen) -> None:
+    """Terminate the proxy process."""
+    if proc and proc.poll() is None:
+        proc.terminate()
+        proc.wait(timeout=5)
+        log.info("Translation proxy stopped")
+
+
 def run_claude(
     prompt_name: str,
     cwd: str | Path,
     timeout: int = 3600,
     retries: int = 1,
+    extra_env: dict | None = None,
     **template_vars: str,
 ) -> tuple[int, str, str]:
     """Load prompt template, invoke ``claude --print --dangerously-skip-permissions --permission-mode plan``.
@@ -135,6 +175,10 @@ def run_claude(
         prompt,
     ]
 
+    run_env = None
+    if extra_env:
+        run_env = {**os.environ, **extra_env}
+
     for attempt in range(1, retries + 2):
         log.info(
             "Running claude (prompt=%s, cwd=%s, attempt=%d)",
@@ -144,7 +188,8 @@ def run_claude(
         )
         try:
             result = subprocess.run(
-                cmd, cwd=cwd, capture_output=True, text=True, timeout=timeout
+                cmd, cwd=cwd, capture_output=True, text=True, timeout=timeout,
+                env=run_env,
             )
         except subprocess.TimeoutExpired:
             log.error("Claude timed out after %ds (prompt=%s)", timeout, prompt_name)
@@ -812,7 +857,7 @@ def main() -> None:
     parser.add_argument(
         "--model",
         default="gemini-pro",
-        choices=["gemini-flash", "gemini-pro", "gpt", "claude", "kimi", "gpt-oss"],
+        choices=["gemini-flash", "gemini-pro", "gpt", "claude"],
         help="Eval agent model (default: gemini-pro)",
     )
     parser.add_argument(
@@ -881,6 +926,14 @@ def main() -> None:
         default=os.environ.get("MM_S3_BUCKET"),
         help="S3 bucket for results upload (default: MM_S3_BUCKET env var)",
     )
+    parser.add_argument(
+        "--generation-model",
+        default=None,
+        help="OpenAI-compatible model for generation via translation proxy "
+             "(e.g. azure/gpt-oss-120b). Requires PROXY_TARGET_URL and "
+             "PROXY_TARGET_KEY env vars. When set, Claude Code CLI routes "
+             "through a local Anthropic↔OpenAI translation proxy.",
+    )
     args = parser.parse_args()
     args.push_enabled = not args.no_push
 
@@ -888,16 +941,13 @@ def main() -> None:
     global log
     log = setup_logging(args.app_name)
 
-    app_dir = REPO_DIR / "apps" / args.app_name
-    max_iterations = args.max_iterations
-
     log.info("=" * 60)
     log.info("Pipeline starting for: %s", args.app_name)
     log.info("  docs-path:       %s", args.docs_path)
     log.info("  model:           %s", args.model)
     log.info("  workers:         %d", args.workers)
     log.info("  repetitions:     %d", args.repetitions)
-    log.info("  max-iterations:  %d", max_iterations)
+    log.info("  max-iterations:  %d", args.max_iterations)
     log.info("  rerun-from:      %s", args.rerun_from or "(full run)")
     log.info("  hardening-rounds:%d", args.hardening_rounds)
     log.info("  tasks-per-round: %d", args.tasks_per_round)
@@ -905,7 +955,46 @@ def main() -> None:
     log.info("  push:            %s", args.push_enabled)
     log.info("  s3-bucket:       %s", args.s3_bucket or "(disabled)")
     log.info("  resume:          %s", args.resume)
+    log.info("  generation-model:%s", args.generation_model or "(claude default)")
     log.info("=" * 60)
+
+    # ── Translation proxy for non-Claude generation models ────────────
+    proxy_proc = None
+    claude_extra_env = None
+    proxy_port = 4000
+
+    if args.generation_model:
+        target_url = os.environ.get(
+            "PROXY_TARGET_URL",
+            "https://ete-litellm.ai-models.vpc.res.ibm.com",
+        )
+        target_key = os.environ.get("PROXY_TARGET_KEY", "")
+        if not target_key:
+            log.error("PROXY_TARGET_KEY env var required when using --generation-model")
+            sys.exit(1)
+
+        proxy_proc = start_proxy(
+            target_url=target_url,
+            target_key=target_key,
+            target_model=args.generation_model,
+            port=proxy_port,
+        )
+        claude_extra_env = {
+            "ANTHROPIC_BASE_URL": f"http://localhost:{proxy_port}",
+            "ANTHROPIC_AUTH_TOKEN": "sk-local-proxy",
+        }
+
+    try:
+        _run_pipeline(args, claude_extra_env)
+    finally:
+        if proxy_proc:
+            stop_proxy(proxy_proc)
+
+
+def _run_pipeline(args: argparse.Namespace, claude_extra_env: dict | None) -> None:
+    """Inner pipeline logic, separated so the proxy can be cleaned up in a finally block."""
+    app_dir = REPO_DIR / "apps" / args.app_name
+    max_iterations = args.max_iterations
 
     # Set up branch if specified
     if args.branch:
@@ -979,6 +1068,7 @@ def main() -> None:
             "generate-app",
             cwd=REPO_DIR,
             timeout=3600,
+            extra_env=claude_extra_env,
             docs_source=args.docs_path,
         )
         if rc != 0:
@@ -1003,6 +1093,7 @@ def main() -> None:
             "generate-function-tests",
             cwd=REPO_DIR,
             timeout=3600,
+            extra_env=claude_extra_env,
             **{"app-name": args.app_name},
         )
         if rc != 0:
@@ -1018,6 +1109,7 @@ def main() -> None:
                 "fix-sanity-check",
                 cwd=REPO_DIR,
                 timeout=1800,
+                extra_env=claude_extra_env,
                 output=output[-3000:],
                 variant="function",
                 **{"app-name": args.app_name},
@@ -1066,6 +1158,7 @@ def main() -> None:
                 "audit-function-tests",
                 cwd=REPO_DIR,
                 timeout=3600,
+                extra_env=claude_extra_env,
                 evaluation_result_path=str(results_dir),
             )
 
@@ -1093,6 +1186,7 @@ def main() -> None:
             "generate-real-tasks",
             cwd=REPO_DIR,
             timeout=3600,
+            extra_env=claude_extra_env,
             **{"app-name": args.app_name},
         )
         if rc != 0:
@@ -1106,6 +1200,7 @@ def main() -> None:
                 "fix-sanity-check",
                 cwd=REPO_DIR,
                 timeout=1800,
+                extra_env=claude_extra_env,
                 output=output[-3000:],
                 variant="real",
                 **{"app-name": args.app_name},
@@ -1154,6 +1249,7 @@ def main() -> None:
                 "audit-real-tasks",
                 cwd=REPO_DIR,
                 timeout=3600,
+                extra_env=claude_extra_env,
                 evaluation_result_path=str(results_dir),
             )
 
@@ -1216,6 +1312,7 @@ def main() -> None:
                     "harden-tasks",
                     cwd=REPO_DIR,
                     timeout=3600,
+                    extra_env=claude_extra_env,
                     hardening_analysis=analysis,
                     results_path=str(results_root) if results_root.is_dir() else "none",
                     round_number=str(round_num),
@@ -1245,6 +1342,7 @@ def main() -> None:
                         "fix-sanity-check",
                         cwd=REPO_DIR,
                         timeout=1800,
+                        extra_env=claude_extra_env,
                         output=output[-3000:],
                         variant="real",
                         **{"app-name": args.app_name},
@@ -1317,6 +1415,7 @@ def main() -> None:
                     "audit-real-tasks",
                     cwd=REPO_DIR,
                     timeout=3600,
+                    extra_env=claude_extra_env,
                     evaluation_result_path=result_paths_str,
                 )
 

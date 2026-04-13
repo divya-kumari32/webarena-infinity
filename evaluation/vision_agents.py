@@ -1007,8 +1007,8 @@ class KimiVisionAgent(VisionAgentBase):
     Uses relative coordinates (0-1) mapped to a 1920x1080 viewport.
     """
 
-    MODEL = "kimi-k2.5"
-    BASE_URL = "https://api.moonshot.ai/v1"
+    MODEL = os.environ.get("KIMI_MODEL", "azure/Kimi-K2.5")
+    BASE_URL = os.environ.get("KIMI_BASE_URL", "https://ete-litellm.ai-models.vpc.res.ibm.com/v1")
 
     def __init__(self, *, max_steps: int = 50, timeout: int = 500, headless: bool = True, **_kw):
         super().__init__(

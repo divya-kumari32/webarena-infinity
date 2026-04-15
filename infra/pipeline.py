@@ -102,55 +102,18 @@ def load_prompt(name: str, **kwargs: str) -> str:
 # ---------------------------------------------------------------------------
 
 
-def start_proxy(
-    target_url: str, target_key: str, target_model: str, port: int = 4000
-) -> subprocess.Popen:
-    """Start infra/proxy.py as a background process. Returns Popen handle."""
-    env = {
-        **os.environ,
-        "PROXY_TARGET_URL": target_url,
-        "PROXY_TARGET_KEY": target_key,
-        "PROXY_TARGET_MODEL": target_model,
-    }
-    proc = subprocess.Popen(
-        [sys.executable, str(SCRIPT_DIR / "proxy.py"), "--port", str(port)],
-        env=env,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-    )
-    # Wait for the proxy to be ready
-    import urllib.request
-    for _ in range(30):
-        time.sleep(0.5)
-        try:
-            urllib.request.urlopen(f"http://localhost:{port}/")
-            log.info("Translation proxy started on port %d (pid=%d)", port, proc.pid)
-            return proc
-        except Exception:
-            continue
-    log.error("Translation proxy failed to start within 15s")
-    proc.kill()
-    raise RuntimeError("Translation proxy failed to start")
-
-
-def stop_proxy(proc: subprocess.Popen) -> None:
-    """Terminate the proxy process."""
-    if proc and proc.poll() is None:
-        proc.terminate()
-        proc.wait(timeout=5)
-        log.info("Translation proxy stopped")
-
-
-def run_claude(
+def run_agent(
     prompt_name: str,
     cwd: str | Path,
     timeout: int = 3600,
     retries: int = 1,
-    extra_env: dict | None = None,
+    agent: str = "claude",
+    generation_model: str | None = None,
     **template_vars: str,
 ) -> tuple[int, str, str]:
-    """Load prompt template, invoke ``claude --print --dangerously-skip-permissions --permission-mode plan``.
+    """Load prompt template, invoke the configured agent CLI.
 
+    Supports 'claude' (Claude Code CLI) and 'deepagents' (DeepAgents CLI).
     Returns (returncode, stdout, stderr).
     """
     prompt = load_prompt(prompt_name, **template_vars)
@@ -163,36 +126,65 @@ def run_claude(
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     log_path = step_log_dir / f"{prompt_name}_{timestamp}.log"
 
-    cmd = [
-        "claude",
-        "--print",
-        "--dangerously-skip-permissions",
-        "--permission-mode",
-        "plan",
-        "--verbose",
-        "--effort",
-        "high",
-        prompt,
-    ]
+    if agent == "deepagents":
+        # Augment prompt with explicit tool-use instructions for non-Claude models.
+        # Without this, models like gpt-oss respond with text instead of calling tools.
+        deepagents_prefix = (
+            "IMPORTANT: You MUST use the write_file tool to create files and the "
+            "execute tool to run shell commands. Do NOT just describe what to do — "
+            "actually call the tools to create and modify files on disk. "
+            "Read files with read_file, search with grep, and always write output "
+            "using write_file. Every file you need to create must use write_file.\n\n"
+        )
+        augmented_prompt = deepagents_prefix + prompt
+        cmd = [
+            "deepagents",
+            "-n", augmented_prompt,
+            "-y",
+            "-S", "all",
+        ]
+        if generation_model:
+            cmd.extend(["-M", generation_model])
+    else:
+        cmd = [
+            "claude",
+            "--print",
+            "--dangerously-skip-permissions",
+            "--permission-mode",
+            "plan",
+            "--verbose",
+            "--effort",
+            "high",
+            prompt,
+        ]
 
-    run_env = None
-    if extra_env:
-        run_env = {**os.environ, **extra_env}
+    agent_label = f"{agent}" + (f"/{generation_model}" if generation_model else "")
 
     for attempt in range(1, retries + 2):
         log.info(
-            "Running claude (prompt=%s, cwd=%s, attempt=%d)",
+            "Running %s (prompt=%s, cwd=%s, attempt=%d)",
+            agent_label,
             prompt_name,
             cwd,
             attempt,
         )
         try:
-            result = subprocess.run(
-                cmd, cwd=cwd, capture_output=True, text=True, timeout=timeout,
-                env=run_env,
-            )
+            if agent == "deepagents":
+                # DeepAgents requires a real terminal fd — it exits silently
+                # when stdout/stderr are piped. Run without capturing output;
+                # the pipeline only needs the exit code and file-system changes.
+                result = subprocess.run(
+                    cmd, cwd=cwd, timeout=timeout,
+                )
+                result = subprocess.CompletedProcess(
+                    cmd, result.returncode, stdout="", stderr=""
+                )
+            else:
+                result = subprocess.run(
+                    cmd, cwd=cwd, capture_output=True, text=True, timeout=timeout
+                )
         except subprocess.TimeoutExpired:
-            log.error("Claude timed out after %ds (prompt=%s)", timeout, prompt_name)
+            log.error("%s timed out after %ds (prompt=%s)", agent_label, timeout, prompt_name)
             with open(log_path, "w") as f:
                 f.write(f"TIMEOUT after {timeout}s\n")
             if attempt <= retries:
@@ -209,7 +201,8 @@ def run_claude(
 
         if result.returncode != 0:
             log.error(
-                "Claude failed (rc=%d, prompt=%s): %s",
+                "%s failed (rc=%d, prompt=%s): %s",
+                agent_label,
                 result.returncode,
                 prompt_name,
                 result.stderr[-500:] if result.stderr else "(no stderr)",
@@ -927,12 +920,17 @@ def main() -> None:
         help="S3 bucket for results upload (default: MM_S3_BUCKET env var)",
     )
     parser.add_argument(
+        "--agent",
+        choices=["claude", "deepagents"],
+        default="claude",
+        help="Agent framework for generation (default: claude). "
+             "Use 'deepagents' with --generation-model for open-source models.",
+    )
+    parser.add_argument(
         "--generation-model",
         default=None,
-        help="OpenAI-compatible model for generation via translation proxy "
-             "(e.g. azure/gpt-oss-120b). Requires PROXY_TARGET_URL and "
-             "PROXY_TARGET_KEY env vars. When set, Claude Code CLI routes "
-             "through a local Anthropic↔OpenAI translation proxy.",
+        help="Model for DeepAgents agent (e.g. openai:azure/gpt-oss-120b). "
+             "Required when --agent=deepagents.",
     )
     args = parser.parse_args()
     args.push_enabled = not args.no_push
@@ -955,44 +953,14 @@ def main() -> None:
     log.info("  push:            %s", args.push_enabled)
     log.info("  s3-bucket:       %s", args.s3_bucket or "(disabled)")
     log.info("  resume:          %s", args.resume)
-    log.info("  generation-model:%s", args.generation_model or "(claude default)")
+    log.info("  agent:           %s", args.agent)
+    log.info("  generation-model:%s", args.generation_model or "(default)")
     log.info("=" * 60)
 
-    # ── Translation proxy for non-Claude generation models ────────────
-    proxy_proc = None
-    claude_extra_env = None
-    proxy_port = 4000
+    if args.agent == "deepagents" and not args.generation_model:
+        log.error("--generation-model is required when --agent=deepagents")
+        sys.exit(1)
 
-    if args.generation_model:
-        target_url = os.environ.get(
-            "PROXY_TARGET_URL",
-            "https://ete-litellm.ai-models.vpc.res.ibm.com",
-        )
-        target_key = os.environ.get("PROXY_TARGET_KEY", "")
-        if not target_key:
-            log.error("PROXY_TARGET_KEY env var required when using --generation-model")
-            sys.exit(1)
-
-        proxy_proc = start_proxy(
-            target_url=target_url,
-            target_key=target_key,
-            target_model=args.generation_model,
-            port=proxy_port,
-        )
-        claude_extra_env = {
-            "ANTHROPIC_BASE_URL": f"http://localhost:{proxy_port}",
-            "ANTHROPIC_AUTH_TOKEN": "sk-local-proxy",
-        }
-
-    try:
-        _run_pipeline(args, claude_extra_env)
-    finally:
-        if proxy_proc:
-            stop_proxy(proxy_proc)
-
-
-def _run_pipeline(args: argparse.Namespace, claude_extra_env: dict | None) -> None:
-    """Inner pipeline logic, separated so the proxy can be cleaned up in a finally block."""
     app_dir = REPO_DIR / "apps" / args.app_name
     max_iterations = args.max_iterations
 
@@ -1064,11 +1032,12 @@ def _run_pipeline(args: argparse.Namespace, claude_extra_env: dict | None) -> No
         save_state(args.app_name, "phase_1", args=args)
         app_dir.mkdir(parents=True, exist_ok=True)
 
-        rc, stdout, stderr = run_claude(
+        rc, stdout, stderr = run_agent(
             "generate-app",
             cwd=REPO_DIR,
             timeout=3600,
-            extra_env=claude_extra_env,
+            agent=args.agent,
+            generation_model=args.generation_model,
             docs_source=args.docs_path,
         )
         if rc != 0:
@@ -1089,11 +1058,12 @@ def _run_pipeline(args: argparse.Namespace, claude_extra_env: dict | None) -> No
     if should_run("phase_2a"):
         log.info("Phase 2a: Generating function tasks")
         save_state(args.app_name, "phase_2a", args=args)
-        rc, stdout, stderr = run_claude(
+        rc, stdout, stderr = run_agent(
             "generate-function-tests",
             cwd=REPO_DIR,
             timeout=3600,
-            extra_env=claude_extra_env,
+            agent=args.agent,
+            generation_model=args.generation_model,
             **{"app-name": args.app_name},
         )
         if rc != 0:
@@ -1105,11 +1075,12 @@ def _run_pipeline(args: argparse.Namespace, claude_extra_env: dict | None) -> No
         ok, output = run_sanity_check(app_dir, "function")
         if not ok:
             log.info("Sanity check failed after function task generation — fixing")
-            run_claude(
+            run_agent(
                 "fix-sanity-check",
                 cwd=REPO_DIR,
                 timeout=1800,
-                extra_env=claude_extra_env,
+                agent=args.agent,
+                generation_model=args.generation_model,
                 output=output[-3000:],
                 variant="function",
                 **{"app-name": args.app_name},
@@ -1154,11 +1125,12 @@ def _run_pipeline(args: argparse.Namespace, claude_extra_env: dict | None) -> No
                 break
 
             log.info("Running audit on function task failures")
-            run_claude(
+            run_agent(
                 "audit-function-tests",
                 cwd=REPO_DIR,
                 timeout=3600,
-                extra_env=claude_extra_env,
+                agent=args.agent,
+                generation_model=args.generation_model,
                 evaluation_result_path=str(results_dir),
             )
 
@@ -1182,11 +1154,12 @@ def _run_pipeline(args: argparse.Namespace, claude_extra_env: dict | None) -> No
     if should_run("phase_3a"):
         log.info("Phase 3a: Generating real tasks")
         save_state(args.app_name, "phase_3a", args=args)
-        rc, stdout, stderr = run_claude(
+        rc, stdout, stderr = run_agent(
             "generate-real-tasks",
             cwd=REPO_DIR,
             timeout=3600,
-            extra_env=claude_extra_env,
+            agent=args.agent,
+            generation_model=args.generation_model,
             **{"app-name": args.app_name},
         )
         if rc != 0:
@@ -1196,11 +1169,12 @@ def _run_pipeline(args: argparse.Namespace, claude_extra_env: dict | None) -> No
         ok, output = run_sanity_check(app_dir, "real")
         if not ok:
             log.info("Sanity check failed after real task generation — fixing")
-            run_claude(
+            run_agent(
                 "fix-sanity-check",
                 cwd=REPO_DIR,
                 timeout=1800,
-                extra_env=claude_extra_env,
+                agent=args.agent,
+                generation_model=args.generation_model,
                 output=output[-3000:],
                 variant="real",
                 **{"app-name": args.app_name},
@@ -1245,11 +1219,12 @@ def _run_pipeline(args: argparse.Namespace, claude_extra_env: dict | None) -> No
                 break
 
             log.info("Running audit on real task failures")
-            run_claude(
+            run_agent(
                 "audit-real-tasks",
                 cwd=REPO_DIR,
                 timeout=3600,
-                extra_env=claude_extra_env,
+                agent=args.agent,
+                generation_model=args.generation_model,
                 evaluation_result_path=str(results_dir),
             )
 
@@ -1308,11 +1283,12 @@ def _run_pipeline(args: argparse.Namespace, claude_extra_env: dict | None) -> No
                 analysis = build_hardening_analysis(app_dir)
                 results_root = app_dir / "results"
 
-                rc, stdout, stderr = run_claude(
+                rc, stdout, stderr = run_agent(
                     "harden-tasks",
                     cwd=REPO_DIR,
                     timeout=3600,
-                    extra_env=claude_extra_env,
+                    agent=args.agent,
+                    generation_model=args.generation_model,
                     hardening_analysis=analysis,
                     results_path=str(results_root) if results_root.is_dir() else "none",
                     round_number=str(round_num),
@@ -1338,11 +1314,12 @@ def _run_pipeline(args: argparse.Namespace, claude_extra_env: dict | None) -> No
                 ok, output = run_sanity_check(app_dir, "real")
                 if not ok:
                     log.info("Sanity check failed after hardening generation — fixing")
-                    run_claude(
+                    run_agent(
                         "fix-sanity-check",
                         cwd=REPO_DIR,
                         timeout=1800,
-                        extra_env=claude_extra_env,
+                        agent=args.agent,
+                        generation_model=args.generation_model,
                         output=output[-3000:],
                         variant="real",
                         **{"app-name": args.app_name},
@@ -1411,11 +1388,12 @@ def _run_pipeline(args: argparse.Namespace, claude_extra_env: dict | None) -> No
                     len(hardening_result_dirs),
                 )
 
-                run_claude(
+                run_agent(
                     "audit-real-tasks",
                     cwd=REPO_DIR,
                     timeout=3600,
-                    extra_env=claude_extra_env,
+                    agent=args.agent,
+                    generation_model=args.generation_model,
                     evaluation_result_path=result_paths_str,
                 )
 

@@ -53,6 +53,194 @@ REPO_DIR = SCRIPT_DIR.parent
 PROMPTS_DIR = SCRIPT_DIR / "prompts"
 
 # ---------------------------------------------------------------------------
+# Reference server.py — identical across all apps, provided verbatim to
+# DeepAgents so OS models copy it instead of inventing a broken one.
+# ---------------------------------------------------------------------------
+
+_REFERENCE_SERVER_PY = r'''#!/usr/bin/env python3
+"""
+Custom HTTP server for the web app.
+
+Serves static files and exposes API endpoints:
+  GET  /api/state  — Read the current application state (for verifiers)
+  PUT  /api/state  — Update the server-side state copy (called by browser)
+  POST /api/reset  — Reset the app state to seed data
+  GET  /api/events — SSE stream for pushing reset commands to browser
+
+Usage:
+    python3 server.py [--port PORT]
+
+Example (Python verifier):
+    import requests
+    state = requests.get('http://localhost:8000/api/state').json()
+    assert state['settings']['theme'] == 'default'
+"""
+
+import http.server
+import json
+import queue
+import socketserver
+import sys
+import threading
+
+
+class ThreadedHTTPServer(socketserver.ThreadingMixIn, http.server.HTTPServer):
+    daemon_threads = True
+
+
+# SSE client queues — each connected browser tab gets one
+_clients = []
+_clients_lock = threading.Lock()
+
+# Server-side copy of application state (pushed by browser on every mutation)
+_app_state = None
+_seed_state = None  # Snapshot of the first state push (seed data)
+_state_lock = threading.Lock()
+
+
+class AppHandler(http.server.SimpleHTTPRequestHandler):
+
+    def do_PUT(self):
+        if self.path == '/api/state':
+            self._handle_put_state()
+        else:
+            self.send_error(404)
+
+    def do_POST(self):
+        if self.path == '/api/reset':
+            self._handle_reset()
+        else:
+            self.send_error(404)
+
+    def do_GET(self):
+        if self.path == '/api/state':
+            self._handle_get_state()
+        elif self.path == '/api/events':
+            self._handle_sse()
+        else:
+            super().do_GET()
+
+    # ---- State sync ----
+
+    def _handle_put_state(self):
+        """Browser pushes its AppState here on every mutation."""
+        global _app_state, _seed_state
+        content_length = int(self.headers.get('Content-Length', 0))
+        body = self.rfile.read(content_length)
+        try:
+            parsed = json.loads(body)
+            with _state_lock:
+                _app_state = parsed
+                # Capture the first push as seed state snapshot
+                if _seed_state is None:
+                    _seed_state = json.loads(json.dumps(parsed))  # deep copy
+            self.send_response(200)
+            self.send_header('Content-Type', 'application/json')
+            self.end_headers()
+            self.wfile.write(b'{"status":"ok"}')
+        except json.JSONDecodeError:
+            self.send_error(400, 'Invalid JSON')
+
+    def _handle_get_state(self):
+        """Verifiers read the current application state from here."""
+        with _state_lock:
+            state = _app_state
+        if state is None:
+            self.send_response(404)
+            self.send_header('Content-Type', 'application/json')
+            self.end_headers()
+            self.wfile.write(b'{"error":"No state available. Open the app in a browser first."}')
+        else:
+            self.send_response(200)
+            self.send_header('Content-Type', 'application/json')
+            self.end_headers()
+            self.wfile.write(json.dumps(state).encode())
+
+    # ---- Reset ----
+
+    def _handle_reset(self):
+        """Reset server state to seed data and notify connected browsers."""
+        global _app_state
+        with _state_lock:
+            if _seed_state is not None:
+                _app_state = json.loads(json.dumps(_seed_state))  # deep copy
+            else:
+                _app_state = None
+        with _clients_lock:
+            for q in _clients:
+                q.put('reset')
+        self.send_response(200)
+        self.send_header('Content-Type', 'application/json')
+        self.end_headers()
+        self.wfile.write(json.dumps({
+            'status': 'ok',
+            'action': 'reset',
+            'seed_restored': _seed_state is not None,
+            'clients_notified': len(_clients)
+        }).encode())
+
+    # ---- SSE ----
+
+    def _handle_sse(self):
+        """Server-Sent Events stream for pushing commands to the browser."""
+        self.send_response(200)
+        self.send_header('Content-Type', 'text/event-stream')
+        self.send_header('Cache-Control', 'no-cache')
+        self.send_header('Connection', 'keep-alive')
+        self.end_headers()
+
+        q = queue.Queue()
+        with _clients_lock:
+            _clients.append(q)
+
+        try:
+            self.wfile.write(b'data: connected\n\n')
+            self.wfile.flush()
+
+            while True:
+                event = q.get()  # blocks until a signal arrives
+                self.wfile.write(f'data: {event}\n\n'.encode())
+                self.wfile.flush()
+        except (BrokenPipeError, ConnectionResetError, OSError):
+            pass
+        finally:
+            with _clients_lock:
+                if q in _clients:
+                    _clients.remove(q)
+
+    def log_message(self, format, *args):
+        if args and '/api/' in str(args[0]):
+            super().log_message(format, *args)
+
+
+if __name__ == '__main__':
+    port = 8000
+    if '--port' in sys.argv:
+        idx = sys.argv.index('--port')
+        port = int(sys.argv[idx + 1])
+
+    if '--test-mode' in sys.argv:
+        import os as _os
+        _app = _os.path.dirname(_os.path.abspath(__file__))
+        _repo = _os.path.dirname(_os.path.dirname(_app))
+        sys.path.insert(0, _os.path.join(_repo, 'evaluation'))
+        from test_mode import patch_handler_for_test_mode
+        patch_handler_for_test_mode(AppHandler, _app)
+
+    server = ThreadedHTTPServer(('', port), AppHandler)
+    print(f'Serving on http://localhost:{port}')
+    print(f'  API:  GET  http://localhost:{port}/api/state')
+    print(f'  API:  POST http://localhost:{port}/api/reset')
+    print(f'  SSE:  GET  http://localhost:{port}/api/events')
+    print()
+    try:
+        server.serve_forever()
+    except KeyboardInterrupt:
+        print('\nShutting down.')
+        server.shutdown()
+'''
+
+# ---------------------------------------------------------------------------
 # Logging
 # ---------------------------------------------------------------------------
 
@@ -97,6 +285,241 @@ def load_prompt(name: str, **kwargs: str) -> str:
     return template.format(**kwargs)
 
 
+def _build_generate_app_deepagents_context(app_name: str) -> str:
+    """Build comprehensive inline context for DeepAgents generate-app prompt.
+
+    Non-Claude models can't read CLAUDE.md or follow doc-file references
+    reliably, so we inject all critical requirements directly into the prompt.
+    """
+    target_dir = f"apps/{app_name}"
+    return f"""
+== REQUIRED OUTPUT FILES ==
+You MUST create ALL of the following files in {target_dir}/:
+
+1. server.py          — HTTP server (USE THE EXACT CODE PROVIDED BELOW, do not write your own)
+2. index.html         — Main HTML entry point, loads JS modules and CSS
+3. js/app.js          — Main application controller: routing, event delegation, initialization
+4. js/state.js        — Centralized state management (AppState object with localStorage persistence)
+5. js/views.js        — View/page rendering functions (returns HTML strings)
+6. js/components.js   — Reusable UI component renderers (dropdowns, modals, lists)
+7. js/data.js         — ALL seed data constants (100+ records for main entities, realistic distribution)
+8. css/styles.css     — Complete styling for the app
+9. APP_DESCRIPTION.md — Documentation: app summary, features, data model, navigation, seed data summary
+10. Dockerfile        — Container definition (template provided below)
+
+DO NOT skip any of these files. Every single one is required. A missing file means the app will not work.
+Start by creating server.py (copy verbatim), then data.js (seed data), then state.js, then views.js, components.js, app.js, index.html, css/styles.css, APP_DESCRIPTION.md, Dockerfile.
+
+== REFERENCE server.py — COPY THIS EXACTLY ==
+Create {target_dir}/server.py with EXACTLY this content (do not modify it):
+
+```python
+{_REFERENCE_SERVER_PY}
+```
+
+== ENVIRONMENT PROTOCOL ==
+Your app must implement this state sync contract between browser JS and server.py:
+
+HTTP API Endpoints (all handled by server.py above — you do NOT need to implement these):
+- GET  /api/state   — Returns current app state as JSON (read by automated verifiers)
+- PUT  /api/state   — Browser pushes full state on every mutation
+- POST /api/reset   — Restores seed state, sends SSE reset event to browsers
+- GET  /api/events  — SSE stream for reset notifications
+- GET  /*           — Static file serving (HTML/CSS/JS)
+
+State Sync Contract (YOU must implement this in your JavaScript):
+1. On page load: PUT /api/state with full initial state (so verifiers can read it)
+2. On EVERY user action that changes state: PUT /api/state with updated state
+3. Listen to /api/events SSE stream; on "reset" event, reload seed data and navigate home
+4. State MUST be JSON-serializable (no functions, DOM refs, circular structures)
+
+Recommended JS pattern in state.js:
+```javascript
+function _pushStateToServer() {{
+    fetch('/api/state', {{
+        method: 'PUT',
+        headers: {{ 'Content-Type': 'application/json' }},
+        body: JSON.stringify(getSerializableState())
+    }});
+}}
+// Call _pushStateToServer() after EVERY state mutation
+
+const eventSource = new EventSource('/api/events');
+eventSource.onmessage = (e) => {{
+    if (e.data === 'reset') {{ resetToSeedData(); navigateHome(); }}
+}};
+```
+
+== CRITICAL DESIGN REQUIREMENTS ==
+
+1. NO NATIVE OS UI ELEMENTS:
+   - NO <select> dropdowns — build custom dropdowns with <div>/<ul>/<li>
+   - NO alert()/confirm()/prompt() — use custom modal dialogs
+   - NO <input type="file">, <input type="date">, <input type="time">, <input type="color">
+   - Use custom HTML/CSS/JS equivalents for everything
+
+2. RICH SEED DATA (in js/data.js):
+   - Main entity lists (emails, messages, projects, etc.): 15-30+ records minimum
+   - Dropdown options: 5-20+ entries each
+   - Realistic distribution (not uniform): mix of active/inactive/archived/draft states
+   - Realistic metadata: unique IDs, timestamps, statuses, tags, owner references
+   - Include edge cases: long names, special characters, empty optional fields
+   - Define a SEED_DATA_VERSION = 1 constant
+
+3. LOCALSTORAGE PERSISTENCE (in js/state.js):
+   - Save full state to localStorage on every mutation
+   - Load from localStorage on startup; fall back to seed data if empty or stale
+   - Seed version stamping: store _seedVersion in persisted state, compare against
+     SEED_DATA_VERSION on load, discard stale localStorage if versions differ
+
+4. STATE PUSH TO SERVER (critical for verifiers to work):
+   - After EVERY state mutation, push full state to server via PUT /api/state
+   - This is the ONLY way verifiers can check your app's state
+   - If you forget this, all automated tests will fail with empty state
+
+5. SSE RESET LISTENER (in js/app.js init):
+   - const es = new EventSource('/api/events')
+   - On message: if (e.data === 'reset') {{ reloadSeedData(); navigateHome(); }}
+
+6. FORM VALIDATION:
+   - Required fields marked visually and enforced before submission
+   - Real-time validation on input/change/blur events
+   - Disable submit buttons when form is invalid
+   - Custom error messages (no browser-native validation popups)
+
+== DOCKERFILE ==
+Create {target_dir}/Dockerfile with this content:
+
+```dockerfile
+FROM python:3.12-slim
+WORKDIR /app
+COPY server.py index.html ./
+COPY js/ ./js/
+COPY css/ ./css/
+EXPOSE 8000
+CMD ["python", "server.py"]
+```
+
+== END OF REQUIREMENTS — NOW FOLLOW THE TASK INSTRUCTIONS BELOW ==
+
+"""
+
+
+_REFERENCE_APPS = {"gmail", "gmail-reproduced", "linear-account-settings"}
+
+_DEEPAGENTS_DOC_MAP: dict[str, list[str]] = {
+    "generate-function-tests": [
+        "docs/function-task-design-guide.md",
+        "docs/verifier-sanity-check.md",
+        "docs/environment-protocol.md",
+    ],
+    "generate-real-tasks": [
+        "docs/real-task-design-guide.md",
+        "docs/verifier-sanity-check.md",
+        "docs/environment-protocol.md",
+    ],
+    "generate-app": [
+        "docs/web-app-design-guide.md",
+        "docs/web-app-data-guide.md",
+        "docs/environment-protocol.md",
+    ],
+    "harden-tasks": [
+        "docs/task-hardening-guide.md",
+    ],
+}
+
+
+def _inline_docs_for_deepagents(prompt_name: str) -> str:
+    """Read referenced docs from disk and return them as inline prompt context."""
+    doc_paths = _DEEPAGENTS_DOC_MAP.get(prompt_name, [])
+    if not doc_paths:
+        return ""
+    sections: list[str] = []
+    for rel_path in doc_paths:
+        full_path = REPO_DIR / rel_path
+        if full_path.is_file():
+            content = full_path.read_text(errors="replace")
+            sections.append(
+                f"== INLINED DOC: {rel_path} ==\n{content}\n== END {rel_path} ==\n"
+            )
+    if not sections:
+        return ""
+    return (
+        "The following documentation has been inlined so you do NOT need to "
+        "read these files from disk. Use the content below directly:\n\n"
+        + "\n".join(sections) + "\n"
+    )
+
+
+def generate_claudeignore(app_name: str, docs_path: str) -> None:
+    """Write a .claudeignore that hides irrelevant apps/docs.
+
+    Keeps: the target app, its docs, reference apps, and shared resources.
+    Hides everything else so the agent doesn't waste time exploring.
+    """
+    ignore_path = REPO_DIR / ".claudeignore"
+    apps_dir = REPO_DIR / "apps"
+    if not apps_dir.is_dir():
+        return
+
+    docs_parts = Path(docs_path).parts
+    docs_parent = docs_parts[1] if len(docs_parts) > 1 else ""
+    docs_product = docs_parts[2] if len(docs_parts) > 2 else ""
+
+    lines = [
+        "# Auto-generated — hides irrelevant apps for: " + app_name,
+        "",
+    ]
+
+    for entry in sorted(apps_dir.iterdir()):
+        if not entry.is_dir():
+            continue
+        name = entry.name
+        if name == app_name:
+            continue
+        if name in _REFERENCE_APPS:
+            continue
+        if name == docs_parent:
+            continue
+        if name == "user-manuals":
+            continue
+        lines.append(f"apps/{name}/")
+
+    if docs_parent and (apps_dir / docs_parent).is_dir():
+        for product_dir in sorted((apps_dir / docs_parent).iterdir()):
+            if not product_dir.is_dir():
+                continue
+            if product_dir.name == docs_product:
+                continue
+            lines.append(f"apps/{docs_parent}/{product_dir.name}/")
+
+    lines.append("")
+    ignore_path.write_text("\n".join(lines))
+    log.info("Generated .claudeignore (%d entries)", len(lines) - 3)
+
+
+def validate_app_generation(app_dir: Path) -> tuple[bool, list[str]]:
+    """Validate that Phase 1 generated all critical files.
+
+    Returns (valid, missing) where missing lists what's absent.
+    """
+    missing = []
+    for name in ("server.py", "index.html"):
+        if not (app_dir / name).is_file():
+            missing.append(name)
+    js_dir = app_dir / "js"
+    if not js_dir.is_dir():
+        missing.append("js/ directory")
+    elif not list(js_dir.glob("*.js")):
+        missing.append("js/*.js files (directory exists but empty)")
+    css_dir = app_dir / "css"
+    if not css_dir.is_dir():
+        missing.append("css/ directory")
+    elif not list(css_dir.glob("*.css")):
+        missing.append("css/*.css files (directory exists but empty)")
+    return (len(missing) == 0, missing)
+
+
 # ---------------------------------------------------------------------------
 # Claude CLI invocation
 # ---------------------------------------------------------------------------
@@ -109,6 +532,9 @@ def run_agent(
     retries: int = 1,
     agent: str = "claude",
     generation_model: str | None = None,
+    app_name: str | None = None,
+    prompt_prefix: str = "",
+    model_params: str | None = None,
     **template_vars: str,
 ) -> tuple[int, str, str]:
     """Load prompt template, invoke the configured agent CLI.
@@ -117,26 +543,46 @@ def run_agent(
     Returns (returncode, stdout, stderr).
     """
     prompt = load_prompt(prompt_name, **template_vars)
+    if prompt_prefix:
+        prompt = prompt_prefix + prompt
     cwd = str(cwd)
 
     # Ensure log directory exists
-    app_name = Path(cwd).name
-    step_log_dir = REPO_DIR / "logs" / app_name
+    log_app_name = app_name or Path(cwd).name
+    step_log_dir = REPO_DIR / "logs" / log_app_name
     step_log_dir.mkdir(parents=True, exist_ok=True)
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     log_path = step_log_dir / f"{prompt_name}_{timestamp}.log"
 
     if agent == "deepagents":
-        # Augment prompt with explicit tool-use instructions for non-Claude models.
-        # Without this, models like gpt-oss respond with text instead of calling tools.
+        target_dir = f"apps/{app_name}" if app_name else ""
         deepagents_prefix = (
             "IMPORTANT: You MUST use the write_file tool to create files and the "
             "execute tool to run shell commands. Do NOT just describe what to do — "
             "actually call the tools to create and modify files on disk. "
             "Read files with read_file, search with grep, and always write output "
             "using write_file. Every file you need to create must use write_file.\n\n"
+            "SPEED RULES — follow these to avoid wasting time:\n"
+            "- Do NOT list or read files in apps/ directories other than your target app.\n"
+            "- Do NOT explore the repo structure. All instructions you need are in this prompt.\n"
+            "- Read only the specific doc files mentioned in the task. Do not browse docs/.\n"
+            "- Start writing files as soon as possible. Do not over-plan.\n"
+            "- When reading reference apps, read at most 1 file per module (e.g. one data.js, "
+            "one state.js) to understand the pattern, then write your own.\n\n"
         )
-        augmented_prompt = deepagents_prefix + prompt
+        if target_dir:
+            deepagents_prefix += (
+                f"CRITICAL: All files you create for this app MUST go in the "
+                f"`{target_dir}/` directory. Create this directory if it doesn't exist. "
+                f"Do NOT write files to any other app directory. "
+                f"The target app directory is: {target_dir}/\n\n"
+            )
+        inlined_docs = _inline_docs_for_deepagents(prompt_name)
+        if prompt_name == "generate-app" and app_name:
+            generate_app_ctx = _build_generate_app_deepagents_context(app_name)
+            augmented_prompt = deepagents_prefix + inlined_docs + generate_app_ctx + prompt
+        else:
+            augmented_prompt = deepagents_prefix + inlined_docs + prompt
         cmd = [
             "deepagents",
             "-n", augmented_prompt,
@@ -145,6 +591,8 @@ def run_agent(
         ]
         if generation_model:
             cmd.extend(["-M", generation_model])
+        if model_params:
+            cmd.extend(["--model-params", model_params])
     else:
         cmd = [
             "claude",
@@ -850,7 +1298,7 @@ def main() -> None:
     parser.add_argument(
         "--model",
         default="gemini-pro",
-        choices=["gemini-flash", "gemini-pro", "gpt", "claude", "kimi", "gpt-oss"],
+        choices=["gemini-flash", "gemini-pro", "gpt", "claude", "kimi", "gpt-oss", "deepseek"],
         help="Eval agent model (default: gemini-pro)",
     )
     parser.add_argument(
@@ -932,6 +1380,12 @@ def main() -> None:
         help="Model for DeepAgents agent (e.g. openai:azure/gpt-oss-120b). "
              "Required when --agent=deepagents.",
     )
+    parser.add_argument(
+        "--model-params",
+        default=None,
+        help="Extra model kwargs as JSON for DeepAgents --model-params "
+             '(e.g. \'{"extra_body":{"chat_template_kwargs":{"enable_thinking":false}}}\').',
+    )
     args = parser.parse_args()
     args.push_enabled = not args.no_push
 
@@ -967,6 +1421,9 @@ def main() -> None:
     # Set up branch if specified
     if args.branch:
         setup_branch(args.branch)
+
+    # Generate .claudeignore to focus agent on this app only
+    generate_claudeignore(args.app_name, args.docs_path)
 
     # ── Rerun-from handling ───────────────────────────────────────────
 
@@ -1038,6 +1495,8 @@ def main() -> None:
             timeout=3600,
             agent=args.agent,
             generation_model=args.generation_model,
+            model_params=args.model_params,
+            app_name=args.app_name,
             docs_source=args.docs_path,
         )
         if rc != 0:
@@ -1045,6 +1504,55 @@ def main() -> None:
             sys.exit(1)
 
         commit_checkpoint(app_dir, f"Generate app: {args.app_name}", push=args.push_enabled)
+
+        # Validate generated app structure
+        valid, missing = validate_app_generation(app_dir)
+        if not valid:
+            log.warning(
+                "Phase 1 validation FAILED — missing files: %s", ", ".join(missing)
+            )
+            if args.agent == "deepagents":
+                log.info("Retrying Phase 1 with error context for DeepAgents")
+                missing_str = "\n".join(f"  - {m}" for m in missing)
+                retry_prefix = (
+                    f"CRITICAL ERROR: Your previous attempt to generate the app was "
+                    f"incomplete. The following required files are MISSING from "
+                    f"apps/{args.app_name}/:\n{missing_str}\n\n"
+                    f"You MUST create ALL missing files now using write_file. "
+                    f"Do NOT recreate files that already exist — only create the "
+                    f"missing ones listed above.\n\n"
+                )
+                rc2, _, _ = run_agent(
+                    "generate-app",
+                    cwd=REPO_DIR,
+                    timeout=3600,
+                    agent=args.agent,
+                    generation_model=args.generation_model,
+                    model_params=args.model_params,
+                    app_name=args.app_name,
+                    prompt_prefix=retry_prefix,
+                    docs_source=args.docs_path,
+                )
+                valid2, missing2 = validate_app_generation(app_dir)
+                if not valid2:
+                    log.error(
+                        "Phase 1 FAILED after retry. Still missing: %s",
+                        ", ".join(missing2),
+                    )
+                    sys.exit(1)
+                commit_checkpoint(
+                    app_dir,
+                    f"Generate app (retry fix): {args.app_name}",
+                    push=args.push_enabled,
+                )
+                log.info("Phase 1 retry succeeded — missing files created")
+            else:
+                log.error(
+                    "Phase 1 validation failed (missing: %s). Fix manually or rerun.",
+                    ", ".join(missing),
+                )
+                sys.exit(1)
+
         log.info("Phase 1 complete: app generated")
     else:
         log.info("Phase 1: Skipped")
@@ -1064,6 +1572,8 @@ def main() -> None:
             timeout=3600,
             agent=args.agent,
             generation_model=args.generation_model,
+            model_params=args.model_params,
+            app_name=args.app_name,
             **{"app-name": args.app_name},
         )
         if rc != 0:
@@ -1081,6 +1591,8 @@ def main() -> None:
                 timeout=1800,
                 agent=args.agent,
                 generation_model=args.generation_model,
+                model_params=args.model_params,
+                app_name=args.app_name,
                 output=output[-3000:],
                 variant="function",
                 **{"app-name": args.app_name},
@@ -1131,6 +1643,8 @@ def main() -> None:
                 timeout=3600,
                 agent=args.agent,
                 generation_model=args.generation_model,
+                model_params=args.model_params,
+                app_name=args.app_name,
                 evaluation_result_path=str(results_dir),
             )
 
@@ -1160,6 +1674,8 @@ def main() -> None:
             timeout=3600,
             agent=args.agent,
             generation_model=args.generation_model,
+            model_params=args.model_params,
+            app_name=args.app_name,
             **{"app-name": args.app_name},
         )
         if rc != 0:
@@ -1175,6 +1691,8 @@ def main() -> None:
                 timeout=1800,
                 agent=args.agent,
                 generation_model=args.generation_model,
+                model_params=args.model_params,
+                app_name=args.app_name,
                 output=output[-3000:],
                 variant="real",
                 **{"app-name": args.app_name},
@@ -1225,6 +1743,8 @@ def main() -> None:
                 timeout=3600,
                 agent=args.agent,
                 generation_model=args.generation_model,
+                model_params=args.model_params,
+                app_name=args.app_name,
                 evaluation_result_path=str(results_dir),
             )
 
@@ -1289,6 +1809,8 @@ def main() -> None:
                     timeout=3600,
                     agent=args.agent,
                     generation_model=args.generation_model,
+                    model_params=args.model_params,
+                    app_name=args.app_name,
                     hardening_analysis=analysis,
                     results_path=str(results_root) if results_root.is_dir() else "none",
                     round_number=str(round_num),
@@ -1320,6 +1842,8 @@ def main() -> None:
                         timeout=1800,
                         agent=args.agent,
                         generation_model=args.generation_model,
+                        model_params=args.model_params,
+                        app_name=args.app_name,
                         output=output[-3000:],
                         variant="real",
                         **{"app-name": args.app_name},
@@ -1394,6 +1918,8 @@ def main() -> None:
                     timeout=3600,
                     agent=args.agent,
                     generation_model=args.generation_model,
+                    model_params=args.model_params,
+                    app_name=args.app_name,
                     evaluation_result_path=result_paths_str,
                 )
 

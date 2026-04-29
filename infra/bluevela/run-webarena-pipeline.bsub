@@ -1,0 +1,190 @@
+#!/bin/bash
+# WebArena-Infinity Pipeline on BlueVela via Enroot
+# Runs N pipeline instances in parallel, each generating a different app environment
+#
+# Usage:
+#   bsub < infra/bluevela/run-webarena-pipeline.bsub
+#
+# Prerequisites:
+#   1. Build and push the webarena container image (see Containerfile)
+#   2. Import and bundle: enroot import + create + bundle → webarena.run
+#   3. Place .run file at ${ENROOT_SHARE_PATH}/enroot/webarena.run
+
+#BSUB -J webarena-pipeline
+#BSUB -n 24
+#BSUB -M 1.5T
+#BSUB -hl
+#BSUB -R "span[hosts=1]"
+#BSUB -G grp_models
+#BSUB -W 720
+#BSUB -o logs/webarena_%J.log
+#BSUB -e logs/webarena_%J.err
+
+. ~/.bashrc
+set -e
+
+# ── Configuration ─────────────────────────────────────────────────────────────
+
+: "${ENROOT_SHARE_PATH:=/u/divykum2/agentic}"
+source /proj/dev-pre-train/enroot/scripts/blue-vela-enroot-env.sh
+
+# Use local NVMe for fast container extraction
+export ENROOT_DATA_PATH="/opt/nvme/$USER/webarena"
+mkdir -p ${ENROOT_DATA_PATH}
+
+CONTAINER_NAME="webarena"
+ENROOT_RUN_BUNDLE="${ENROOT_SHARE_PATH}/enroot/${CONTAINER_NAME}.run"
+
+# LiteLLM proxy configuration
+LITELLM_URL="https://ete-litellm.ai-models.vpc.res.ibm.com/v1"
+LITELLM_KEY="sk-sYbH91TxSrvVADcT_Khnmw"
+
+# Pipeline parameters
+GENERATION_MODEL="openai:coreweave/glmv5"
+EVAL_MODEL="deepseek"
+AGENT="deepagents"
+WORKERS=8
+REPETITIONS=3
+MAX_ITERATIONS=2
+HARDENING_ROUNDS=1
+MODEL_PARAMS='{"extra_body":{"chat_template_kwargs":{"enable_thinking":false}}}'
+
+# App environments to generate (one pipeline per app)
+# Format: app-name|docs-path
+APPS=(
+    "experiments/glm5-spotify|apps/app-description/spotify-music.md"
+    # Add more apps here:
+    # "experiments/glm5-gmail|apps/app-description/gmail.md"
+    # "experiments/glm5-linear|apps/app-description/linear.md"
+)
+
+# ── Enroot config ─────────────────────────────────────────────────────────────
+
+temp_enroot_config_file=$(mktemp -t enroot.config.XXXXXX)
+cat << EOF >> "$temp_enroot_config_file"
+environ() {
+    env
+}
+
+mounts() {
+    echo "/u/divykum2/agentic/webarena-results /output"
+}
+EOF
+
+# ── Cleanup ───────────────────────────────────────────────────────────────────
+
+cleanup() {
+    local exit_code=$?
+    set +e
+    echo "[$(date)] Cleaning up..."
+    ps -fu $USER | grep "catatonit" | grep -v "grep" | awk '{print $2}' | xargs -i kill -9 {} 2>/dev/null
+    rm -rf "${ENROOT_DATA_PATH}/${CONTAINER_NAME}"
+    rm -f "$temp_enroot_config_file"
+    exit $exit_code
+}
+trap cleanup EXIT
+
+# ── Setup container ───────────────────────────────────────────────────────────
+
+echo "=========================================="
+echo "WebArena-Infinity Pipeline on BlueVela"
+echo "=========================================="
+echo "Job ID: ${LSB_JOBID}"
+echo "Host: $(hostname)"
+echo "Apps to generate: ${#APPS[@]}"
+echo "Workers per pipeline: ${WORKERS}"
+echo "Generation model: ${GENERATION_MODEL}"
+echo "Eval model: ${EVAL_MODEL}"
+echo "=========================================="
+
+# Extract and keep the container
+echo "[$(date)] Starting container from ${ENROOT_RUN_BUNDLE}..."
+${ENROOT_RUN_BUNDLE} --keep bash -c "echo 'Container ready'; python --version"
+
+# Clone/update the repo inside the container
+echo "[$(date)] Setting up webarena-infinity repo..."
+enroot start --root --rw --conf $temp_enroot_config_file ${CONTAINER_NAME} bash -c '
+    cd /opt &&
+    if [ -d webarena-infinity ]; then
+        cd webarena-infinity && git pull
+    else
+        git clone https://github.com/divya-kumari32/webarena-infinity.git
+        cd webarena-infinity
+    fi &&
+    bash setup.sh &&
+    # Install deepagents
+    uv tool install deepagents-cli 2>/dev/null || true &&
+    echo "Setup complete"
+'
+
+# ── Launch pipelines ──────────────────────────────────────────────────────────
+
+PIDS=()
+LOG_DIR="/u/divykum2/agentic/webarena-logs/${LSB_JOBID}"
+mkdir -p ${LOG_DIR}
+
+for app_entry in "${APPS[@]}"; do
+    IFS='|' read -r APP_NAME DOCS_PATH <<< "$app_entry"
+    APP_LOG="${LOG_DIR}/pipeline_$(echo $APP_NAME | tr '/' '_').log"
+
+    echo "[$(date)] Launching pipeline for ${APP_NAME}..."
+
+    enroot start --root --rw --conf $temp_enroot_config_file ${CONTAINER_NAME} bash -c "
+        source /opt/webarena-infinity/.venv/bin/activate &&
+        cd /opt/webarena-infinity &&
+        export PATH=\"\$(python -m site --user-base)/bin:\$PATH\" &&
+        export PROXY_TARGET_URL='${LITELLM_URL}' &&
+        export PROXY_TARGET_KEY='${LITELLM_KEY}' &&
+        export OPENAI_API_KEY='${LITELLM_KEY}' &&
+        export OPENAI_BASE_URL='${LITELLM_URL}' &&
+        python infra/pipeline.py \
+            --app-name '${APP_NAME}' \
+            --docs-path '${DOCS_PATH}' \
+            --model '${EVAL_MODEL}' \
+            --agent '${AGENT}' \
+            --generation-model '${GENERATION_MODEL}' \
+            --workers ${WORKERS} \
+            --repetitions ${REPETITIONS} \
+            --max-iterations ${MAX_ITERATIONS} \
+            --hardening-rounds ${HARDENING_ROUNDS} \
+            --no-push \
+            --model-params '${MODEL_PARAMS}'
+    " > "${APP_LOG}" 2>&1 &
+
+    PIDS+=($!)
+    echo "[$(date)] Pipeline ${APP_NAME} launched as PID ${PIDS[-1]}, log: ${APP_LOG}"
+done
+
+# ── Wait for all pipelines ────────────────────────────────────────────────────
+
+echo "[$(date)] Waiting for ${#PIDS[@]} pipeline(s) to complete..."
+
+FAILED=0
+for i in "${!PIDS[@]}"; do
+    pid=${PIDS[$i]}
+    app_entry=${APPS[$i]}
+    IFS='|' read -r APP_NAME DOCS_PATH <<< "$app_entry"
+
+    if wait $pid; then
+        echo "[$(date)] Pipeline ${APP_NAME} COMPLETED SUCCESSFULLY"
+    else
+        echo "[$(date)] Pipeline ${APP_NAME} FAILED (exit=$?)"
+        FAILED=$((FAILED + 1))
+    fi
+done
+
+# ── Copy results to shared storage ───────────────────────────────────────────
+# /output inside container is mounted to /u/divykum2/agentic/webarena-results on host
+
+echo "[$(date)] Copying results to /output (mounted to host)..."
+enroot start --root --rw --conf $temp_enroot_config_file ${CONTAINER_NAME} bash -c "
+    mkdir -p /output/${LSB_JOBID} &&
+    cp -r /opt/webarena-infinity/apps/experiments/ /output/${LSB_JOBID}/ 2>/dev/null || true &&
+    cp -r /opt/webarena-infinity/logs/ /output/${LSB_JOBID}/logs/ 2>/dev/null || true
+"
+
+echo "=========================================="
+echo "All pipelines finished. Failed: ${FAILED}/${#APPS[@]}"
+echo "Results: /u/divykum2/agentic/webarena-results/${LSB_JOBID}/"
+echo "Logs: ${LOG_DIR}/"
+echo "=========================================="

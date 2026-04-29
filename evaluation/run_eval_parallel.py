@@ -93,19 +93,12 @@ AGENT_FACTORIES = {
     "gemini-cu": lambda **kw: _make_gemini_cu_agent(**kw),
     "claude-cu": lambda **kw: _make_claude_cu_agent(**kw),
     "kimi": lambda **kw: _make_kimi_agent(**kw),
-    "qwen": lambda **kw: _make_qwen_agent(**kw),
+    "qwen": lambda **kw: _make_browser_use_agent(
+        lambda: __import__("browser_use.llm.openai.chat", fromlist=["ChatOpenAI"]).ChatOpenAI(model="coreweave/qwen3-coder-480b-a35b-instruct-maas"), **kw),
     "gpt-oss": lambda **kw: _make_browser_use_agent(
-        lambda: __import__("browser_use.llm.openai.chat", fromlist=["ChatOpenAI"]).ChatOpenAI(
-            model=os.environ.get("GPT_OSS_MODEL", "azure/gpt-oss-120b"),
-            base_url=os.environ.get("GPT_OSS_BASE_URL", "https://ete-litellm.ai-models.vpc.res.ibm.com/v1"),
-            api_key=os.environ.get("GPT_OSS_API_KEY", os.environ.get("OPENAI_API_KEY", "")),
-        ), **kw),
+        lambda: __import__("browser_use.llm.openai.chat", fromlist=["ChatOpenAI"]).ChatOpenAI(model="gpt-4o"), **kw),
     "deepseek": lambda **kw: _make_browser_use_agent(
-        lambda: __import__("browser_use.llm.openai.chat", fromlist=["ChatOpenAI"]).ChatOpenAI(
-            model=os.environ.get("DEEPSEEK_MODEL", "azure/DeepSeek-V3.2"),
-            base_url=os.environ.get("DEEPSEEK_BASE_URL", "https://ete-litellm.ai-models.vpc.res.ibm.com/v1"),
-            api_key=os.environ.get("DEEPSEEK_API_KEY", os.environ.get("OPENAI_API_KEY", "")),
-        ), **kw),
+        lambda: __import__("browser_use.llm.openai.chat", fromlist=["ChatOpenAI"]).ChatOpenAI(model="coreweave/deepseek-v32"), **kw),
 }
 
 # --- ANSI colors ---

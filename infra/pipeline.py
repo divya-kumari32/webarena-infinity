@@ -37,12 +37,15 @@ import argparse
 import json
 import logging
 import os
+import signal
 import shutil
 import subprocess
 import sys
 import time
 from datetime import datetime
 from pathlib import Path
+
+GLOBAL_TIMEOUT_SECONDS = 10 * 3600  # 10 hours
 
 # ---------------------------------------------------------------------------
 # Paths
@@ -302,7 +305,7 @@ You MUST create ALL of the following files in {target_dir}/:
 4. js/state.js        — Centralized state management (AppState object with localStorage persistence)
 5. js/views.js        — View/page rendering functions (returns HTML strings)
 6. js/components.js   — Reusable UI component renderers (dropdowns, modals, lists)
-7. js/data.js         — ALL seed data constants (100+ records for main entities, realistic distribution)
+7. js/data.js         — ALL seed data constants (15-20 records per main entity, realistic distribution)
 8. css/styles.css     — Complete styling for the app
 9. APP_DESCRIPTION.md — Documentation: app summary, features, data model, navigation, seed data summary
 10. Dockerfile        — Container definition (template provided below)
@@ -359,8 +362,8 @@ eventSource.onmessage = (e) => {{
    - Use custom HTML/CSS/JS equivalents for everything
 
 2. RICH SEED DATA (in js/data.js):
-   - Main entity lists (emails, messages, projects, etc.): 15-30+ records minimum
-   - Dropdown options: 5-20+ entries each
+   - Main entity lists (emails, messages, projects, etc.): 15-20 records (not more)
+   - Dropdown options: 5-10 entries each
    - Realistic distribution (not uniform): mix of active/inactive/archived/draft states
    - Realistic metadata: unique IDs, timestamps, statuses, tags, owner references
    - Include edge cases: long names, special characters, empty optional fields
@@ -562,13 +565,40 @@ def run_agent(
             "actually call the tools to create and modify files on disk. "
             "Read files with read_file, search with grep, and always write output "
             "using write_file. Every file you need to create must use write_file.\n\n"
+            "PREPARATION — read these before writing any code:\n"
+            "- Read docs/web-app-design-guide.md, docs/environment-protocol.md, and "
+            "docs/verifier-sanity-check.md to understand the required patterns.\n"
+            "- Read at least 2 reference apps per module (e.g. both apps/linear-account-settings/js/data.js "
+            "and apps/gitlab-plan-and-track/js/data.js) before writing your own.\n"
+            "- Plan your file structure and cross-module contracts (function signatures, "
+            "data shapes, event names) before writing.\n"
+            "- Budget at most 10 minutes total for reading docs, reference apps, and planning — "
+            "then start writing.\n\n"
             "SPEED RULES — follow these to avoid wasting time:\n"
-            "- Do NOT list or read files in apps/ directories other than your target app.\n"
-            "- Do NOT explore the repo structure. All instructions you need are in this prompt.\n"
-            "- Read only the specific doc files mentioned in the task. Do not browse docs/.\n"
-            "- Start writing files as soon as possible. Do not over-plan.\n"
-            "- When reading reference apps, read at most 1 file per module (e.g. one data.js, "
-            "one state.js) to understand the pattern, then write your own.\n\n"
+            "- Do NOT list or read files in apps/ directories other than "
+            "apps/linear-account-settings/, apps/gitlab-plan-and-track/, and your target app.\n"
+            "- Do NOT recursively list directories. Read specific files by path.\n"
+            "- Write each file in ONE tool call. Never write a file in multiple parts.\n"
+            "- For data.js: use compact JS (array-of-objects on fewer lines). 25 records per "
+            "main entity is enough — do NOT generate 30+. Use short but realistic values.\n"
+            "- Do NOT read your own files back after writing them. Trust your output.\n\n"
+            "APP QUALITY RULES — follow these to avoid common bugs:\n"
+            "- No native OS UI elements (<select>, alert(), confirm(), file pickers) — "
+            "use custom JS-rendered equivalents (custom dropdowns, modals, etc.).\n"
+            "- Rich realistic seed data: 10+ items per dropdown, varied formats.\n"
+            "- Form validation with required fields and conditional requirements.\n"
+            "- Every value checked by a verifier must be achievable through the UI.\n"
+            "- ONE dispatch mechanism per element. Do NOT put data-action on elements "
+            "that also have class-based handlers — if both exist, handleClick ordering "
+            "determines which fires (silent bug).\n"
+            "- Grep handler maps against rendered HTML: every key in "
+            "handleDropdownSelect/handleToggleChange/handleRadioChange must appear "
+            "verbatim as an ID or name in views.js. Watch for prefix drift "
+            "(settings- vs setting-), casing drift, and suffix drift.\n"
+            "- Grep all data-action values in views.js/components.js and verify each "
+            "has a case in handleAction. Missing cases fail silently.\n"
+            "- Check verifier data shapes against data.js: if seed data uses objects "
+            "([{email, blockedAt}]), verifiers must access the nested field.\n\n"
         )
         if target_dir:
             deepagents_prefix += (
@@ -603,8 +633,28 @@ def run_agent(
             "--verbose",
             "--effort",
             "high",
-            prompt,
         ]
+        if generation_model:
+            cmd.extend(["--model", generation_model])
+            cmd.extend([
+                "--append-system-prompt",
+                "PREPARATION — read these before writing any code:\n"
+                "- Read docs/web-app-design-guide.md, docs/environment-protocol.md, and "
+                "docs/verifier-sanity-check.md to understand the required patterns.\n"
+                "- Read at least 2 reference apps per module (e.g. both apps/linear-account-settings/js/data.js "
+                "and apps/gitlab-plan-and-track/js/data.js) before writing your own.\n"
+                "- Plan your file structure and cross-module contracts before writing.\n"
+                "- Budget at most 10 minutes total for reading docs, reference apps, and planning — "
+                "then start writing.\n\n"
+                "SPEED RULES — follow these to avoid wasting time:\n"
+                "- Do NOT spawn subagents or Explore agents. Do everything yourself.\n"
+                "- Do NOT recursively list directories. Read specific files by path.\n"
+                "- Write each file in ONE tool call. Never write a file in multiple parts.\n"
+                "- For data.js: 25 records per main entity is enough. Use compact JS.\n"
+                "- Do NOT read your own files back after writing them. Trust your output.\n"
+                "- Minimize tool calls. Prefer Write over Edit for new files.\n",
+            ])
+        cmd.append(prompt)
 
     agent_label = f"{agent}" + (f"/{generation_model}" if generation_model else "")
 
@@ -679,6 +729,7 @@ def run_eval(
     resume: bool = False,
     task_id_filter: str | None = None,
     tag: str | None = None,
+    failed_only: bool = True,
 ) -> Path | None:
     """Run evaluation/run_eval_parallel.py as a subprocess.
 
@@ -691,8 +742,10 @@ def run_eval(
     Returns the path to the results directory, or None on failure.
     """
     app_dir = Path(app_dir).resolve()
+    venv_python = REPO_DIR / ".venv" / "bin" / "python"
+    python_exe = str(venv_python) if venv_python.exists() else sys.executable
     cmd = [
-        sys.executable,
+        python_exe,
         str(REPO_DIR / "evaluation" / "run_eval_parallel.py"),
         "--web-app",
         str(app_dir),
@@ -704,8 +757,10 @@ def run_eval(
         str(workers),
         "--repetitions",
         str(repetitions),
-        "--failed-only",
     ]
+
+    if failed_only:
+        cmd.append("--failed-only")
 
     if task_id_filter:
         cmd.extend(["--task-id", task_id_filter])
@@ -721,7 +776,11 @@ def run_eval(
             log.info("Found partial results dir to resume: %s", partial_dir)
 
     log.info("Running eval: %s", " ".join(cmd))
-    result = subprocess.run(cmd, capture_output=True, text=True, timeout=7200)
+    try:
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=3600)
+    except subprocess.TimeoutExpired:
+        log.error("Eval timed out after 7200s — returning partial results")
+        return find_latest_results(app_dir, task_suite)
 
     # Save eval output to log
     app_name = app_dir.name
@@ -877,7 +936,7 @@ def git(*args: str, cwd: str | Path | None = None) -> subprocess.CompletedProces
     """Run a git command."""
     cmd = ["git", *args]
     result = subprocess.run(
-        cmd, cwd=str(cwd or REPO_DIR), capture_output=True, text=True
+        cmd, cwd=str(cwd or REPO_DIR), capture_output=True, text=True, timeout=300
     )
     if result.returncode != 0:
         log.error(
@@ -895,6 +954,7 @@ def detect_changes(app_dir: str | Path) -> bool:
         ["git", "diff", "--quiet", str(app_dir)],
         cwd=str(REPO_DIR),
         capture_output=True,
+        timeout=300,
     )
     # Also check for untracked files
     untracked = subprocess.run(
@@ -902,6 +962,7 @@ def detect_changes(app_dir: str | Path) -> bool:
         cwd=str(REPO_DIR),
         capture_output=True,
         text=True,
+        timeout=300,
     )
     has_diff = result.returncode != 0
     has_untracked = bool(untracked.stdout.strip())
@@ -918,6 +979,7 @@ def commit_checkpoint(app_dir: str | Path, message: str, *, push: bool = False) 
         ["git", "diff", "--cached", "--quiet"],
         cwd=str(REPO_DIR),
         capture_output=True,
+        timeout=300,
     )
     if result.returncode == 0:
         log.info("No changes to commit")
@@ -1298,7 +1360,7 @@ def main() -> None:
     parser.add_argument(
         "--model",
         default="gemini-pro",
-        choices=["gemini-flash", "gemini-pro", "gpt", "claude", "kimi", "gpt-oss", "deepseek"],
+        choices=["gemini-flash", "gemini-pro", "gpt", "claude", "kimi", "gpt-oss", "deepseek", "qwen"],
         help="Eval agent model (default: gemini-pro)",
     )
     parser.add_argument(
@@ -1372,13 +1434,14 @@ def main() -> None:
         choices=["claude", "deepagents"],
         default="claude",
         help="Agent framework for generation (default: claude). "
-             "Use 'deepagents' with --generation-model for open-source models.",
+             "Use 'deepagents' with --generation-model for open-source models. "
+             "With 'claude', --generation-model overrides the Claude CLI model.",
     )
     parser.add_argument(
         "--generation-model",
         default=None,
-        help="Model for DeepAgents agent (e.g. openai:azure/gpt-oss-120b). "
-             "Required when --agent=deepagents.",
+        help="Model for generation agent. For deepagents: e.g. openai:azure/gpt-oss-120b "
+             "(required). For claude: overrides the default model (e.g. coreweave/glmv5.1).",
     )
     parser.add_argument(
         "--model-params",
@@ -1414,6 +1477,14 @@ def main() -> None:
     if args.agent == "deepagents" and not args.generation_model:
         log.error("--generation-model is required when --agent=deepagents")
         sys.exit(1)
+
+    def _global_timeout_handler(signum, frame):
+        log.error("GLOBAL TIMEOUT: pipeline exceeded %d hours — aborting", GLOBAL_TIMEOUT_SECONDS // 3600)
+        sys.exit(2)
+
+    signal.signal(signal.SIGALRM, _global_timeout_handler)
+    signal.alarm(GLOBAL_TIMEOUT_SECONDS)
+    log.info("Global timeout set: %d hours", GLOBAL_TIMEOUT_SECONDS // 3600)
 
     app_dir = REPO_DIR / "apps" / args.app_name
     max_iterations = args.max_iterations
@@ -1500,10 +1571,21 @@ def main() -> None:
             docs_source=args.docs_path,
         )
         if rc != 0:
-            log.error("Phase 1 FAILED: app generation returned rc=%d", rc)
-            sys.exit(1)
-
-        commit_checkpoint(app_dir, f"Generate app: {args.app_name}", push=args.push_enabled)
+            log.warning("Phase 1 agent exited with rc=%d — checking if files were generated anyway", rc)
+            valid_early, missing_early = validate_app_generation(app_dir)
+            if valid_early:
+                log.info(
+                    "Phase 1: all required files present despite rc=%d (likely timeout). Continuing.",
+                    rc,
+                )
+                commit_checkpoint(app_dir, f"Generate app (timeout-recovered): {args.app_name}", push=args.push_enabled)
+            else:
+                log.error(
+                    "Phase 1 FAILED: rc=%d and missing files: %s", rc, ", ".join(missing_early)
+                )
+                sys.exit(1)
+        else:
+            commit_checkpoint(app_dir, f"Generate app: {args.app_name}", push=args.push_enabled)
 
         # Validate generated app structure
         valid, missing = validate_app_generation(app_dir)
@@ -1562,24 +1644,30 @@ def main() -> None:
 
     # ── Phase 2: Function Tasks ────────────────────────────────────────
 
-    # 2a: Generate function tasks (once)
+    # 2a: Generate function tasks (once, up to 3 attempts)
     if should_run("phase_2a"):
         log.info("Phase 2a: Generating function tasks")
         save_state(args.app_name, "phase_2a", args=args)
-        rc, stdout, stderr = run_agent(
-            "generate-function-tests",
-            cwd=REPO_DIR,
-            timeout=3600,
-            agent=args.agent,
-            generation_model=args.generation_model,
-            model_params=args.model_params,
-            app_name=args.app_name,
-            **{"app-name": args.app_name},
-        )
-        if rc != 0:
-            log.error(
-                "Phase 2a FAILED: function task generation returned rc=%d", rc
+        phase_2a_success = False
+        for _attempt_2a in range(1, 4):
+            rc, stdout, stderr = run_agent(
+                "generate-function-tests",
+                cwd=REPO_DIR,
+                timeout=3600,
+                agent=args.agent,
+                generation_model=args.generation_model,
+                model_params=args.model_params,
+                app_name=args.app_name,
+                **{"app-name": args.app_name},
             )
+            if rc == 0:
+                phase_2a_success = True
+                break
+            log.warning(
+                "Phase 2a attempt %d/3 FAILED (rc=%d)", _attempt_2a, rc
+            )
+        if not phase_2a_success:
+            log.error("Phase 2a FAILED after 3 attempts — aborting")
             sys.exit(1)
 
         ok, output = run_sanity_check(app_dir, "function")
@@ -1588,7 +1676,7 @@ def main() -> None:
             run_agent(
                 "fix-sanity-check",
                 cwd=REPO_DIR,
-                timeout=1800,
+                timeout=3600,
                 agent=args.agent,
                 generation_model=args.generation_model,
                 model_params=args.model_params,
@@ -1619,6 +1707,7 @@ def main() -> None:
                 args.repetitions,
                 resume=(args.resume and iteration == start_iter),
                 tag="p2b",
+                failed_only=(iteration > 1),
             )
             results = parse_results(results_dir)
             log.info(
@@ -1664,22 +1753,30 @@ def main() -> None:
 
     # ── Phase 3: Real Tasks ────────────────────────────────────────────
 
-    # 3a: Generate real tasks (once)
+    # 3a: Generate real tasks (once, up to 3 attempts)
     if should_run("phase_3a"):
         log.info("Phase 3a: Generating real tasks")
         save_state(args.app_name, "phase_3a", args=args)
-        rc, stdout, stderr = run_agent(
-            "generate-real-tasks",
-            cwd=REPO_DIR,
-            timeout=3600,
-            agent=args.agent,
-            generation_model=args.generation_model,
-            model_params=args.model_params,
-            app_name=args.app_name,
-            **{"app-name": args.app_name},
-        )
-        if rc != 0:
-            log.error("Phase 3a FAILED: real task generation returned rc=%d", rc)
+        phase_3a_success = False
+        for _attempt_3a in range(1, 4):
+            rc, stdout, stderr = run_agent(
+                "generate-real-tasks",
+                cwd=REPO_DIR,
+                timeout=3600,
+                agent=args.agent,
+                generation_model=args.generation_model,
+                model_params=args.model_params,
+                app_name=args.app_name,
+                **{"app-name": args.app_name},
+            )
+            if rc == 0:
+                phase_3a_success = True
+                break
+            log.warning(
+                "Phase 3a attempt %d/3 FAILED (rc=%d)", _attempt_3a, rc
+            )
+        if not phase_3a_success:
+            log.error("Phase 3a FAILED after 3 attempts — aborting")
             sys.exit(1)
 
         ok, output = run_sanity_check(app_dir, "real")
@@ -1688,7 +1785,7 @@ def main() -> None:
             run_agent(
                 "fix-sanity-check",
                 cwd=REPO_DIR,
-                timeout=1800,
+                timeout=3600,
                 agent=args.agent,
                 generation_model=args.generation_model,
                 model_params=args.model_params,
@@ -1719,6 +1816,7 @@ def main() -> None:
                 args.repetitions,
                 resume=(args.resume and iteration == start_iter),
                 tag="p3b",
+                failed_only=(iteration > 1),
             )
             results = parse_results(results_dir)
             log.info(
@@ -1839,7 +1937,7 @@ def main() -> None:
                     run_agent(
                         "fix-sanity-check",
                         cwd=REPO_DIR,
-                        timeout=1800,
+                        timeout=3600,
                         agent=args.agent,
                         generation_model=args.generation_model,
                         model_params=args.model_params,
@@ -1881,6 +1979,7 @@ def main() -> None:
                 args.repetitions,
                 task_id_filter=task_id_filter,
                 tag=f"p4b_r{round_num}",
+                failed_only=False,
             )
             results = parse_results(results_dir)
             log.info(
@@ -1956,6 +2055,7 @@ def main() -> None:
                 args.workers,
                 args.repetitions,
                 tag="p5",
+                failed_only=False,
             )
             func_results = parse_results(func_results_dir)
             log.info(
@@ -1976,6 +2076,7 @@ def main() -> None:
                 args.workers,
                 args.repetitions,
                 tag="p5",
+                failed_only=False,
             )
             real_results = parse_results(real_results_dir)
             log.info(

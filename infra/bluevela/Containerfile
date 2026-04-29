@@ -1,0 +1,55 @@
+# WebArena-Infinity container for BlueVela / Enroot
+# Build with: podman build -t webarena-infinity:latest -f infra/bluevela/Containerfile .
+# Then push to registry and import on BlueVela via enroot
+
+FROM python:3.12-slim
+
+ENV DEBIAN_FRONTEND=noninteractive
+ENV PYTHONUNBUFFERED=1
+
+# System dependencies for Playwright/Chromium
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    git \
+    curl \
+    wget \
+    gnupg \
+    libnss3 \
+    libatk1.0-0 \
+    libatk-bridge2.0-0 \
+    libcups2 \
+    libdrm2 \
+    libxkbcommon0 \
+    libxcomposite1 \
+    libxdamage1 \
+    libxfixes3 \
+    libxrandr2 \
+    libgbm1 \
+    libpango-1.0-0 \
+    libcairo2 \
+    libasound2 \
+    libatspi2.0-0 \
+    libwayland-client0 \
+    fonts-liberation \
+    xdg-utils \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install uv
+RUN curl -LsSf https://astral.sh/uv/install.sh | sh
+ENV PATH="/root/.local/bin:$PATH"
+
+# Clone and setup webarena-infinity
+WORKDIR /opt/webarena-infinity
+RUN git clone https://github.com/divya-kumari32/webarena-infinity.git . \
+    && uv sync \
+    && uv run python -m playwright install chromium \
+    && uv run python -m playwright install-deps chromium
+
+# Install deepagents-cli
+RUN uv tool install deepagents-cli || true
+ENV PATH="/root/.local/share/uv/tools/deepagents-cli/bin:/root/.local/bin:$PATH"
+
+# Pre-activate venv for convenience
+ENV VIRTUAL_ENV=/opt/webarena-infinity/.venv
+ENV PATH="${VIRTUAL_ENV}/bin:$PATH"
+
+WORKDIR /opt/webarena-infinity

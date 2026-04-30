@@ -106,14 +106,8 @@ enroot create -n ${CONTAINER_NAME} ${ENROOT_SQSH}
 echo "[$(date)] Setting up webarena-infinity repo..."
 enroot start --root --rw --conf $temp_enroot_config_file ${CONTAINER_NAME} bash -c '
     export PATH="/root/.local/bin:$PATH" &&
-    cd /opt &&
-    if [ -d webarena-infinity ]; then
-        cd webarena-infinity && git pull
-    else
-        git clone https://github.com/divya-kumari32/webarena-infinity.git
-        cd webarena-infinity
-    fi &&
-    bash setup.sh &&
+    cd /opt/webarena-infinity &&
+    git pull &&
     # Install deepagents with pinned versions to avoid Responses API bug
     uv tool install "deepagents-cli==0.0.37" --with "langchain-openai==1.1.12" --with "openai==2.31.0" &&
     echo "Setup complete"

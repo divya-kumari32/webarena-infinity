@@ -55,8 +55,8 @@ MODEL_PARAMS='{"extra_body":{"chat_template_kwargs":{"enable_thinking":false}}}'
 # Format: app-name|docs-path
 APPS=(
     "experiments/glm5-gptoss-paypal|apps/app-description/paypal-my-wallet.md"
-    "experiments/glm5-gptoss-figma-slides|apps/app-description/figma-slides.md"
-    "experiments/glm5-gptoss-gitlab-plan-and-track|apps/app-description/gitlab-plan-and-track.md"
+    # "experiments/glm5-gptoss-figma-slides|apps/app-description/figma-slides.md"
+    # "experiments/glm5-gptoss-gitlab-plan-and-track|apps/app-description/gitlab-plan-and-track.md"
 )
 
 # ── Enroot config ─────────────────────────────────────────────────────────────

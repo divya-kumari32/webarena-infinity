@@ -36,8 +36,8 @@ export XDG_RUNTIME_DIR="/tmp/run/user/$(id -u)"
 mkdir -p ${ENROOT_DATA_PATH} ${ENROOT_CACHE_PATH} ${ENROOT_RUNTIME_PATH} ${ENROOT_TEMP_PATH} ${XDG_RUNTIME_DIR}
 
 CONTAINER_NAME="webarena"
-ENROOT_SQSH="/proj/checkpoints/divykum2/agentic/enroot/webarena.sqsh"
-
+ENROOT_SQSH="/"
+proj/checkpoints/divykum2/agentic/enroot/webarena.sqsh
 # LiteLLM proxy configuration
 LITELLM_URL="https://ete-litellm.ai-models.vpc.res.ibm.com/v1"
 LITELLM_KEY="sk-sYbH91TxSrvVADcT_Khnmw"
@@ -106,6 +106,7 @@ enroot create -n ${CONTAINER_NAME} ${ENROOT_SQSH}
 # Setup the repo and install pinned deepagents versions
 echo "[$(date)] Setting up webarena-infinity repo..."
 enroot start --root --rw --conf $temp_enroot_config_file ${CONTAINER_NAME} bash -c '
+    export PATH="/root/.local/bin:$PATH" &&
     cd /opt &&
     if [ -d webarena-infinity ]; then
         cd webarena-infinity && git pull
@@ -132,6 +133,7 @@ for app_entry in "${APPS[@]}"; do
     echo "[$(date)] Launching pipeline for ${APP_NAME}..."
 
     enroot start --root --rw --conf $temp_enroot_config_file ${CONTAINER_NAME} bash -c "
+        export PATH=\"/root/.local/bin:\$PATH\" &&
         source /opt/webarena-infinity/.venv/bin/activate &&
         cd /opt/webarena-infinity &&
         export PATH=\"\$(python -m site --user-base)/bin:\$PATH\" &&

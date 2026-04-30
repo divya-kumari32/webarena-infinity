@@ -26,14 +26,17 @@ set -e
 # ── Configuration ─────────────────────────────────────────────────────────────
 
 : "${ENROOT_SHARE_PATH:=/u/divykum2/agentic}"
-source /proj/dev-pre-train/enroot/scripts/blue-vela-enroot-env.sh
 
-# Use local NVMe for fast container extraction
-export ENROOT_DATA_PATH="/opt/nvme/$USER/webarena"
-mkdir -p ${ENROOT_DATA_PATH}
+# Enroot environment setup (replaces inaccessible /proj/dev-pre-train/enroot/scripts/blue-vela-enroot-env.sh)
+export ENROOT_DATA_PATH="/opt/nvme/$USER/enroot-data"
+export ENROOT_CACHE_PATH="/opt/nvme/$USER/enroot-cache"
+export ENROOT_RUNTIME_PATH="/tmp/user-$(id -u)/enroot"
+export ENROOT_TEMP_PATH="/tmp/tmp-$(id -u)/enroot"
+export XDG_RUNTIME_DIR="/tmp/run/user/$(id -u)"
+mkdir -p ${ENROOT_DATA_PATH} ${ENROOT_CACHE_PATH} ${ENROOT_RUNTIME_PATH} ${ENROOT_TEMP_PATH} ${XDG_RUNTIME_DIR}
 
 CONTAINER_NAME="webarena"
-ENROOT_RUN_BUNDLE="${ENROOT_SHARE_PATH}/enroot/${CONTAINER_NAME}.run"
+ENROOT_SQSH="/proj/checkpoints/divykum2/agentic/enroot/webarena.sqsh"
 
 # LiteLLM proxy configuration
 LITELLM_URL="https://ete-litellm.ai-models.vpc.res.ibm.com/v1"
@@ -41,21 +44,20 @@ LITELLM_KEY="sk-sYbH91TxSrvVADcT_Khnmw"
 
 # Pipeline parameters
 GENERATION_MODEL="openai:coreweave/glmv5"
-EVAL_MODEL="deepseek"
+EVAL_MODEL="gpt-oss"
 AGENT="deepagents"
 WORKERS=8
 REPETITIONS=3
-MAX_ITERATIONS=2
-HARDENING_ROUNDS=1
+MAX_ITERATIONS=3
+HARDENING_ROUNDS=3
 MODEL_PARAMS='{"extra_body":{"chat_template_kwargs":{"enable_thinking":false}}}'
 
 # App environments to generate (one pipeline per app)
 # Format: app-name|docs-path
 APPS=(
-    "experiments/glm5-spotify|apps/app-description/spotify-music.md"
-    # Add more apps here:
-    # "experiments/glm5-gmail|apps/app-description/gmail.md"
-    # "experiments/glm5-linear|apps/app-description/linear.md"
+    "experiments/glm5-gptoss-paypal|apps/app-description/paypal-my-wallet.md"
+    "experiments/glm5-gptoss-figma-slides|apps/app-description/figma-slides.md"
+    "experiments/glm5-gptoss-gitlab-plan-and-track|apps/app-description/gitlab-plan-and-track.md"
 )
 
 # ── Enroot config ─────────────────────────────────────────────────────────────
@@ -97,11 +99,11 @@ echo "Generation model: ${GENERATION_MODEL}"
 echo "Eval model: ${EVAL_MODEL}"
 echo "=========================================="
 
-# Extract and keep the container
-echo "[$(date)] Starting container from ${ENROOT_RUN_BUNDLE}..."
-${ENROOT_RUN_BUNDLE} --keep bash -c "echo 'Container ready'; python --version"
+# Create container from sqsh
+echo "[$(date)] Creating container from ${ENROOT_SQSH}..."
+enroot create -n ${CONTAINER_NAME} ${ENROOT_SQSH}
 
-# Clone/update the repo inside the container
+# Setup the repo and install pinned deepagents versions
 echo "[$(date)] Setting up webarena-infinity repo..."
 enroot start --root --rw --conf $temp_enroot_config_file ${CONTAINER_NAME} bash -c '
     cd /opt &&
@@ -112,8 +114,8 @@ enroot start --root --rw --conf $temp_enroot_config_file ${CONTAINER_NAME} bash 
         cd webarena-infinity
     fi &&
     bash setup.sh &&
-    # Install deepagents
-    uv tool install deepagents-cli 2>/dev/null || true &&
+    # Install deepagents with pinned versions to avoid Responses API bug
+    uv tool install "deepagents-cli==0.0.37" --with "langchain-openai==1.1.12" --with "openai==2.31.0" &&
     echo "Setup complete"
 '
 

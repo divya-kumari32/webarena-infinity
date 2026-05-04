@@ -1563,7 +1563,7 @@ def main() -> None:
         rc, stdout, stderr = run_agent(
             "generate-app",
             cwd=REPO_DIR,
-            timeout=3600,
+            timeout=14400,
             agent=args.agent,
             generation_model=args.generation_model,
             model_params=args.model_params,

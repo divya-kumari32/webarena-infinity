@@ -114,19 +114,19 @@ enroot start --root --rw --conf $temp_enroot_config_file ${CONTAINER_NAME} bash 
     echo "Setup complete"
 '
 
-# ── Launch pipelines ──────────────────────────────────────────────────────────
+# ── Launch pipelines (sequential) ────────────────────────────────────────────
 
-PIDS=()
 LOG_DIR="/u/divykum2/agentic/webarena-logs/${LSB_JOBID}"
 mkdir -p ${LOG_DIR}
 
+FAILED=0
 for app_entry in "${APPS[@]}"; do
     IFS='|' read -r APP_NAME DOCS_PATH <<< "$app_entry"
     APP_LOG="${LOG_DIR}/pipeline_$(echo $APP_NAME | tr '/' '_').log"
 
-    echo "[$(date)] Launching pipeline for ${APP_NAME}..."
+    echo "[$(date)] Running pipeline for ${APP_NAME}..."
 
-    enroot start --root --rw --conf $temp_enroot_config_file ${CONTAINER_NAME} bash -c "
+    if enroot start --root --rw --conf $temp_enroot_config_file ${CONTAINER_NAME} bash -c "
         export PATH=\"/root/.local/bin:\$PATH\" &&
         source /opt/webarena-infinity/.venv/bin/activate &&
         cd /opt/webarena-infinity &&
@@ -147,23 +147,7 @@ for app_entry in "${APPS[@]}"; do
             --hardening-rounds ${HARDENING_ROUNDS} \
             --no-push \
             --model-params '${MODEL_PARAMS}'
-    " > "${APP_LOG}" 2>&1 &
-
-    PIDS+=($!)
-    echo "[$(date)] Pipeline ${APP_NAME} launched as PID ${PIDS[-1]}, log: ${APP_LOG}"
-done
-
-# ── Wait for all pipelines ────────────────────────────────────────────────────
-
-echo "[$(date)] Waiting for ${#PIDS[@]} pipeline(s) to complete..."
-
-FAILED=0
-for i in "${!PIDS[@]}"; do
-    pid=${PIDS[$i]}
-    app_entry=${APPS[$i]}
-    IFS='|' read -r APP_NAME DOCS_PATH <<< "$app_entry"
-
-    if wait $pid; then
+    " > "${APP_LOG}" 2>&1; then
         echo "[$(date)] Pipeline ${APP_NAME} COMPLETED SUCCESSFULLY"
     else
         echo "[$(date)] Pipeline ${APP_NAME} FAILED (exit=$?)"

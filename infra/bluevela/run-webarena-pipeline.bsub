@@ -109,7 +109,6 @@ enroot start --root --rw --conf $temp_enroot_config_file ${CONTAINER_NAME} bash 
     export PATH="/root/.local/bin:$PATH" &&
     cd /opt/webarena-infinity &&
     git pull &&
-    bash setup.sh &&
     uv tool install "deepagents-cli==0.0.37" --with "langchain-openai==1.1.12" --with "openai==2.31.0" &&
     echo "Setup complete"
 '

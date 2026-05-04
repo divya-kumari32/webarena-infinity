@@ -98,7 +98,8 @@ echo "Generation model: ${GENERATION_MODEL}"
 echo "Eval model: ${EVAL_MODEL}"
 echo "=========================================="
 
-# Create container from sqsh
+# Create container from sqsh (remove leftover from previous run if exists)
+enroot remove -f ${CONTAINER_NAME} 2>/dev/null || true
 echo "[$(date)] Creating container from ${ENROOT_SQSH}..."
 enroot create -n ${CONTAINER_NAME} ${ENROOT_SQSH}
 

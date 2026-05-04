@@ -131,7 +131,6 @@ for app_entry in "${APPS[@]}"; do
     echo "[$(date)] Running pipeline for ${APP_NAME}..."
 
     if enroot start --root --rw --conf $temp_enroot_config_file ${CONTAINER_NAME} bash -c "
-        export PATH=\"/root/.local/bin:\$PATH\" &&
         source /opt/webarena-infinity/.venv/bin/activate &&
         cd /opt/webarena-infinity &&
         export PATH=\"\$(python -m site --user-base)/bin:\$PATH\" &&

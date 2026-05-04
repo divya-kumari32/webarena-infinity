@@ -103,34 +103,30 @@ enroot remove -f ${CONTAINER_NAME} 2>/dev/null || true
 echo "[$(date)] Creating container from ${ENROOT_SQSH}..."
 enroot create -n ${CONTAINER_NAME} ${ENROOT_SQSH}
 
-# Setup the repo (same as job 81672 which worked)
+# Setup the repo and install pinned deepagents
 echo "[$(date)] Setting up webarena-infinity repo..."
 enroot start --root --rw --conf $temp_enroot_config_file ${CONTAINER_NAME} bash -c '
     export PATH="/root/.local/bin:$PATH" &&
     cd /opt/webarena-infinity &&
     git pull &&
     bash setup.sh &&
-    uv tool install deepagents-cli 2>/dev/null || true &&
-    # Force Chat Completions API (disable Responses API which breaks vLLM/LiteLLM)
-    CHAT_BASE=$(find /root/.local/share/uv/tools/deepagents-cli -path "*/langchain_openai/chat_models/base.py" | head -1) &&
-    sed -i "s/use_responses_api: bool | None = None/use_responses_api: bool | None = False/" "$CHAT_BASE" &&
-    echo "Patched: $CHAT_BASE" &&
+    uv tool install "deepagents-cli==0.0.37" --with "langchain-openai==1.1.12" --with "openai==2.31.0" &&
     echo "Setup complete"
 '
 
-# ── Launch pipelines (sequential) ────────────────────────────────────────────
+# ── Launch pipelines ──────────────────────────────────────────────────────────
 
+PIDS=()
 LOG_DIR="/u/divykum2/agentic/webarena-logs/${LSB_JOBID}"
 mkdir -p ${LOG_DIR}
 
-FAILED=0
 for app_entry in "${APPS[@]}"; do
     IFS='|' read -r APP_NAME DOCS_PATH <<< "$app_entry"
     APP_LOG="${LOG_DIR}/pipeline_$(echo $APP_NAME | tr '/' '_').log"
 
-    echo "[$(date)] Running pipeline for ${APP_NAME}..."
+    echo "[$(date)] Launching pipeline for ${APP_NAME}..."
 
-    if enroot start --root --rw --conf $temp_enroot_config_file ${CONTAINER_NAME} bash -c "
+    enroot start --root --rw --conf $temp_enroot_config_file ${CONTAINER_NAME} bash -c "
         source /opt/webarena-infinity/.venv/bin/activate &&
         cd /opt/webarena-infinity &&
         export PATH=\"\$(python -m site --user-base)/bin:\$PATH\" &&
@@ -150,7 +146,23 @@ for app_entry in "${APPS[@]}"; do
             --hardening-rounds ${HARDENING_ROUNDS} \
             --no-push \
             --model-params '${MODEL_PARAMS}'
-    " > "${APP_LOG}" 2>&1; then
+    " > "${APP_LOG}" 2>&1 &
+
+    PIDS+=($!)
+    echo "[$(date)] Pipeline ${APP_NAME} launched as PID ${PIDS[-1]}, log: ${APP_LOG}"
+done
+
+# ── Wait for all pipelines ────────────────────────────────────────────────────
+
+echo "[$(date)] Waiting for ${#PIDS[@]} pipeline(s) to complete..."
+
+FAILED=0
+for i in "${!PIDS[@]}"; do
+    pid=${PIDS[$i]}
+    app_entry=${APPS[$i]}
+    IFS='|' read -r APP_NAME DOCS_PATH <<< "$app_entry"
+
+    if wait $pid; then
         echo "[$(date)] Pipeline ${APP_NAME} COMPLETED SUCCESSFULLY"
     else
         echo "[$(date)] Pipeline ${APP_NAME} FAILED (exit=$?)"

@@ -103,15 +103,17 @@ enroot remove -f ${CONTAINER_NAME} 2>/dev/null || true
 echo "[$(date)] Creating container from ${ENROOT_SQSH}..."
 enroot create -n ${CONTAINER_NAME} ${ENROOT_SQSH}
 
-# Setup the repo and install pinned deepagents versions
+# Setup the repo and install deepagents (use pre-installed 0.0.44 + sed hack to disable Responses API)
 echo "[$(date)] Setting up webarena-infinity repo..."
 enroot start --root --rw --conf $temp_enroot_config_file ${CONTAINER_NAME} bash -c '
     export PATH="/root/.local/bin:$PATH" &&
     cd /opt/webarena-infinity &&
     git pull &&
-    # Install deepagents with pinned versions to avoid Responses API bug
-    uv tool install "deepagents-cli==0.0.37" --with "langchain-openai==1.1.12" --with "openai==2.31.0" &&
-    echo "Setup complete"
+    source .venv/bin/activate &&
+    # Force Chat Completions API (disable Responses API which breaks vLLM/LiteLLM)
+    CHAT_BASE=$(python -c "import langchain_openai; import os; print(os.path.join(os.path.dirname(langchain_openai.__file__), \"chat_models\", \"base.py\"))") &&
+    sed -i "s/use_responses_api: bool | None = None/use_responses_api: bool | None = False/" "$CHAT_BASE" &&
+    echo "Setup complete (deepagents-cli 0.0.44 + responses API disabled)"
 '
 
 # ── Launch pipelines (sequential) ────────────────────────────────────────────

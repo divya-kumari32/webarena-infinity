@@ -777,7 +777,7 @@ def run_eval(
 
     log.info("Running eval: %s", " ".join(cmd))
     try:
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=3600)
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=14400)
     except subprocess.TimeoutExpired:
         log.error("Eval timed out after 7200s — returning partial results")
         return find_latest_results(app_dir, task_suite)
@@ -1607,7 +1607,7 @@ def main() -> None:
                 rc2, _, _ = run_agent(
                     "generate-app",
                     cwd=REPO_DIR,
-                    timeout=3600,
+                    timeout=14400,
                     agent=args.agent,
                     generation_model=args.generation_model,
                     model_params=args.model_params,
@@ -1653,7 +1653,7 @@ def main() -> None:
             rc, stdout, stderr = run_agent(
                 "generate-function-tests",
                 cwd=REPO_DIR,
-                timeout=3600,
+                timeout=14400,
                 agent=args.agent,
                 generation_model=args.generation_model,
                 model_params=args.model_params,
@@ -1676,7 +1676,7 @@ def main() -> None:
             run_agent(
                 "fix-sanity-check",
                 cwd=REPO_DIR,
-                timeout=3600,
+                timeout=14400,
                 agent=args.agent,
                 generation_model=args.generation_model,
                 model_params=args.model_params,
@@ -1729,7 +1729,7 @@ def main() -> None:
             run_agent(
                 "audit-function-tests",
                 cwd=REPO_DIR,
-                timeout=3600,
+                timeout=14400,
                 agent=args.agent,
                 generation_model=args.generation_model,
                 model_params=args.model_params,
@@ -1762,7 +1762,7 @@ def main() -> None:
             rc, stdout, stderr = run_agent(
                 "generate-real-tasks",
                 cwd=REPO_DIR,
-                timeout=3600,
+                timeout=14400,
                 agent=args.agent,
                 generation_model=args.generation_model,
                 model_params=args.model_params,
@@ -1785,7 +1785,7 @@ def main() -> None:
             run_agent(
                 "fix-sanity-check",
                 cwd=REPO_DIR,
-                timeout=3600,
+                timeout=14400,
                 agent=args.agent,
                 generation_model=args.generation_model,
                 model_params=args.model_params,
@@ -1838,7 +1838,7 @@ def main() -> None:
             run_agent(
                 "audit-real-tasks",
                 cwd=REPO_DIR,
-                timeout=3600,
+                timeout=14400,
                 agent=args.agent,
                 generation_model=args.generation_model,
                 model_params=args.model_params,
@@ -1904,7 +1904,7 @@ def main() -> None:
                 rc, stdout, stderr = run_agent(
                     "harden-tasks",
                     cwd=REPO_DIR,
-                    timeout=3600,
+                    timeout=14400,
                     agent=args.agent,
                     generation_model=args.generation_model,
                     model_params=args.model_params,
@@ -1937,7 +1937,7 @@ def main() -> None:
                     run_agent(
                         "fix-sanity-check",
                         cwd=REPO_DIR,
-                        timeout=3600,
+                        timeout=14400,
                         agent=args.agent,
                         generation_model=args.generation_model,
                         model_params=args.model_params,
@@ -2014,7 +2014,7 @@ def main() -> None:
                 run_agent(
                     "audit-real-tasks",
                     cwd=REPO_DIR,
-                    timeout=3600,
+                    timeout=14400,
                     agent=args.agent,
                     generation_model=args.generation_model,
                     model_params=args.model_params,

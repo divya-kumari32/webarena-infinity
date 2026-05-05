@@ -42,8 +42,8 @@ LITELLM_URL="https://ete-litellm.ai-models.vpc.res.ibm.com/v1"
 LITELLM_KEY="${LITELLM_API_KEY:?Set LITELLM_API_KEY in ~/.bashrc or env}"
 
 # Pipeline parameters
-GENERATION_MODEL="gpt-oss"
-EVAL_MODEL="gpt-oss"
+GENERATION_MODEL="openai:coreweave/glmv5"
+EVAL_MODEL="azure/gpt-oss-120b"
 AGENT="deepagents"
 WORKERS=8
 REPETITIONS=3
@@ -54,7 +54,7 @@ MODEL_PARAMS='{"extra_body":{"chat_template_kwargs":{"enable_thinking":false}}}'
 # App environments to generate (one pipeline per app)
 # Format: app-name|docs-path
 APPS=(
-    "experiments/minimax-gptoss-paypal|apps/app-description/paypal-my-wallet.md"
+    "experiments/glm5-gptoss-paypal|apps/app-description/paypal-my-wallet.md"
 )
 
 # ── Enroot config ─────────────────────────────────────────────────────────────
@@ -142,6 +142,7 @@ for app_entry in "${APPS[@]}"; do
             --max-iterations ${MAX_ITERATIONS} \
             --hardening-rounds ${HARDENING_ROUNDS} \
             --no-push \
+            --rerun-from phase_2a \
             --model-params '${MODEL_PARAMS}'
     " > "${APP_LOG}" 2>&1 &
 

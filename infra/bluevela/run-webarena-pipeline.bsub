@@ -78,6 +78,13 @@ cleanup() {
     local exit_code=$?
     set +e
     echo "[$(date)] Cleaning up..."
+    # Save results before destroying container
+    echo "[$(date)] Saving results from container..."
+    enroot start --root --rw --conf $temp_enroot_config_file ${CONTAINER_NAME} bash -c "
+        mkdir -p /output/${LSB_JOBID} &&
+        cp -r /opt/webarena-infinity/apps/experiments/ /output/${LSB_JOBID}/ 2>/dev/null || true &&
+        cp -r /opt/webarena-infinity/logs/ /output/${LSB_JOBID}/logs/ 2>/dev/null || true
+    " 2>/dev/null || true
     ps -fu $USER | grep "catatonit" | grep -v "grep" | awk '{print $2}' | xargs -i kill -9 {} 2>/dev/null
     rm -rf "${ENROOT_DATA_PATH}/${CONTAINER_NAME}"
     rm -f "$temp_enroot_config_file"

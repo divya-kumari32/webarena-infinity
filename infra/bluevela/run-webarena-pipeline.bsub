@@ -142,7 +142,6 @@ for app_entry in "${APPS[@]}"; do
             --max-iterations ${MAX_ITERATIONS} \
             --hardening-rounds ${HARDENING_ROUNDS} \
             --no-push \
-            --rerun-from phase_2a \
             --model-params '${MODEL_PARAMS}'
     " > "${APP_LOG}" 2>&1 &
 

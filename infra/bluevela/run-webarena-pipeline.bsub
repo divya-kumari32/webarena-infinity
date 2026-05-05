@@ -43,7 +43,7 @@ LITELLM_KEY="${LITELLM_API_KEY:?Set LITELLM_API_KEY in ~/.bashrc or env}"
 
 # Pipeline parameters
 GENERATION_MODEL="openai:coreweave/glmv5"
-EVAL_MODEL="azure/gpt-oss-120b"
+EVAL_MODEL="gpt-oss"
 AGENT="deepagents"
 WORKERS=8
 REPETITIONS=3

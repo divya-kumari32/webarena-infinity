@@ -55,6 +55,8 @@ MODEL_PARAMS='{"extra_body":{"chat_template_kwargs":{"enable_thinking":false}}}'
 # Format: app-name|docs-path
 APPS=(
     "experiments/glm5-gptoss-paypal|apps/app-description/paypal-my-wallet.md"
+    "experiments/glm5-gptoss-notion|apps/app-description/notion-notes.md"
+    "experiments/glm5-gptoss-slack|apps/app-description/slack-messaging.md"
 )
 
 # ── Enroot config ─────────────────────────────────────────────────────────────

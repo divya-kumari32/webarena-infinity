@@ -42,7 +42,7 @@ LITELLM_URL="https://ete-litellm.ai-models.vpc.res.ibm.com/v1"
 LITELLM_KEY="${LITELLM_API_KEY:?Set LITELLM_API_KEY in ~/.bashrc or env}"
 
 # Pipeline parameters
-GENERATION_MODEL="openai:bedrock/minimax.minimax-m2.5"
+GENERATION_MODEL="gpt-oss"
 EVAL_MODEL="gpt-oss"
 AGENT="deepagents"
 WORKERS=8

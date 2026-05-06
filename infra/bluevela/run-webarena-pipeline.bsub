@@ -3,12 +3,11 @@
 # Runs N pipeline instances in parallel, each generating a different app environment
 #
 # Usage:
-#   bsub < infra/bluevela/run-webarena-pipeline.bsub
+#   bsub -m "p4-r21-n2" < infra/bluevela/run-webarena-pipeline.bsub
 #
 # Prerequisites:
-#   1. Build and push the webarena container image (see Containerfile)
-#   2. Import and bundle: enroot import + create + bundle → webarena.run
-#   3. Place .run file at ${ENROOT_SHARE_PATH}/enroot/webarena.run
+#   1. Sqsh at ${ENROOT_SQSH} with playwright + deepagents-cli pre-installed
+#   2. LITELLM_API_KEY set in ~/.bashrc
 
 #BSUB -J webarena-pipeline
 #BSUB -n 24
@@ -27,7 +26,7 @@ set -e
 
 : "${ENROOT_SHARE_PATH:=/u/divykum2/agentic}"
 
-# Enroot environment setup (replaces inaccessible /proj/dev-pre-train/enroot/scripts/blue-vela-enroot-env.sh)
+# Enroot environment setup
 export ENROOT_DATA_PATH="/opt/nvme/$USER/enroot-data"
 export ENROOT_CACHE_PATH="/opt/nvme/$USER/enroot-cache"
 export ENROOT_RUNTIME_PATH="/tmp/user-$(id -u)/enroot"
@@ -37,7 +36,6 @@ mkdir -p ${ENROOT_DATA_PATH} ${ENROOT_CACHE_PATH} ${ENROOT_RUNTIME_PATH} ${ENROO
 
 CONTAINER_NAME="webarena"
 ENROOT_SQSH="/proj/checkpoints/divykum2/agentic/enroot/webarena.sqsh"
-# LiteLLM proxy configuration (key from env var — do NOT hardcode)
 LITELLM_URL="https://ete-litellm.ai-models.vpc.res.ibm.com/v1"
 LITELLM_KEY="${LITELLM_API_KEY:?Set LITELLM_API_KEY in ~/.bashrc or env}"
 
@@ -51,12 +49,9 @@ MAX_ITERATIONS=3
 HARDENING_ROUNDS=3
 MODEL_PARAMS='{"extra_body":{"chat_template_kwargs":{"enable_thinking":false}}}'
 
-# App environments to generate (one pipeline per app)
-# Format: app-name|docs-path
+# App environments to generate — format: app-name|docs-path
 APPS=(
-    "experiments/glm5-gptoss-paypal|apps/app-description/paypal-my-wallet.md"
-    "experiments/glm5-gptoss-notion|apps/app-description/notion-notes.md"
-    "experiments/glm5-gptoss-slack|apps/app-description/slack-messaging.md"
+    "experiments/glm5-gptoss-notion|apps/user-manuals/notion/notes-and-docs"
 )
 
 # ── Enroot config ─────────────────────────────────────────────────────────────
@@ -120,15 +115,6 @@ enroot start --root --rw --conf $temp_enroot_config_file ${CONTAINER_NAME} bash 
     echo "Setup complete"
 '
 
-# Restore previously generated apps from job 107304
-RESTORE_FROM="107304"
-echo "[$(date)] Restoring apps from /output/${RESTORE_FROM}/experiments/..."
-enroot start --root --rw --conf $temp_enroot_config_file ${CONTAINER_NAME} bash -c "
-    mkdir -p /opt/webarena-infinity/apps/experiments &&
-    cp -r /output/${RESTORE_FROM}/experiments/* /opt/webarena-infinity/apps/experiments/ &&
-    ls /opt/webarena-infinity/apps/experiments/
-"
-
 # ── Launch pipelines ──────────────────────────────────────────────────────────
 
 PIDS=()
@@ -160,7 +146,6 @@ for app_entry in "${APPS[@]}"; do
             --max-iterations ${MAX_ITERATIONS} \
             --hardening-rounds ${HARDENING_ROUNDS} \
             --no-push \
-            --rerun-from phase_2b \
             --model-params '${MODEL_PARAMS}'
     " > "${APP_LOG}" 2>&1 &
 
@@ -187,7 +172,6 @@ for i in "${!PIDS[@]}"; do
 done
 
 # ── Copy results to shared storage ───────────────────────────────────────────
-# /output inside container is mounted to /u/divykum2/agentic/webarena-results on host
 
 echo "[$(date)] Copying results to /output (mounted to host)..."
 enroot start --root --rw --conf $temp_enroot_config_file ${CONTAINER_NAME} bash -c "

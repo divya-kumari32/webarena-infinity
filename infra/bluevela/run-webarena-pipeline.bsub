@@ -120,13 +120,14 @@ enroot start --root --rw --conf $temp_enroot_config_file ${CONTAINER_NAME} bash 
     echo "Setup complete"
 '
 
-# Restore previously generated apps (if RESTORE_FROM is set)
-if [[ -n "${RESTORE_FROM:-}" ]]; then
-    echo "[$(date)] Restoring apps from /output/${RESTORE_FROM}/experiments/..."
-    enroot start --root --rw --conf $temp_enroot_config_file ${CONTAINER_NAME} bash -c "
-        cp -r /output/${RESTORE_FROM}/experiments/* /opt/webarena-infinity/apps/experiments/ 2>/dev/null || true
-    "
-fi
+# Restore previously generated apps from job 107304
+RESTORE_FROM="107304"
+echo "[$(date)] Restoring apps from /output/${RESTORE_FROM}/experiments/..."
+enroot start --root --rw --conf $temp_enroot_config_file ${CONTAINER_NAME} bash -c "
+    mkdir -p /opt/webarena-infinity/apps/experiments &&
+    cp -r /output/${RESTORE_FROM}/experiments/* /opt/webarena-infinity/apps/experiments/ &&
+    ls /opt/webarena-infinity/apps/experiments/
+"
 
 # ── Launch pipelines ──────────────────────────────────────────────────────────
 
@@ -159,7 +160,7 @@ for app_entry in "${APPS[@]}"; do
             --max-iterations ${MAX_ITERATIONS} \
             --hardening-rounds ${HARDENING_ROUNDS} \
             --no-push \
-            ${RERUN_FROM:+--rerun-from ${RERUN_FROM}} \
+            --rerun-from phase_2b \
             --model-params '${MODEL_PARAMS}'
     " > "${APP_LOG}" 2>&1 &
 

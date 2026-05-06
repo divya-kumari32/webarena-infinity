@@ -51,7 +51,7 @@ MODEL_PARAMS='{"extra_body":{"chat_template_kwargs":{"enable_thinking":false}}}'
 
 # App environments to generate — format: app-name|docs-path
 APPS=(
-    "experiments/glm5-gptoss-notion|apps/user-manuals/notion/notes-and-docs"
+    "experiments/glm5-gptoss-notion|apps/user-manuals/notion/"
 )
 
 # ── Enroot config ─────────────────────────────────────────────────────────────

@@ -778,26 +778,20 @@ def run_eval(
             log.info("Found partial results dir to resume: %s", partial_dir)
 
     log.info("Running eval: %s", " ".join(cmd))
-    try:
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=10800)
-    except subprocess.TimeoutExpired:
-        log.error("Eval timed out after 7200s — returning partial results")
-        return find_latest_results(app_dir, task_suite)
-
-    # Save eval output to log
     app_name = app_dir.name
     step_log_dir = REPO_DIR / "logs" / app_name
     step_log_dir.mkdir(parents=True, exist_ok=True)
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     log_path = step_log_dir / f"eval_{task_suite}_{timestamp}.log"
-    with open(log_path, "w") as f:
-        f.write(result.stdout)
-        if result.stderr:
-            f.write("\n--- stderr ---\n")
-            f.write(result.stderr)
+    try:
+        with open(log_path, "w") as f:
+            result = subprocess.run(cmd, stdout=f, stderr=subprocess.STDOUT, text=True, timeout=10800)
+    except subprocess.TimeoutExpired:
+        log.error("Eval timed out after 10800s — returning partial results")
+        return find_latest_results(app_dir, task_suite)
 
     if result.returncode != 0:
-        log.error("Eval failed (rc=%d): %s", result.returncode, result.stderr[-500:])
+        log.error("Eval failed (rc=%d), see %s", result.returncode, log_path)
         return None
 
     # Find the latest results directory

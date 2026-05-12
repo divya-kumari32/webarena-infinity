@@ -98,7 +98,7 @@ AGENT_FACTORIES = {
     "gpt-oss": lambda **kw: _make_browser_use_agent(
         lambda: __import__("browser_use.llm.openai.chat", fromlist=["ChatOpenAI"]).ChatOpenAI(model="azure/gpt-oss-120b"), **kw),
     "deepseek": lambda **kw: _make_browser_use_agent(
-        lambda: __import__("browser_use.llm.openai.chat", fromlist=["ChatOpenAI"]).ChatOpenAI(model="coreweave/deepseek-v32"), **kw),
+        lambda: __import__("browser_use.llm.openai.chat", fromlist=["ChatOpenAI"]).ChatOpenAI(model="coreweave/dsv4pro"), **kw),
 }
 
 # --- ANSI colors ---

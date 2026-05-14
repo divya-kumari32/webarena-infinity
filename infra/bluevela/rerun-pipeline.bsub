@@ -11,7 +11,7 @@
 #BSUB -hl
 #BSUB -R "span[hosts=1]"
 #BSUB -G grp_models
-#BSUB -W 720
+#BSUB -W 960
 #BSUB -o logs/webarena_%J.log
 #BSUB -e logs/webarena_%J.err
 

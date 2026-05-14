@@ -45,7 +45,7 @@ import time
 from datetime import datetime
 from pathlib import Path
 
-GLOBAL_TIMEOUT_SECONDS = 10 * 3600  # 10 hours
+GLOBAL_TIMEOUT_SECONDS = 15 * 3600  # 15 hours
 
 # ---------------------------------------------------------------------------
 # Paths

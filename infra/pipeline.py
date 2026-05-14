@@ -559,6 +559,7 @@ def run_agent(
 
     if agent == "deepagents":
         target_dir = f"apps/{app_name}" if app_name else ""
+
         deepagents_prefix = (
             "IMPORTANT: You MUST use the write_file tool to create files and the "
             "execute tool to run shell commands. Do NOT just describe what to do — "
@@ -582,8 +583,7 @@ def run_agent(
             "- Do NOT recursively list directories. Read specific files by path.\n"
             "- Write each file in ONE tool call. Never write a file in multiple parts.\n"
             "- For data.js: use compact JS (array-of-objects on fewer lines). 25 records per "
-            "main entity is enough — do NOT generate 30+. Use short but realistic values.\n"
-            "- Do NOT read your own files back after writing them. Trust your output.\n\n"
+            "main entity is enough — do NOT generate 30+. Use short but realistic values.\n\n"
             "APP QUALITY RULES — follow these to avoid common bugs:\n"
             "- No native OS UI elements (<select>, alert(), confirm(), file pickers) — "
             "use custom JS-rendered equivalents (custom dropdowns, modals, etc.).\n"
@@ -602,6 +602,7 @@ def run_agent(
             "- Check verifier data shapes against data.js: if seed data uses objects "
             "([{email, blockedAt}]), verifiers must access the nested field.\n\n"
         )
+
         if target_dir:
             deepagents_prefix += (
                 f"CRITICAL: All files you create for this app MUST go in the "

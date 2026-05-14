@@ -1,18 +1,9 @@
 #!/bin/bash
 # WebArena-Infinity Pipeline RERUN on BlueVela via Enroot
-# Restores a previously generated app from a completed job and reruns from a specified phase.
+# Restores a previously generated app and reruns from a specified phase.
 #
 # Usage:
-#   RESTORE_JOB_ID=120193 RERUN_FROM=phase_2b bsub < infra/bluevela/rerun-pipeline.bsub
-#
-# Required env vars:
-#   RESTORE_JOB_ID — job ID whose results to restore (from /u/divykum2/agentic/webarena-results/)
-#   RERUN_FROM     — phase to rerun from (phase_2a, phase_2b, phase_3a, phase_3b, phase_4, phase_5)
-#
-# Prerequisites:
-#   1. Sqsh at ${ENROOT_SQSH} with playwright + deepagents-cli pre-installed
-#   2. LITELLM_API_KEY set in ~/.bashrc
-#   3. Previous job results at /u/divykum2/agentic/webarena-results/${RESTORE_JOB_ID}/
+#   bsub < infra/bluevela/rerun-pipeline.bsub
 
 #BSUB -J webarena-rerun
 #BSUB -n 24
@@ -29,8 +20,8 @@ set -e
 
 # ── Configuration ─────────────────────────────────────────────────────────────
 
-RESTORE_JOB_ID="120193"
-RERUN_FROM="phase_2b"
+RESTORE_JOB_ID="237935"
+RERUN_FROM="phase_3a"
 : "${ENROOT_SHARE_PATH:=/u/divykum2/agentic}"
 
 # Enroot environment setup
@@ -47,10 +38,10 @@ LITELLM_URL="https://ete-litellm.ai-models.vpc.res.ibm.com/v1"
 LITELLM_KEY="${LITELLM_API_KEY:?Set LITELLM_API_KEY in ~/.bashrc or env}"
 
 # Pipeline parameters
-GENERATION_MODEL="openai:coreweave/glmv5"
-EVAL_MODEL="gpt-oss"
+GENERATION_MODEL="openai:coreweave/glmv5.1"
+EVAL_MODEL="deepseek"
 AGENT="deepagents"
-WORKERS=4
+WORKERS=8
 REPETITIONS=3
 MAX_ITERATIONS=3
 HARDENING_ROUNDS=3
@@ -58,7 +49,7 @@ MODEL_PARAMS='{"extra_body":{"chat_template_kwargs":{"enable_thinking":false}}}'
 
 # App environments to generate — format: app-name|docs-path
 APPS=(
-    "experiments/glm5-gptoss-notion|apps/user-manuals/notion/"
+    "experiments/glmv51-dsv32-notion|apps/user-manuals/notion/"
 )
 
 # ── Enroot config ─────────────────────────────────────────────────────────────
@@ -81,10 +72,10 @@ cleanup() {
     set +e
     echo "[$(date)] Cleaning up..."
     echo "[$(date)] Saving results from container..."
+    # Save app contents to experiment-named folder (not job ID)
     enroot start --root --rw --conf $temp_enroot_config_file ${CONTAINER_NAME} bash -c "
-        mkdir -p /output/${LSB_JOBID} &&
-        cp -r /opt/webarena-infinity/apps/experiments/ /output/${LSB_JOBID}/ 2>/dev/null || true &&
-        cp -r /opt/webarena-infinity/logs/ /output/${LSB_JOBID}/logs/ 2>/dev/null || true
+        mkdir -p /output/glmv51-dsv32-notion &&
+        cp -r /opt/webarena-infinity/apps/experiments/glmv51-dsv32-notion/* /output/glmv51-dsv32-notion/ 2>/dev/null || true
     " 2>/dev/null || true
     ps -fu $USER | grep "catatonit" | grep -v "grep" | awk '{print $2}' | xargs -i kill -9 {} 2>/dev/null
     rm -rf "${ENROOT_DATA_PATH}/${CONTAINER_NAME}"
@@ -111,7 +102,7 @@ enroot remove -f ${CONTAINER_NAME} 2>/dev/null || true
 echo "[$(date)] Creating container from ${ENROOT_SQSH}..."
 enroot create -n ${CONTAINER_NAME} ${ENROOT_SQSH}
 
-# Setup the repo and install pinned deepagents
+# Setup the repo, sync deps, patch eval model
 echo "[$(date)] Setting up webarena-infinity repo..."
 enroot start --root --rw --conf $temp_enroot_config_file ${CONTAINER_NAME} bash -c '
     export PATH="/root/.local/bin:$PATH" &&
@@ -119,7 +110,11 @@ enroot start --root --rw --conf $temp_enroot_config_file ${CONTAINER_NAME} bash 
     git fetch origin user-manuals-test &&
     git checkout user-manuals-test &&
     git pull &&
+    source .venv/bin/activate &&
+    uv sync &&
     uv tool install "deepagents-cli==0.0.37" --with "langchain-openai==1.1.12" --with "openai==2.31.0" &&
+    sed -i "s|ChatOpenAI(model=\"coreweave/dsv4pro\")|ChatOpenAI(model=\"coreweave/deepseek-v3.2\", max_completion_tokens=16384)|" evaluation/run_eval_parallel.py &&
+    echo "Patched eval model:" && grep "deepseek-v3" evaluation/run_eval_parallel.py &&
     echo "Setup complete"
 '
 
@@ -132,9 +127,8 @@ enroot start --root --rw --conf $temp_enroot_config_file ${CONTAINER_NAME} bash 
     echo 'Restored:' && ls /opt/webarena-infinity/apps/experiments/
 "
 
-# ── Launch pipelines ──────────────────────────────────────────────────────────
+# ── Launch pipeline ──────────────────────────────────────────────────────────
 
-PIDS=()
 LOG_DIR="/u/divykum2/agentic/webarena-logs/${LSB_JOBID}"
 mkdir -p ${LOG_DIR}
 
@@ -166,41 +160,21 @@ for app_entry in "${APPS[@]}"; do
             --no-push \
             --rerun-from '${RERUN_FROM}' \
             --model-params '${MODEL_PARAMS}'
-    " > "${APP_LOG}" 2>&1 &
+    " 2>&1 | tee "${APP_LOG}"
 
-    PIDS+=($!)
-    echo "[$(date)] Pipeline ${APP_NAME} launched as PID ${PIDS[-1]}, log: ${APP_LOG}"
-done
-
-# ── Wait for all pipelines ────────────────────────────────────────────────────
-
-echo "[$(date)] Waiting for ${#PIDS[@]} pipeline(s) to complete..."
-
-FAILED=0
-for i in "${!PIDS[@]}"; do
-    pid=${PIDS[$i]}
-    app_entry=${APPS[$i]}
-    IFS='|' read -r APP_NAME DOCS_PATH <<< "$app_entry"
-
-    if wait $pid; then
-        echo "[$(date)] Pipeline ${APP_NAME} COMPLETED SUCCESSFULLY"
-    else
-        echo "[$(date)] Pipeline ${APP_NAME} FAILED (exit=$?)"
-        FAILED=$((FAILED + 1))
-    fi
+    echo "[$(date)] Pipeline ${APP_NAME} finished (exit code: $?)"
 done
 
 # ── Copy results to shared storage ───────────────────────────────────────────
 
-echo "[$(date)] Copying results to /output (mounted to host)..."
+echo "[$(date)] Copying results to /output..."
 enroot start --root --rw --conf $temp_enroot_config_file ${CONTAINER_NAME} bash -c "
-    mkdir -p /output/${LSB_JOBID} &&
-    cp -r /opt/webarena-infinity/apps/experiments/ /output/${LSB_JOBID}/ 2>/dev/null || true &&
-    cp -r /opt/webarena-infinity/logs/ /output/${LSB_JOBID}/logs/ 2>/dev/null || true
+    mkdir -p /output/glmv51-dsv32-notion &&
+    cp -r /opt/webarena-infinity/apps/experiments/glmv51-dsv32-notion/* /output/glmv51-dsv32-notion/ 2>/dev/null || true
 "
 
 echo "=========================================="
-echo "All pipelines finished. Failed: ${FAILED}/${#APPS[@]}"
-echo "Results: /u/divykum2/agentic/webarena-results/${LSB_JOBID}/"
+echo "Pipeline finished."
+echo "Results: /u/divykum2/agentic/webarena-results/glmv51-dsv32-notion/"
 echo "Logs: ${LOG_DIR}/"
 echo "=========================================="

@@ -610,6 +610,45 @@ def run_agent(
             cmd.extend(["-M", generation_model])
         if model_params:
             cmd.extend(["--model-params", model_params])
+    elif agent == "opencode":
+        target_dir = f"apps/{app_name}" if app_name else ""
+
+        claude_md_path = REPO_DIR / "CLAUDE.md"
+        claude_md_content = ""
+        if claude_md_path.exists():
+            claude_md_content = claude_md_path.read_text().strip() + "\n\n"
+
+        no_touch_guard = ""
+        if prompt_name != "generate-app":
+            no_touch_guard = (
+                "CRITICAL: The app already exists and is fully functional. "
+                "Do NOT rewrite, modify, or recreate any existing app files "
+                "(server.py, index.html, js/, css/). Only create or modify "
+                "the specific files described in your task below.\n\n"
+            )
+
+        dir_constraint = ""
+        if target_dir:
+            dir_constraint = (
+                f"All files you create MUST go in `{target_dir}/`. "
+                f"Do NOT write files to any other app directory.\n\n"
+            )
+
+        opencode_prefix = claude_md_content + no_touch_guard + dir_constraint
+
+        inlined_docs = _inline_docs_for_deepagents(prompt_name)
+        if prompt_name == "generate-app" and app_name:
+            generate_app_ctx = _build_generate_app_deepagents_context(app_name)
+            augmented_prompt = opencode_prefix + inlined_docs + generate_app_ctx + prompt
+        else:
+            augmented_prompt = opencode_prefix + inlined_docs + prompt
+        cmd = [
+            "opencode", "run",
+            "--dangerously-skip-permissions",
+        ]
+        if generation_model:
+            cmd.extend(["--model", generation_model])
+        cmd.append(augmented_prompt)
     else:
         cmd = [
             "claude",
@@ -663,6 +702,13 @@ def run_agent(
                 )
                 result = subprocess.CompletedProcess(
                     cmd, result.returncode, stdout="", stderr=""
+                )
+            elif agent == "opencode":
+                # opencode run is non-interactive and supports piped output.
+                # Pipe /dev/null to stdin to prevent hangs in enroot.
+                result = subprocess.run(
+                    cmd, cwd=cwd, capture_output=True, text=True,
+                    timeout=timeout, stdin=subprocess.DEVNULL,
                 )
             else:
                 result = subprocess.run(
@@ -770,13 +816,23 @@ def run_eval(
     log_path = step_log_dir / f"eval_{task_suite}_{timestamp}.log"
     try:
         with open(log_path, "w") as f:
-            result = subprocess.run(cmd, stdout=f, stderr=subprocess.STDOUT, text=True, timeout=10800)
+            # Tee eval output to both file and stdout (visible in pipeline log)
+            proc = subprocess.Popen(
+                cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True
+            )
+            for line in proc.stdout:
+                f.write(line)
+                sys.stdout.write(line)
+                sys.stdout.flush()
+            proc.wait(timeout=10800)
+            result_code = proc.returncode
     except subprocess.TimeoutExpired:
+        proc.kill()
         log.error("Eval timed out after 10800s — returning partial results")
         return find_latest_results(app_dir, task_suite)
 
-    if result.returncode != 0:
-        log.error("Eval failed (rc=%d), see %s", result.returncode, log_path)
+    if result_code != 0:
+        log.error("Eval failed (rc=%d), see %s", result_code, log_path)
         return None
 
     # Find the latest results directory
@@ -1412,22 +1468,24 @@ def main() -> None:
     )
     parser.add_argument(
         "--agent",
-        choices=["claude", "deepagents"],
+        choices=["claude", "deepagents", "opencode"],
         default="claude",
         help="Agent framework for generation (default: claude). "
-             "Use 'deepagents' with --generation-model for open-source models. "
+             "Use 'deepagents' or 'opencode' with --generation-model for open-source models. "
              "With 'claude', --generation-model overrides the Claude CLI model.",
     )
     parser.add_argument(
         "--generation-model",
         default=None,
         help="Model for generation agent. For deepagents: e.g. openai:azure/gpt-oss-120b "
-             "(required). For claude: overrides the default model (e.g. coreweave/glmv5.1).",
+             "(required). For opencode: e.g. litellm/coreweave/glmv5.1 (required). "
+             "For claude: overrides the default model (e.g. coreweave/glmv5.1).",
     )
     parser.add_argument(
         "--model-params",
         default=None,
-        help="Extra model kwargs as JSON for DeepAgents --model-params "
+        help="Extra model kwargs as JSON for DeepAgents --model-params. "
+             "Not used by opencode. "
              '(e.g. \'{"extra_body":{"chat_template_kwargs":{"enable_thinking":false}}}\').',
     )
     args = parser.parse_args()
@@ -1455,8 +1513,8 @@ def main() -> None:
     log.info("  generation-model:%s", args.generation_model or "(default)")
     log.info("=" * 60)
 
-    if args.agent == "deepagents" and not args.generation_model:
-        log.error("--generation-model is required when --agent=deepagents")
+    if args.agent in ("deepagents", "opencode") and not args.generation_model:
+        log.error("--generation-model is required when --agent=%s", args.agent)
         sys.exit(1)
 
     def _global_timeout_handler(signum, frame):
@@ -1574,8 +1632,8 @@ def main() -> None:
             log.warning(
                 "Phase 1 validation FAILED — missing files: %s", ", ".join(missing)
             )
-            if args.agent == "deepagents":
-                log.info("Retrying Phase 1 with error context for DeepAgents")
+            if args.agent in ("deepagents", "opencode"):
+                log.info("Retrying Phase 1 with error context for %s", args.agent)
                 missing_str = "\n".join(f"  - {m}" for m in missing)
                 retry_prefix = (
                     f"CRITICAL ERROR: Your previous attempt to generate the app was "

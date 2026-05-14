@@ -560,80 +560,46 @@ def run_agent(
     if agent == "deepagents":
         target_dir = f"apps/{app_name}" if app_name else ""
 
-        # Full prefix for app generation (phase 1)
-        generate_prefix = (
+        # Load CLAUDE.md — gives the model the same context Claude CLI gets automatically
+        claude_md_path = REPO_DIR / "CLAUDE.md"
+        claude_md_content = ""
+        if claude_md_path.exists():
+            claude_md_content = claude_md_path.read_text().strip() + "\n\n"
+
+        # Tool usage preamble (DeepAgents needs explicit tool instructions)
+        tool_preamble = (
             "IMPORTANT: You MUST use the write_file tool to create files and the "
             "execute tool to run shell commands. Do NOT just describe what to do — "
             "actually call the tools to create and modify files on disk. "
             "Read files with read_file, search with grep, and always write output "
             "using write_file. Every file you need to create must use write_file.\n\n"
-            "PREPARATION — read these before writing any code:\n"
-            "- Read ALL files under docs/: web-app-design-guide.md, web-app-data-guide.md, "
-            "environment-protocol.md, verifier-sanity-check.md, function-task-design-guide.md, "
-            "real-task-design-guide.md, task-hardening-guide.md, function-task-audit.md, "
-            "real-task-audit-guide.md, and evaluation-harness.md.\n"
-            "- Read at least 2 reference apps per module (e.g. both apps/linear-account-settings/js/data.js "
-            "and apps/gitlab-plan-and-track/js/data.js) before writing your own.\n"
-            "- Plan your file structure and cross-module contracts (function signatures, "
-            "data shapes, event names) before writing.\n"
-            "- Budget at most 10 minutes total for reading docs, reference apps, and planning — "
-            "then start writing.\n\n"
-            "SPEED RULES — follow these to avoid wasting time:\n"
-            "- Do NOT list or read files in apps/ directories other than "
-            "apps/linear-account-settings/, apps/gitlab-plan-and-track/, and your target app.\n"
-            "- Do NOT recursively list directories. Read specific files by path.\n"
-            "- Write each file in ONE tool call. Never write a file in multiple parts.\n"
-            "- For data.js: use compact JS (array-of-objects on fewer lines). 25 records per "
-            "main entity is enough — do NOT generate 30+. Use short but realistic values.\n\n"
-            "APP QUALITY RULES — follow these to avoid common bugs:\n"
-            "- No native OS UI elements (<select>, alert(), confirm(), file pickers) — "
-            "use custom JS-rendered equivalents (custom dropdowns, modals, etc.).\n"
-            "- Rich realistic seed data: 10+ items per dropdown, varied formats.\n"
-            "- Form validation with required fields and conditional requirements.\n"
-            "- Every value checked by a verifier must be achievable through the UI.\n"
-            "- ONE dispatch mechanism per element. Do NOT put data-action on elements "
-            "that also have class-based handlers — if both exist, handleClick ordering "
-            "determines which fires (silent bug).\n"
-            "- Grep handler maps against rendered HTML: every key in "
-            "handleDropdownSelect/handleToggleChange/handleRadioChange must appear "
-            "verbatim as an ID or name in views.js. Watch for prefix drift "
-            "(settings- vs setting-), casing drift, and suffix drift.\n"
-            "- Grep all data-action values in views.js/components.js and verify each "
-            "has a case in handleAction. Missing cases fail silently.\n"
-            "- Check verifier data shapes against data.js: if seed data uses objects "
-            "([{email, blockedAt}]), verifiers must access the nested field.\n\n"
         )
 
-        # Minimal prefix for task generation, auditing, and hardening (phases 2-5)
-        task_prefix = (
-            "IMPORTANT: You MUST use the write_file tool to create files and the "
-            "execute tool to run shell commands. Do NOT just describe what to do — "
-            "actually call the tools to create and modify files on disk. "
-            "Read files with read_file, search with grep, and always write output "
-            "using write_file. Every file you need to create must use write_file.\n\n"
-            "CRITICAL: The app already exists and is fully functional. Do NOT rewrite "
-            "or modify any existing app files (server.py, index.html, js/, css/). "
-            "Only create or modify task-related files (task JSONs and verifier scripts).\n\n"
-            "Read the relevant docs for your task before starting. "
-            "Read the existing app files to understand the app structure and state shape.\n\n"
-        )
+        # For non-generation phases, guard against rewriting existing app files
+        no_touch_guard = ""
+        if prompt_name != "generate-app":
+            no_touch_guard = (
+                "CRITICAL: The app already exists and is fully functional. "
+                "Do NOT rewrite, modify, or recreate any existing app files "
+                "(server.py, index.html, js/, css/). Only create or modify "
+                "the specific files described in your task below.\n\n"
+            )
 
+        dir_constraint = ""
         if target_dir:
             dir_constraint = (
-                f"CRITICAL: All files you create MUST go in the "
-                f"`{target_dir}/` directory. Create this directory if it doesn't exist. "
-                f"Do NOT write files to any other app directory. "
-                f"The target app directory is: {target_dir}/\n\n"
+                f"All files you create MUST go in `{target_dir}/`. "
+                f"Do NOT write files to any other app directory.\n\n"
             )
-            generate_prefix += dir_constraint
-            task_prefix += dir_constraint
+
+        deepagents_prefix = tool_preamble + claude_md_content + no_touch_guard + dir_constraint
 
         inlined_docs = _inline_docs_for_deepagents(prompt_name)
         if prompt_name == "generate-app" and app_name:
             generate_app_ctx = _build_generate_app_deepagents_context(app_name)
-            augmented_prompt = generate_prefix + inlined_docs + generate_app_ctx + prompt
+            augmented_prompt = deepagents_prefix + inlined_docs + generate_app_ctx + prompt
         else:
-            augmented_prompt = task_prefix + inlined_docs + prompt
+            augmented_prompt = deepagents_prefix + inlined_docs + prompt
         cmd = [
             "deepagents",
             "-n", augmented_prompt,

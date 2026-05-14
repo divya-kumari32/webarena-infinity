@@ -560,7 +560,8 @@ def run_agent(
     if agent == "deepagents":
         target_dir = f"apps/{app_name}" if app_name else ""
 
-        deepagents_prefix = (
+        # Full prefix for app generation (phase 1)
+        generate_prefix = (
             "IMPORTANT: You MUST use the write_file tool to create files and the "
             "execute tool to run shell commands. Do NOT just describe what to do — "
             "actually call the tools to create and modify files on disk. "
@@ -603,19 +604,36 @@ def run_agent(
             "([{email, blockedAt}]), verifiers must access the nested field.\n\n"
         )
 
+        # Minimal prefix for task generation, auditing, and hardening (phases 2-5)
+        task_prefix = (
+            "IMPORTANT: You MUST use the write_file tool to create files and the "
+            "execute tool to run shell commands. Do NOT just describe what to do — "
+            "actually call the tools to create and modify files on disk. "
+            "Read files with read_file, search with grep, and always write output "
+            "using write_file. Every file you need to create must use write_file.\n\n"
+            "CRITICAL: The app already exists and is fully functional. Do NOT rewrite "
+            "or modify any existing app files (server.py, index.html, js/, css/). "
+            "Only create or modify task-related files (task JSONs and verifier scripts).\n\n"
+            "Read the relevant docs for your task before starting. "
+            "Read the existing app files to understand the app structure and state shape.\n\n"
+        )
+
         if target_dir:
-            deepagents_prefix += (
-                f"CRITICAL: All files you create for this app MUST go in the "
+            dir_constraint = (
+                f"CRITICAL: All files you create MUST go in the "
                 f"`{target_dir}/` directory. Create this directory if it doesn't exist. "
                 f"Do NOT write files to any other app directory. "
                 f"The target app directory is: {target_dir}/\n\n"
             )
+            generate_prefix += dir_constraint
+            task_prefix += dir_constraint
+
         inlined_docs = _inline_docs_for_deepagents(prompt_name)
         if prompt_name == "generate-app" and app_name:
             generate_app_ctx = _build_generate_app_deepagents_context(app_name)
-            augmented_prompt = deepagents_prefix + inlined_docs + generate_app_ctx + prompt
+            augmented_prompt = generate_prefix + inlined_docs + generate_app_ctx + prompt
         else:
-            augmented_prompt = deepagents_prefix + inlined_docs + prompt
+            augmented_prompt = task_prefix + inlined_docs + prompt
         cmd = [
             "deepagents",
             "-n", augmented_prompt,

@@ -610,45 +610,6 @@ def run_agent(
             cmd.extend(["-M", generation_model])
         if model_params:
             cmd.extend(["--model-params", model_params])
-    elif agent == "opencode":
-        target_dir = f"apps/{app_name}" if app_name else ""
-
-        claude_md_path = REPO_DIR / "CLAUDE.md"
-        claude_md_content = ""
-        if claude_md_path.exists():
-            claude_md_content = claude_md_path.read_text().strip() + "\n\n"
-
-        no_touch_guard = ""
-        if prompt_name != "generate-app":
-            no_touch_guard = (
-                "CRITICAL: The app already exists and is fully functional. "
-                "Do NOT rewrite, modify, or recreate any existing app files "
-                "(server.py, index.html, js/, css/). Only create or modify "
-                "the specific files described in your task below.\n\n"
-            )
-
-        dir_constraint = ""
-        if target_dir:
-            dir_constraint = (
-                f"All files you create MUST go in `{target_dir}/`. "
-                f"Do NOT write files to any other app directory.\n\n"
-            )
-
-        opencode_prefix = claude_md_content + no_touch_guard + dir_constraint
-
-        inlined_docs = _inline_docs_for_deepagents(prompt_name)
-        if prompt_name == "generate-app" and app_name:
-            generate_app_ctx = _build_generate_app_deepagents_context(app_name)
-            augmented_prompt = opencode_prefix + inlined_docs + generate_app_ctx + prompt
-        else:
-            augmented_prompt = opencode_prefix + inlined_docs + prompt
-        cmd = [
-            "opencode", "run",
-            "--dangerously-skip-permissions",
-        ]
-        if generation_model:
-            cmd.extend(["--model", generation_model])
-        cmd.append(augmented_prompt)
     else:
         cmd = [
             "claude",

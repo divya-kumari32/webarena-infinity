@@ -814,21 +814,26 @@ def run_eval(
     step_log_dir.mkdir(parents=True, exist_ok=True)
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     log_path = step_log_dir / f"eval_{task_suite}_{timestamp}.log"
+    eval_timeout = 12600  # 3.5 hours
     try:
         with open(log_path, "w") as f:
             # Tee eval output to both file and stdout (visible in pipeline log)
             proc = subprocess.Popen(
                 cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True
             )
+            import time as _time
+            deadline = _time.time() + eval_timeout
             for line in proc.stdout:
                 f.write(line)
                 sys.stdout.write(line)
                 sys.stdout.flush()
-            proc.wait(timeout=10800)
+                if _time.time() > deadline:
+                    proc.kill()
+                    raise subprocess.TimeoutExpired(cmd, eval_timeout)
+            proc.wait()
             result_code = proc.returncode
     except subprocess.TimeoutExpired:
-        proc.kill()
-        log.error("Eval timed out after 10800s — returning partial results")
+        log.error("Eval timed out after %ds — returning partial results", eval_timeout)
         return find_latest_results(app_dir, task_suite)
 
     if result_code != 0:

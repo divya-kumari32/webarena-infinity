@@ -1,0 +1,39 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "provider": {
+    "litellm": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "LiteLLM (IBM)",
+      "options": {
+        "baseURL": "{env:OPENAI_BASE_URL}",
+        "apiKey": "{env:OPENAI_API_KEY}"
+      },
+      "models": {
+        "coreweave/glmv5": {
+          "name": "GLM-5 (CoreWeave)",
+          "limit": { "context": 128000, "output": 16384 }
+        },
+        "coreweave/glmv5.1": {
+          "name": "GLM-5.1 (CoreWeave)",
+          "limit": { "context": 128000, "output": 16384 }
+        },
+        "coreweave/glmv5.1-fp8": {
+          "name": "GLM-5.1 FP8 (CoreWeave)",
+          "limit": { "context": 128000, "output": 16384 }
+        },
+        "azure/gpt-oss-120b": {
+          "name": "GPT-OSS 120B (Azure)",
+          "limit": { "context": 128000, "output": 16384 }
+        },
+        "coreweave/deepseek-v32": {
+          "name": "DeepSeek V3.2 (CoreWeave)",
+          "limit": { "context": 128000, "output": 16384 }
+        },
+        "coreweave/qwen3-coder-480b-a35b-instruct-maas": {
+          "name": "Qwen3 Coder 480B (CoreWeave)",
+          "limit": { "context": 128000, "output": 16384 }
+        }
+      }
+    }
+  }
+}

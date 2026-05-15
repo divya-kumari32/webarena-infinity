@@ -1,0 +1,183 @@
+#!/bin/bash
+# WebArena-Infinity Full Pipeline on BlueVela via Enroot — OpenCode agent
+# Generates app from scratch (phase 1) and runs full eval/audit/hardening loop.
+#
+# Usage:
+#   bsub < infra/bluevela/run-webarena-pipeline-opencode.bsub
+
+#BSUB -J webarena-opencode
+#BSUB -n 24
+#BSUB -M 1.5T
+#BSUB -hl
+#BSUB -R "span[hosts=1]"
+#BSUB -G grp_models
+#BSUB -W 2880
+#BSUB -o logs/webarena_%J.log
+#BSUB -e logs/webarena_%J.err
+
+. ~/.bashrc
+set -e
+
+# ── Configuration ─────────────────────────────────────────────────────────────
+
+: "${ENROOT_SHARE_PATH:=/u/divykum2/agentic}"
+
+# Enroot environment setup
+export ENROOT_DATA_PATH="/opt/nvme/$USER/enroot-data"
+export ENROOT_CACHE_PATH="/opt/nvme/$USER/enroot-cache"
+export ENROOT_RUNTIME_PATH="/tmp/user-$(id -u)/enroot"
+export ENROOT_TEMP_PATH="/tmp/tmp-$(id -u)/enroot"
+export XDG_RUNTIME_DIR="/tmp/run/user/$(id -u)"
+mkdir -p ${ENROOT_DATA_PATH} ${ENROOT_CACHE_PATH} ${ENROOT_RUNTIME_PATH} ${ENROOT_TEMP_PATH} ${XDG_RUNTIME_DIR}
+
+CONTAINER_NAME="webarena-opencode"
+ENROOT_SQSH="/proj/checkpoints/divykum2/agentic/enroot/webarena.sqsh"
+LITELLM_URL="https://ete-litellm.ai-models.vpc.res.ibm.com/v1"
+LITELLM_KEY="${LITELLM_API_KEY:?Set LITELLM_API_KEY in ~/.bashrc or env}"
+
+# Pipeline parameters
+GENERATION_MODEL="litellm/coreweave/glmv5.1"
+EVAL_MODEL="deepseek"
+AGENT="opencode"
+WORKERS=8
+REPETITIONS=3
+MAX_ITERATIONS=3
+HARDENING_ROUNDS=3
+
+# App environments to generate — format: app-name|docs-path
+APPS=(
+    "experiments/opencode-glmv51-aws|apps/user-manuals/aws/"
+)
+
+# ── Enroot config ─────────────────────────────────────────────────────────────
+
+LOG_DIR="/u/divykum2/agentic/webarena-logs/${LSB_JOBID}"
+mkdir -p ${LOG_DIR}
+
+temp_enroot_config_file=$(mktemp -t enroot.config.XXXXXX)
+cat << EOF >> "$temp_enroot_config_file"
+environ() {
+    env
+}
+
+mounts() {
+    echo "/u/divykum2/agentic/webarena-results /output"
+    echo "${LOG_DIR} /logs-bv"
+}
+EOF
+
+# ── Cleanup ───────────────────────────────────────────────────────────────────
+
+cleanup() {
+    local exit_code=$?
+    set +e
+    echo "[$(date)] Cleaning up..."
+    echo "[$(date)] Saving results from container..."
+    for app_entry in "${APPS[@]}"; do
+        IFS='|' read -r _APP_NAME _ <<< "$app_entry"
+        _SHORT_NAME="${_APP_NAME#experiments/}"
+        enroot start --root --rw --conf $temp_enroot_config_file ${CONTAINER_NAME} bash -c "
+            mkdir -p /output/${_SHORT_NAME} &&
+            cp -r /opt/webarena-infinity/apps/${_APP_NAME}/* /output/${_SHORT_NAME}/ 2>/dev/null || true
+        " 2>/dev/null || true
+    done
+    ps -fu $USER | grep "catatonit" | grep -v "grep" | awk '{print $2}' | xargs -i kill -9 {} 2>/dev/null
+    rm -rf "${ENROOT_DATA_PATH}/${CONTAINER_NAME}"
+    rm -f "$temp_enroot_config_file"
+    exit $exit_code
+}
+trap cleanup EXIT
+
+# ── Setup container ───────────────────────────────────────────────────────────
+
+echo "=========================================="
+echo "WebArena-Infinity Pipeline (OpenCode) on BlueVela"
+echo "=========================================="
+echo "Job ID: ${LSB_JOBID}"
+echo "Host: $(hostname)"
+echo "Generation model: ${GENERATION_MODEL}"
+echo "Eval model: ${EVAL_MODEL}"
+echo "Agent: ${AGENT}"
+echo "Apps: ${APPS[@]}"
+echo "=========================================="
+
+# Create container from sqsh
+enroot remove -f ${CONTAINER_NAME} 2>/dev/null || true
+echo "[$(date)] Creating container from ${ENROOT_SQSH}..."
+enroot create -n ${CONTAINER_NAME} ${ENROOT_SQSH}
+
+# Setup the repo, sync deps, install Node.js + opencode
+echo "[$(date)] Setting up webarena-infinity repo..."
+enroot start --root --rw --conf $temp_enroot_config_file ${CONTAINER_NAME} bash -c '
+    export PATH="/root/.local/bin:/usr/local/bin:$PATH" &&
+    cd /opt/webarena-infinity &&
+    git fetch origin user-manuals-test &&
+    git checkout user-manuals-test &&
+    git pull &&
+    source .venv/bin/activate &&
+    uv sync &&
+    # Install Node.js 20 (needed for opencode)
+    if ! command -v node &>/dev/null; then
+        curl -fsSL https://deb.nodesource.com/setup_20.x | bash - &&
+        apt-get install -y --no-install-recommends nodejs &&
+        rm -rf /var/lib/apt/lists/*
+    fi &&
+    npm install -g opencode-ai@latest &&
+    opencode --version &&
+    sed -i "s|ChatOpenAI(model=\"coreweave/dsv4pro\")|ChatOpenAI(model=\"coreweave/deepseek-v3.2\", max_completion_tokens=16384)|" evaluation/run_eval_parallel.py &&
+    echo "Patched eval model:" && grep "deepseek-v3" evaluation/run_eval_parallel.py &&
+    echo "Setup complete"
+'
+
+# ── Launch pipeline ──────────────────────────────────────────────────────────
+
+for app_entry in "${APPS[@]}"; do
+    IFS='|' read -r APP_NAME DOCS_PATH <<< "$app_entry"
+    APP_LOG="${LOG_DIR}/pipeline_$(echo $APP_NAME | tr '/' '_').log"
+
+    echo "[$(date)] Launching full pipeline for ${APP_NAME}..."
+
+    enroot start --root --rw --conf $temp_enroot_config_file ${CONTAINER_NAME} bash -c "
+        source /opt/webarena-infinity/.venv/bin/activate &&
+        cd /opt/webarena-infinity &&
+        export PATH=\"/usr/local/bin:/root/.local/bin:/usr/bin:/bin:/usr/sbin:/sbin:\$(python -m site --user-base)/bin:\$PATH\" &&
+        export PLAYWRIGHT_BROWSERS_PATH='/root/.cache/ms-playwright' &&
+        export PROXY_TARGET_URL='${LITELLM_URL}' &&
+        export PROXY_TARGET_KEY='${LITELLM_KEY}' &&
+        export OPENAI_API_KEY='${LITELLM_KEY}' &&
+        export OPENAI_BASE_URL='${LITELLM_URL}' &&
+        ln -sfn /logs-bv /opt/webarena-infinity/logs &&
+        python infra/pipeline.py \
+            --app-name '${APP_NAME}' \
+            --docs-path '${DOCS_PATH}' \
+            --model '${EVAL_MODEL}' \
+            --agent '${AGENT}' \
+            --generation-model '${GENERATION_MODEL}' \
+            --workers ${WORKERS} \
+            --repetitions ${REPETITIONS} \
+            --max-iterations ${MAX_ITERATIONS} \
+            --hardening-rounds ${HARDENING_ROUNDS} \
+            --no-push
+    " 2>&1 | tee "${APP_LOG}"
+
+    echo "[$(date)] Pipeline ${APP_NAME} finished (exit code: $?)"
+done
+
+# ── Copy results to shared storage ───────────────────────────────────────────
+
+echo "[$(date)] Copying results to /output..."
+for app_entry in "${APPS[@]}"; do
+    IFS='|' read -r APP_NAME _ <<< "$app_entry"
+    SHORT_NAME="${APP_NAME#experiments/}"
+    enroot start --root --rw --conf $temp_enroot_config_file ${CONTAINER_NAME} bash -c "
+        mkdir -p /output/${SHORT_NAME} &&
+        cp -r /opt/webarena-infinity/apps/${APP_NAME}/* /output/${SHORT_NAME}/ 2>/dev/null || true
+    "
+    echo "  Saved: /u/divykum2/agentic/webarena-results/${SHORT_NAME}/"
+done
+
+echo "=========================================="
+echo "Pipeline finished."
+echo "Results: /u/divykum2/agentic/webarena-results/"
+echo "Logs: ${LOG_DIR}/"
+echo "=========================================="

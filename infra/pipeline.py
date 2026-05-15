@@ -45,7 +45,7 @@ import time
 from datetime import datetime
 from pathlib import Path
 
-GLOBAL_TIMEOUT_SECONDS = 15 * 3600  # 15 hours
+GLOBAL_TIMEOUT_SECONDS = 40 * 3600  # 40 hours
 
 # ---------------------------------------------------------------------------
 # Paths
@@ -814,7 +814,7 @@ def run_eval(
     step_log_dir.mkdir(parents=True, exist_ok=True)
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     log_path = step_log_dir / f"eval_{task_suite}_{timestamp}.log"
-    eval_timeout = 12600  # 3.5 hours
+    eval_timeout = 43200  # 12 hours
     try:
         with open(log_path, "w") as f:
             # Tee eval output to both file and stdout (visible in pipeline log)

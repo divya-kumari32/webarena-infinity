@@ -528,7 +528,7 @@ async def main():
     parser.add_argument("--model", choices=AGENT_FACTORIES.keys(), default="gpt")
     parser.add_argument("--task-id", default=None, help="Run one or more tasks, comma-separated (e.g. task_e1 or task_3,task_4,task_6)")
     parser.add_argument("--difficulty", choices=["easy", "medium", "hard"], default=None)
-    parser.add_argument("--max-steps", type=int, default=50)
+    parser.add_argument("--max-steps", type=int, default=100)
     parser.add_argument("--use-vision", action="store_true", help="Enable vision for the agent")
     parser.add_argument("--workers", type=int, default=4, help="Number of parallel workers")
     parser.add_argument("--base-port", type=int, default=8001, help="First port for env instances")

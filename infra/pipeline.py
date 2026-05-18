@@ -640,44 +640,48 @@ def run_agent(
             attempt,
         )
         try:
-            if agent == "opencode":
-                result = subprocess.run(
-                    cmd, cwd=cwd, capture_output=True, text=True,
-                    timeout=timeout, stdin=subprocess.DEVNULL,
+            stdin_arg = subprocess.DEVNULL if agent == "opencode" else None
+            with open(log_path, "w") as log_f:
+                proc = subprocess.Popen(
+                    cmd, cwd=cwd, stdout=log_f, stderr=subprocess.STDOUT,
+                    text=True, stdin=stdin_arg,
                 )
-            else:
-                result = subprocess.run(
-                    cmd, cwd=cwd, capture_output=True, text=True, timeout=timeout
-                )
+                proc.wait(timeout=timeout)
+            result = subprocess.CompletedProcess(cmd, proc.returncode, stdout="", stderr="")
         except subprocess.TimeoutExpired:
+            proc.kill()
+            proc.wait()
             log.error("%s timed out after %ds (prompt=%s)", agent_label, timeout, prompt_name)
-            with open(log_path, "w") as f:
-                f.write(f"TIMEOUT after {timeout}s\n")
+            with open(log_path, "a") as f:
+                f.write(f"\nTIMEOUT after {timeout}s\n")
             if attempt <= retries:
                 log.info("Retrying...")
                 continue
             return (1, "", f"Timeout after {timeout}s")
 
-        # Save output to log file
-        with open(log_path, "w") as f:
-            f.write(result.stdout)
-            if result.stderr:
-                f.write("\n--- stderr ---\n")
-                f.write(result.stderr)
-
         if result.returncode != 0:
+            tail = ""
+            try:
+                tail = log_path.read_text()[-500:]
+            except Exception:
+                pass
             log.error(
                 "%s failed (rc=%d, prompt=%s): %s",
                 agent_label,
                 result.returncode,
                 prompt_name,
-                result.stderr[-500:] if result.stderr else "(no stderr)",
+                tail or "(no output)",
             )
             if attempt <= retries:
                 log.info("Retrying...")
                 continue
 
-        return (result.returncode, result.stdout, result.stderr)
+        stdout = ""
+        try:
+            stdout = log_path.read_text()
+        except Exception:
+            pass
+        return (result.returncode, stdout, "")
 
     # Should not reach here, but just in case
     return (1, "", "All retries exhausted")

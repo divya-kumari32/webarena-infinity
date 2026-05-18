@@ -57,7 +57,7 @@ PROMPTS_DIR = SCRIPT_DIR / "prompts"
 
 # ---------------------------------------------------------------------------
 # Reference server.py — identical across all apps, provided verbatim to
-# DeepAgents so OS models copy it instead of inventing a broken one.
+# OpenCode so OS models copy it instead of inventing a broken one.
 # ---------------------------------------------------------------------------
 
 _REFERENCE_SERVER_PY = r'''#!/usr/bin/env python3
@@ -288,8 +288,8 @@ def load_prompt(name: str, **kwargs: str) -> str:
     return template.format(**kwargs)
 
 
-def _build_generate_app_deepagents_context(app_name: str) -> str:
-    """Build comprehensive inline context for DeepAgents generate-app prompt.
+def _build_generate_app_context(app_name: str) -> str:
+    """Build comprehensive inline context for opencode generate-app prompt.
 
     Non-Claude models can't read CLAUDE.md or follow doc-file references
     reliably, so we inject all critical requirements directly into the prompt.
@@ -410,7 +410,7 @@ CMD ["python", "server.py"]
 
 _REFERENCE_APPS = {"gmail", "gmail-reproduced", "linear-account-settings"}
 
-_DEEPAGENTS_DOC_MAP: dict[str, list[str]] = {
+_OPENCODE_DOC_MAP: dict[str, list[str]] = {
     "generate-function-tests": [
         "docs/function-task-design-guide.md",
         "docs/verifier-sanity-check.md",
@@ -432,9 +432,9 @@ _DEEPAGENTS_DOC_MAP: dict[str, list[str]] = {
 }
 
 
-def _inline_docs_for_deepagents(prompt_name: str) -> str:
+def _inline_docs_for_opencode(prompt_name: str) -> str:
     """Read referenced docs from disk and return them as inline prompt context."""
-    doc_paths = _DEEPAGENTS_DOC_MAP.get(prompt_name, [])
+    doc_paths = _OPENCODE_DOC_MAP.get(prompt_name, [])
     if not doc_paths:
         return ""
     sections: list[str] = []
@@ -542,7 +542,7 @@ def run_agent(
 ) -> tuple[int, str, str]:
     """Load prompt template, invoke the configured agent CLI.
 
-    Supports 'claude' (Claude Code CLI) and 'deepagents' (DeepAgents CLI).
+    Supports 'claude' (Claude Code CLI) and 'opencode' (OpenCode CLI).
     Returns (returncode, stdout, stderr).
     """
     prompt = load_prompt(prompt_name, **template_vars)
@@ -557,25 +557,14 @@ def run_agent(
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     log_path = step_log_dir / f"{prompt_name}_{timestamp}.log"
 
-    if agent == "deepagents":
+    if agent == "opencode":
         target_dir = f"apps/{app_name}" if app_name else ""
 
-        # Load CLAUDE.md — gives the model the same context Claude CLI gets automatically
         claude_md_path = REPO_DIR / "CLAUDE.md"
         claude_md_content = ""
         if claude_md_path.exists():
             claude_md_content = claude_md_path.read_text().strip() + "\n\n"
 
-        # Tool usage preamble (DeepAgents needs explicit tool instructions)
-        tool_preamble = (
-            "IMPORTANT: You MUST use the write_file tool to create files and the "
-            "execute tool to run shell commands. Do NOT just describe what to do — "
-            "actually call the tools to create and modify files on disk. "
-            "Read files with read_file, search with grep, and always write output "
-            "using write_file. Every file you need to create must use write_file.\n\n"
-        )
-
-        # For non-generation phases, guard against rewriting existing app files
         no_touch_guard = ""
         if prompt_name != "generate-app":
             no_touch_guard = (
@@ -592,24 +581,21 @@ def run_agent(
                 f"Do NOT write files to any other app directory.\n\n"
             )
 
-        deepagents_prefix = tool_preamble + claude_md_content + no_touch_guard + dir_constraint
+        opencode_prefix = claude_md_content + no_touch_guard + dir_constraint
 
-        inlined_docs = _inline_docs_for_deepagents(prompt_name)
+        inlined_docs = _inline_docs_for_opencode(prompt_name)
         if prompt_name == "generate-app" and app_name:
-            generate_app_ctx = _build_generate_app_deepagents_context(app_name)
-            augmented_prompt = deepagents_prefix + inlined_docs + generate_app_ctx + prompt
+            generate_app_ctx = _build_generate_app_context(app_name)
+            augmented_prompt = opencode_prefix + inlined_docs + generate_app_ctx + prompt
         else:
-            augmented_prompt = deepagents_prefix + inlined_docs + prompt
+            augmented_prompt = opencode_prefix + inlined_docs + prompt
         cmd = [
-            "deepagents",
-            "-n", augmented_prompt,
-            "-y",
-            "-S", "all",
+            "opencode", "run",
+            "--dangerously-skip-permissions",
         ]
         if generation_model:
-            cmd.extend(["-M", generation_model])
-        if model_params:
-            cmd.extend(["--model-params", model_params])
+            cmd.extend(["--model", generation_model])
+        cmd.append(augmented_prompt)
     else:
         cmd = [
             "claude",
@@ -654,19 +640,7 @@ def run_agent(
             attempt,
         )
         try:
-            if agent == "deepagents":
-                # DeepAgents requires a real terminal fd — it exits silently
-                # when stdout/stderr are piped. Run without capturing output;
-                # the pipeline only needs the exit code and file-system changes.
-                result = subprocess.run(
-                    cmd, cwd=cwd, timeout=timeout,
-                )
-                result = subprocess.CompletedProcess(
-                    cmd, result.returncode, stdout="", stderr=""
-                )
-            elif agent == "opencode":
-                # opencode run is non-interactive and supports piped output.
-                # Pipe /dev/null to stdin to prevent hangs in enroot.
+            if agent == "opencode":
                 result = subprocess.run(
                     cmd, cwd=cwd, capture_output=True, text=True,
                     timeout=timeout, stdin=subprocess.DEVNULL,
@@ -1434,25 +1408,22 @@ def main() -> None:
     )
     parser.add_argument(
         "--agent",
-        choices=["claude", "deepagents", "opencode"],
+        choices=["claude", "opencode"],
         default="claude",
         help="Agent framework for generation (default: claude). "
-             "Use 'deepagents' or 'opencode' with --generation-model for open-source models. "
+             "Use 'opencode' with --generation-model for open-source models. "
              "With 'claude', --generation-model overrides the Claude CLI model.",
     )
     parser.add_argument(
         "--generation-model",
         default=None,
-        help="Model for generation agent. For deepagents: e.g. openai:azure/gpt-oss-120b "
-             "(required). For opencode: e.g. litellm/coreweave/glmv5.1 (required). "
-             "For claude: overrides the default model (e.g. coreweave/glmv5.1).",
+        help="Model for generation agent. For opencode: e.g. litellm/coreweave/glmv5.1 "
+             "(required). For claude: overrides the default model (e.g. coreweave/glmv5.1).",
     )
     parser.add_argument(
         "--model-params",
         default=None,
-        help="Extra model kwargs as JSON for DeepAgents --model-params. "
-             "Not used by opencode. "
-             '(e.g. \'{"extra_body":{"chat_template_kwargs":{"enable_thinking":false}}}\').',
+        help="Extra model kwargs as JSON (currently unused, reserved for future use).",
     )
     args = parser.parse_args()
     args.push_enabled = not args.no_push
@@ -1479,7 +1450,7 @@ def main() -> None:
     log.info("  generation-model:%s", args.generation_model or "(default)")
     log.info("=" * 60)
 
-    if args.agent in ("deepagents", "opencode") and not args.generation_model:
+    if args.agent == "opencode" and not args.generation_model:
         log.error("--generation-model is required when --agent=%s", args.agent)
         sys.exit(1)
 
@@ -1598,7 +1569,7 @@ def main() -> None:
             log.warning(
                 "Phase 1 validation FAILED — missing files: %s", ", ".join(missing)
             )
-            if args.agent in ("deepagents", "opencode"):
+            if args.agent == "opencode":
                 log.info("Retrying Phase 1 with error context for %s", args.agent)
                 missing_str = "\n".join(f"  - {m}" for m in missing)
                 retry_prefix = (

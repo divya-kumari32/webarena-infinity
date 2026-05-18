@@ -1,19 +1,19 @@
 #!/bin/bash
-# WebArena-Infinity Full Pipeline on BlueVela via Enroot
-# Generates app from scratch (phase 1) and runs full eval/audit/hardening loop.
+# WebArena-Infinity Full Pipeline — Zendesk (Job A)
+# Generation: opencode + GLM 5.1 | Eval: deepseek-v3.2 | Workers: 4
 #
 # Usage:
-#   bsub < infra/bluevela/run-webarena-pipeline.bsub
+#   bsub < infra/bluevela/run-webarena-pipeline-zendesk.bsub
 
-#BSUB -J webarena-pipeline
+#BSUB -J webarena-zendesk
 #BSUB -n 24
 #BSUB -M 1.5T
 #BSUB -hl
 #BSUB -R "span[hosts=1]"
 #BSUB -G grp_models
 #BSUB -W 2880
-#BSUB -o logs/webarena_%J.log
-#BSUB -e logs/webarena_%J.err
+#BSUB -o logs/webarena_zendesk_%J.log
+#BSUB -e logs/webarena_zendesk_%J.err
 
 . ~/.bashrc
 set -e
@@ -30,24 +30,23 @@ export ENROOT_TEMP_PATH="/tmp/tmp-$(id -u)/enroot"
 export XDG_RUNTIME_DIR="/tmp/run/user/$(id -u)"
 mkdir -p ${ENROOT_DATA_PATH} ${ENROOT_CACHE_PATH} ${ENROOT_RUNTIME_PATH} ${ENROOT_TEMP_PATH} ${XDG_RUNTIME_DIR}
 
-CONTAINER_NAME="webarena"
+CONTAINER_NAME="webarena-zendesk"
 ENROOT_SQSH="/proj/checkpoints/divykum2/agentic/enroot/webarena.sqsh"
 LITELLM_URL="https://ete-litellm.ai-models.vpc.res.ibm.com/v1"
 LITELLM_KEY="${LITELLM_API_KEY:?Set LITELLM_API_KEY in ~/.bashrc or env}"
 
 # Pipeline parameters
-GENERATION_MODEL="openai:coreweave/glmv5.1"
+GENERATION_MODEL="litellm/coreweave/glmv5.1"
 EVAL_MODEL="deepseek"
-AGENT="deepagents"
-WORKERS=8
+AGENT="opencode"
+WORKERS=4
 REPETITIONS=3
 MAX_ITERATIONS=3
 HARDENING_ROUNDS=3
-MODEL_PARAMS='{"extra_body":{"chat_template_kwargs":{"enable_thinking":false}}}'
 
 # App environments to generate — format: app-name|docs-path
 APPS=(
-    "experiments/glmv51-dsv32-aws|apps/user-manuals/aws/"
+    "experiments/glmv51-dsv32-zendesk|apps/user-manuals/zendesk/"
 )
 
 # ── Enroot config ─────────────────────────────────────────────────────────────
@@ -71,9 +70,9 @@ cleanup() {
     echo "[$(date)] Cleaning up..."
     echo "[$(date)] Saving results from container..."
     enroot start --root --rw --conf $temp_enroot_config_file ${CONTAINER_NAME} bash -c "
-        mkdir -p /output/${LSB_JOBID} &&
-        cp -r /opt/webarena-infinity/apps/experiments/ /output/${LSB_JOBID}/ 2>/dev/null || true &&
-        cp -r /opt/webarena-infinity/logs/ /output/${LSB_JOBID}/logs/ 2>/dev/null || true
+        mkdir -p /output/glmv51-dsv32-zendesk &&
+        cp -r /opt/webarena-infinity/apps/experiments/ /output/glmv51-dsv32-zendesk/ 2>/dev/null || true &&
+        cp -r /opt/webarena-infinity/logs/ /output/glmv51-dsv32-zendesk/logs/ 2>/dev/null || true
     " 2>/dev/null || true
     ps -fu $USER | grep "catatonit" | grep -v "grep" | awk '{print $2}' | xargs -i kill -9 {} 2>/dev/null
     rm -rf "${ENROOT_DATA_PATH}/${CONTAINER_NAME}"
@@ -85,12 +84,14 @@ trap cleanup EXIT
 # ── Setup container ───────────────────────────────────────────────────────────
 
 echo "=========================================="
-echo "WebArena-Infinity Full Pipeline on BlueVela"
+echo "WebArena-Infinity Full Pipeline — Zendesk"
 echo "=========================================="
 echo "Job ID: ${LSB_JOBID}"
 echo "Host: $(hostname)"
-echo "Generation model: ${GENERATION_MODEL}"
-echo "Eval model: ${EVAL_MODEL}"
+echo "Start time: $(date)"
+echo "Generation: opencode + ${GENERATION_MODEL}"
+echo "Eval model: ${EVAL_MODEL} (deepseek-v3.2)"
+echo "Workers: ${WORKERS}"
 echo "Apps: ${APPS[@]}"
 echo "=========================================="
 
@@ -99,17 +100,24 @@ enroot remove -f ${CONTAINER_NAME} 2>/dev/null || true
 echo "[$(date)] Creating container from ${ENROOT_SQSH}..."
 enroot create -n ${CONTAINER_NAME} ${ENROOT_SQSH}
 
-# Setup the repo, sync deps, patch eval model
+# Setup the repo, sync deps, install Node.js + opencode
 echo "[$(date)] Setting up webarena-infinity repo..."
 enroot start --root --rw --conf $temp_enroot_config_file ${CONTAINER_NAME} bash -c '
-    export PATH="/root/.local/bin:$PATH" &&
+    export PATH="/root/.local/bin:/usr/local/bin:$PATH" &&
     cd /opt/webarena-infinity &&
     git fetch origin user-manuals-test &&
     git checkout user-manuals-test &&
     git pull &&
     source .venv/bin/activate &&
     uv sync &&
-    uv tool install "deepagents-cli==0.0.37" --with "langchain-openai==1.1.12" --with "openai==2.31.0" &&
+    # Install Node.js 20 (needed for opencode)
+    if ! command -v node &>/dev/null; then
+        curl -fsSL https://deb.nodesource.com/setup_20.x | bash - &&
+        apt-get install -y --no-install-recommends nodejs &&
+        rm -rf /var/lib/apt/lists/*
+    fi &&
+    npm install -g opencode-ai@latest &&
+    opencode --version &&
     sed -i "s|ChatOpenAI(model=\"coreweave/dsv4pro\")|ChatOpenAI(model=\"coreweave/deepseek-v3.2\", max_completion_tokens=16384)|" evaluation/run_eval_parallel.py &&
     echo "Patched eval model:" && grep "deepseek-v3" evaluation/run_eval_parallel.py &&
     echo "Setup complete"
@@ -117,7 +125,7 @@ enroot start --root --rw --conf $temp_enroot_config_file ${CONTAINER_NAME} bash 
 
 # ── Launch pipeline ──────────────────────────────────────────────────────────
 
-LOG_DIR="/u/divykum2/agentic/webarena-logs/${LSB_JOBID}"
+LOG_DIR="/u/divykum2/agentic/webarena-logs/glmv51-dsv32-zendesk"
 mkdir -p ${LOG_DIR}
 
 for app_entry in "${APPS[@]}"; do
@@ -125,11 +133,12 @@ for app_entry in "${APPS[@]}"; do
     APP_LOG="${LOG_DIR}/pipeline_$(echo $APP_NAME | tr '/' '_').log"
 
     echo "[$(date)] Launching full pipeline for ${APP_NAME}..."
+    echo "[$(date)] Phase timing starts now."
 
     enroot start --root --rw --conf $temp_enroot_config_file ${CONTAINER_NAME} bash -c "
         source /opt/webarena-infinity/.venv/bin/activate &&
         cd /opt/webarena-infinity &&
-        export PATH=\"/root/.local/bin:/usr/bin:/usr/local/bin:/bin:/usr/sbin:/sbin:\$(python -m site --user-base)/bin:\$PATH\" &&
+        export PATH=\"/usr/local/bin:/root/.local/bin:/usr/bin:/bin:/usr/sbin:/sbin:\$(python -m site --user-base)/bin:\$PATH\" &&
         export PLAYWRIGHT_BROWSERS_PATH='/root/.cache/ms-playwright' &&
         export PROXY_TARGET_URL='${LITELLM_URL}' &&
         export PROXY_TARGET_KEY='${LITELLM_KEY}' &&
@@ -145,8 +154,7 @@ for app_entry in "${APPS[@]}"; do
             --repetitions ${REPETITIONS} \
             --max-iterations ${MAX_ITERATIONS} \
             --hardening-rounds ${HARDENING_ROUNDS} \
-            --no-push \
-            --model-params '${MODEL_PARAMS}'
+            --no-push
     " 2>&1 | tee "${APP_LOG}"
 
     echo "[$(date)] Pipeline ${APP_NAME} finished (exit code: $?)"
@@ -156,13 +164,13 @@ done
 
 echo "[$(date)] Copying results to /output..."
 enroot start --root --rw --conf $temp_enroot_config_file ${CONTAINER_NAME} bash -c "
-    mkdir -p /output/${LSB_JOBID} &&
-    cp -r /opt/webarena-infinity/apps/experiments/ /output/${LSB_JOBID}/ 2>/dev/null || true &&
-    cp -r /opt/webarena-infinity/logs/ /output/${LSB_JOBID}/logs/ 2>/dev/null || true
+    mkdir -p /output/glmv51-dsv32-zendesk &&
+    cp -r /opt/webarena-infinity/apps/experiments/ /output/glmv51-dsv32-zendesk/ 2>/dev/null || true &&
+    cp -r /opt/webarena-infinity/logs/ /output/glmv51-dsv32-zendesk/logs/ 2>/dev/null || true
 "
 
 echo "=========================================="
-echo "Pipeline finished."
-echo "Results: /u/divykum2/agentic/webarena-results/${LSB_JOBID}/"
+echo "Pipeline finished at $(date)"
+echo "Results: /u/divykum2/agentic/webarena-results/glmv51-dsv32-zendesk/"
 echo "Logs: ${LOG_DIR}/"
 echo "=========================================="

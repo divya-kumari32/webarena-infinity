@@ -20,8 +20,8 @@ set -e
 
 # ── Configuration ─────────────────────────────────────────────────────────────
 
-RESTORE_JOB_ID="237935"
-RERUN_FROM="phase_3a"
+RESTORE_JOB_ID="245804"
+RERUN_FROM="phase_3b"
 : "${ENROOT_SHARE_PATH:=/u/divykum2/agentic}"
 
 # Enroot environment setup

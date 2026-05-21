@@ -41,6 +41,7 @@ import signal
 import shutil
 import subprocess
 import sys
+import threading
 import time
 from datetime import datetime
 from pathlib import Path
@@ -528,6 +529,24 @@ def validate_app_generation(app_dir: Path) -> tuple[bool, list[str]]:
 # ---------------------------------------------------------------------------
 
 
+def _tail_log_file(log_path: Path, stop_event: threading.Event) -> None:
+    """Tail a log file and print new lines to stdout until stop_event is set."""
+    while not log_path.exists():
+        if stop_event.wait(0.5):
+            return
+    with open(log_path) as f:
+        while not stop_event.is_set():
+            line = f.readline()
+            if line:
+                print(line, end="", flush=True)
+            else:
+                if stop_event.wait(0.5):
+                    break
+        # Drain remaining lines
+        for line in f:
+            print(line, end="", flush=True)
+
+
 def run_agent(
     prompt_name: str,
     cwd: str | Path,
@@ -646,9 +665,20 @@ def run_agent(
                     cmd, cwd=cwd, stdout=log_f, stderr=subprocess.STDOUT,
                     text=True, stdin=stdin_arg,
                 )
+                # Stream log file to stdout so tee captures it in real-time
+                _tail_stop = threading.Event()
+                _tail_thread = threading.Thread(
+                    target=_tail_log_file,
+                    args=(log_path, _tail_stop),
+                    daemon=True,
+                )
+                _tail_thread.start()
                 proc.wait(timeout=timeout)
+                _tail_stop.set()
+                _tail_thread.join(timeout=2)
             result = subprocess.CompletedProcess(cmd, proc.returncode, stdout="", stderr="")
         except subprocess.TimeoutExpired:
+            _tail_stop.set()
             proc.kill()
             proc.wait()
             log.error("%s timed out after %ds (prompt=%s)", agent_label, timeout, prompt_name)
@@ -702,6 +732,7 @@ def run_eval(
     task_id_filter: str | None = None,
     tag: str | None = None,
     failed_only: bool = True,
+    base_port: int = 8001,
 ) -> Path | None:
     """Run evaluation/run_eval_parallel.py as a subprocess.
 
@@ -710,6 +741,7 @@ def run_eval(
             (passed as --task-id to the eval runner).
         tag: Optional tag embedded in the results directory name
             (e.g. 'p3b' produces …_p3b_parallel).
+        base_port: First port for env instances (default 8001).
 
     Returns the path to the results directory, or None on failure.
     """
@@ -729,6 +761,8 @@ def run_eval(
         str(workers),
         "--repetitions",
         str(repetitions),
+        "--base-port",
+        str(base_port),
     ]
 
     if failed_only:
@@ -1357,6 +1391,13 @@ def main() -> None:
         help="Eval repetitions per iteration (default: 3)",
     )
     parser.add_argument(
+        "--base-port",
+        type=int,
+        default=8001,
+        help="First port for eval server instances (default: 8001). "
+             "Use different values for parallel jobs on the same node.",
+    )
+    parser.add_argument(
         "--max-iterations",
         type=int,
         default=3,
@@ -1688,6 +1729,7 @@ def main() -> None:
                 resume=(args.resume and iteration == start_iter),
                 tag="p2b",
                 failed_only=(iteration > 1),
+                base_port=args.base_port,
             )
             results = parse_results(results_dir)
             log.info(
@@ -1797,6 +1839,7 @@ def main() -> None:
                 resume=(args.resume and iteration == start_iter),
                 tag="p3b",
                 failed_only=(iteration > 1),
+                base_port=args.base_port,
             )
             results = parse_results(results_dir)
             log.info(
@@ -1960,6 +2003,7 @@ def main() -> None:
                 task_id_filter=task_id_filter,
                 tag=f"p4b_r{round_num}",
                 failed_only=False,
+                base_port=args.base_port,
             )
             results = parse_results(results_dir)
             log.info(
@@ -2036,6 +2080,7 @@ def main() -> None:
                 args.repetitions,
                 tag="p5",
                 failed_only=False,
+                base_port=args.base_port,
             )
             func_results = parse_results(func_results_dir)
             log.info(
@@ -2057,6 +2102,7 @@ def main() -> None:
                 args.repetitions,
                 tag="p5",
                 failed_only=False,
+                base_port=args.base_port,
             )
             real_results = parse_results(real_results_dir)
             log.info(

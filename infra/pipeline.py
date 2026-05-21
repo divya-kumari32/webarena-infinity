@@ -579,14 +579,6 @@ def run_agent(
     if agent == "opencode":
         target_dir = f"apps/{app_name}" if app_name else ""
 
-        no_touch_guard = ""
-        if prompt_name != "generate-app":
-            no_touch_guard = (
-                "If the app already exists in the target directory, do not modify "
-                "any existing app files (server.py, index.html, js/, css/). "
-                "Only create or modify the specific files described in your task below.\n\n"
-            )
-
         dir_constraint = ""
         if target_dir:
             dir_constraint = (
@@ -594,7 +586,7 @@ def run_agent(
                 f"Do NOT write files to any other app directory.\n\n"
             )
 
-        opencode_prefix = no_touch_guard + dir_constraint
+        opencode_prefix = dir_constraint
 
         inlined_docs = ""
         if prompt_name != "generate-app":

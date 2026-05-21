@@ -539,7 +539,7 @@ async def main():
     )
     parser.add_argument("--output-dir", default=None,
                         help="Results directory (default: <web-app>/results)")
-    parser.add_argument("--web-app", default="apps/gitlab-org-management")
+    parser.add_argument("--web-app", default="apps/gitlab-plan-and-track")
     parser.add_argument("--task-suite", default="real-tasks",
                         help="Task suite name, e.g. 'real-tasks' or 'function-tasks' (loads <name>.json)")
     # Multi-run arguments

@@ -136,7 +136,7 @@ Each `real-tasks/task_*.py` exports `verify(server_url: str) -> tuple[bool, str]
 
 ### Reference Apps
 
-`apps/linear/` and `apps/gitlab-org-management/` are hand-built gold-standard implementations. Use these as references when creating new environments.
+`apps/linear-account-settings/` and `apps/gitlab-plan-and-track/` are hand-built gold-standard implementations. Use these as references when creating new environments.
 
 ### Design Documentation
 

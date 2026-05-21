@@ -101,7 +101,7 @@ If seed data is defined in JavaScript, SQL, or another format, evaluate it progr
 
 For JavaScript seed data, pipe it through `node -` and parse the JSON output. For SQL fixtures, query the database. The point is: one source of truth, one derivation path.
 
-> **Note:** In practice, existing sanity checks (e.g., gitlab-org-management) construct the expected state directly in Python rather than evaluating the JS source. This is pragmatic when the seed data is stable, but be aware that the Python representation can drift from the JS source over time.
+> **Note:** In practice, existing sanity checks (e.g., gitlab-plan-and-track) construct the expected state directly in Python rather than evaluating the JS source. This is pragmatic when the seed data is stable, but be aware that the Python representation can drift from the JS source over time.
 
 ## Parallel Execution
 

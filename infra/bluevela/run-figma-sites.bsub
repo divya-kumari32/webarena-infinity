@@ -1,0 +1,169 @@
+#!/bin/bash
+# WebArena-Infinity Pipeline — Figma Sites (fresh, from Phase 1)
+# Generation: opencode + GLM 5 | Eval: dsv4pro | Workers: 4
+#
+# Usage:
+#   bsub < infra/bluevela/run-figma-sites.bsub
+
+#BSUB -J webarena-figma-sites
+#BSUB -n 24
+#BSUB -M 1.5T
+#BSUB -hl
+#BSUB -R "span[hosts=1]"
+#BSUB -G grp_models
+#BSUB -W 2880
+#BSUB -o logs/webarena_figma_sites_%J.log
+#BSUB -e logs/webarena_figma_sites_%J.err
+
+. ~/.bashrc
+set -e
+
+# ── Configuration ─────────────────────────────────────────────────────────────
+
+: "${ENROOT_SHARE_PATH:=/u/divykum2/agentic}"
+
+export ENROOT_DATA_PATH="/opt/nvme/$USER/enroot-data"
+export ENROOT_CACHE_PATH="/opt/nvme/$USER/enroot-cache"
+export ENROOT_RUNTIME_PATH="/tmp/user-$(id -u)/enroot"
+export ENROOT_TEMP_PATH="/tmp/tmp-$(id -u)/enroot"
+export XDG_RUNTIME_DIR="/tmp/run/user/$(id -u)"
+mkdir -p ${ENROOT_DATA_PATH} ${ENROOT_CACHE_PATH} ${ENROOT_RUNTIME_PATH} ${ENROOT_TEMP_PATH} ${XDG_RUNTIME_DIR}
+
+CONTAINER_NAME="webarena-figma-sites"
+ENROOT_SQSH="/proj/checkpoints/divykum2/agentic/enroot/webarena.sqsh"
+LITELLM_URL="https://ete-litellm.ai-models.vpc.res.ibm.com/v1"
+LITELLM_KEY="${LITELLM_API_KEY:?Set LITELLM_API_KEY in ~/.bashrc or env}"
+
+GENERATION_MODEL="litellm/coreweave/glmv5"
+EVAL_MODEL="coreweave/dsv4pro"
+AGENT="opencode"
+WORKERS=4
+REPETITIONS=3
+MAX_ITERATIONS=3
+HARDENING_ROUNDS=3
+
+EXP_NAME="glmv5-dsv4pro-figma-sites"
+
+APPS=(
+    "experiments/${EXP_NAME}|apps/user-manuals/figma/figma-sites/"
+)
+
+# ── Enroot config ─────────────────────────────────────────────────────────────
+
+temp_enroot_config_file=$(mktemp -t enroot.config.XXXXXX)
+cat << EOF >> "$temp_enroot_config_file"
+environ() {
+    env
+}
+
+mounts() {
+    echo "/u/divykum2/agentic/webarena-results /output"
+}
+EOF
+
+# ── Cleanup ───────────────────────────────────────────────────────────────────
+
+cleanup() {
+    local exit_code=$?
+    set +e
+    echo "[$(date)] Cleaning up..."
+    echo "[$(date)] Saving results from container..."
+    enroot start --root --rw --conf $temp_enroot_config_file ${CONTAINER_NAME} bash -c "
+        mkdir -p /output/${EXP_NAME} &&
+        cp -r /opt/webarena-infinity/apps/experiments/${EXP_NAME}/* /output/${EXP_NAME}/ 2>/dev/null || true &&
+        cp -r /opt/webarena-infinity/logs/ /output/${EXP_NAME}/logs/ 2>/dev/null || true
+    " 2>/dev/null || true
+    ps -fu $USER | grep "catatonit" | grep -v "grep" | awk '{print $2}' | xargs -i kill -9 {} 2>/dev/null
+    rm -rf "${ENROOT_DATA_PATH}/${CONTAINER_NAME}"
+    rm -f "$temp_enroot_config_file"
+    exit $exit_code
+}
+trap cleanup EXIT
+
+# ── Setup container ───────────────────────────────────────────────────────────
+
+echo "=========================================="
+echo "WebArena-Infinity — Figma Sites (fresh run)"
+echo "=========================================="
+echo "Job ID: ${LSB_JOBID}"
+echo "Host: $(hostname)"
+echo "Start time: $(date)"
+echo "Generation: opencode + ${GENERATION_MODEL}"
+echo "Eval model: ${EVAL_MODEL}"
+echo "Workers: ${WORKERS}"
+echo "=========================================="
+
+enroot remove -f ${CONTAINER_NAME} 2>/dev/null || true
+echo "[$(date)] Creating container from ${ENROOT_SQSH}..."
+enroot create -n ${CONTAINER_NAME} ${ENROOT_SQSH}
+
+echo "[$(date)] Setting up webarena-infinity repo..."
+enroot start --root --rw --conf $temp_enroot_config_file ${CONTAINER_NAME} bash -c '
+    export PATH="/root/.local/bin:/usr/local/bin:$PATH" &&
+    cd /opt/webarena-infinity &&
+    git fetch origin user-manuals-test &&
+    git checkout user-manuals-test &&
+    git pull &&
+    source .venv/bin/activate &&
+    uv sync &&
+    if ! command -v node &>/dev/null; then
+        curl -fsSL https://deb.nodesource.com/setup_20.x | bash - &&
+        apt-get install -y --no-install-recommends nodejs &&
+        rm -rf /var/lib/apt/lists/*
+    fi &&
+    npm install -g opencode-ai@latest &&
+    opencode --version &&
+    echo "Setup complete"
+'
+
+# ── Launch pipeline ──────────────────────────────────────────────────────────
+
+LOG_DIR="/u/divykum2/agentic/webarena-logs/${EXP_NAME}"
+mkdir -p ${LOG_DIR}
+
+for app_entry in "${APPS[@]}"; do
+    IFS='|' read -r APP_NAME DOCS_PATH <<< "$app_entry"
+    APP_LOG="${LOG_DIR}/pipeline.log"
+
+    echo "[$(date)] Launching full pipeline for ${APP_NAME}..."
+
+    enroot start --root --rw --conf $temp_enroot_config_file ${CONTAINER_NAME} bash -c "
+        source /opt/webarena-infinity/.venv/bin/activate &&
+        cd /opt/webarena-infinity &&
+        export PATH=\"/usr/local/bin:/root/.local/bin:/usr/bin:/bin:/usr/sbin:/sbin:\$(python -m site --user-base)/bin:\$PATH\" &&
+        export PLAYWRIGHT_BROWSERS_PATH='/root/.cache/ms-playwright' &&
+        export PROXY_TARGET_URL='${LITELLM_URL}' &&
+        export PROXY_TARGET_KEY='${LITELLM_KEY}' &&
+        export OPENAI_API_KEY='${LITELLM_KEY}' &&
+        export OPENAI_BASE_URL='${LITELLM_URL}' &&
+        python infra/pipeline.py \
+            --app-name '${APP_NAME}' \
+            --docs-path '${DOCS_PATH}' \
+            --model '${EVAL_MODEL}' \
+            --agent '${AGENT}' \
+            --generation-model '${GENERATION_MODEL}' \
+            --workers ${WORKERS} \
+            --repetitions ${REPETITIONS} \
+            --max-iterations ${MAX_ITERATIONS} \
+            --hardening-rounds ${HARDENING_ROUNDS} \
+            --base-port 8001 \
+            --no-push
+    " 2>&1 | tee "${APP_LOG}"
+
+    echo "[$(date)] Pipeline ${APP_NAME} finished (exit code: $?)"
+done
+
+# ── Copy results to shared storage ───────────────────────────────────────────
+
+echo "[$(date)] Copying final results to /output..."
+enroot start --root --rw --conf $temp_enroot_config_file ${CONTAINER_NAME} bash -c "
+    mkdir -p /output/${EXP_NAME} &&
+    cp -r /opt/webarena-infinity/apps/experiments/${EXP_NAME}/* /output/${EXP_NAME}/ 2>/dev/null || true &&
+    cp -r /opt/webarena-infinity/logs/ /output/${EXP_NAME}/logs/ 2>/dev/null || true
+"
+
+echo "=========================================="
+echo "Pipeline finished at $(date)"
+echo "Results: /u/divykum2/agentic/webarena-results/${EXP_NAME}/"
+echo "Logs: ${LOG_DIR}/"
+echo "=========================================="

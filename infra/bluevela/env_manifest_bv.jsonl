@@ -1,0 +1,3 @@
+{"env_id": "figjam", "docs_path": "apps/user-manuals/figma/figjam/", "eval_model": "deepseek-v32-az"}
+{"env_id": "figma-design-libraries", "docs_path": "apps/user-manuals/figma/figma-design-libraries/", "eval_model": "deepseek-v32"}
+{"env_id": "buildium-features", "docs_path": "apps/user-manuals/buildium/features/", "eval_model": "dsv4pro"}

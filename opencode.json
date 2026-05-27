@@ -11,15 +11,15 @@
       "models": {
         "coreweave/glmv5": {
           "name": "GLM-5 (CoreWeave)",
-          "limit": { "context": 128000, "output": 16384 }
+          "limit": { "context": 128000, "output": 65536 }
         },
         "coreweave/glmv5.1": {
           "name": "GLM-5.1 (CoreWeave)",
-          "limit": { "context": 128000, "output": 16384 }
+          "limit": { "context": 128000, "output": 65536 }
         },
         "coreweave/glmv5.1-fp8": {
           "name": "GLM-5.1 FP8 (CoreWeave)",
-          "limit": { "context": 128000, "output": 16384 }
+          "limit": { "context": 128000, "output": 65536 }
         },
         "aws/glm-5": {
           "name": "GLM-5 (AWS Bedrock)",
@@ -40,6 +40,10 @@
         "coreweave/qwen3-coder-480b-a35b-instruct-maas": {
           "name": "Qwen3 Coder 480B (CoreWeave)",
           "limit": { "context": 128000, "output": 16384 }
+        },
+        "vertex_ai/qwen/qwen3-coder-480b-a35b-instruct-maas": {
+          "name": "Qwen3 Coder 480B (Vertex AI)",
+          "limit": { "context": 128000, "output": 65536 }
         }
       }
     }

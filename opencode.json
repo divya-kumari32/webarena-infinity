@@ -21,6 +21,10 @@
           "name": "GLM-5.1 FP8 (CoreWeave)",
           "limit": { "context": 128000, "output": 16384 }
         },
+        "aws/glm-5": {
+          "name": "GLM-5 (AWS Bedrock)",
+          "limit": { "context": 128000, "output": 16384 }
+        },
         "azure/gpt-oss-120b": {
           "name": "GPT-OSS 120B (Azure)",
           "limit": { "context": 128000, "output": 16384 }

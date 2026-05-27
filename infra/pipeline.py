@@ -1364,7 +1364,7 @@ def main() -> None:
     parser.add_argument(
         "--model",
         default="gemini-pro",
-        choices=["gemini-flash", "gemini-pro", "gpt", "claude", "kimi", "gpt-oss", "deepseek", "dsv4pro", "deepseek-v32", "deepseek-v32-az", "qwen"],
+        choices=["gemini-flash", "gemini-pro", "gpt", "claude", "kimi", "gpt-oss", "deepseek", "dsv4pro", "deepseek-v32", "deepseek-v32-az", "qwen", "glmv5.1"],
         help="Eval agent model (default: gemini-pro)",
     )
     parser.add_argument(

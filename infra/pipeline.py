@@ -1651,6 +1651,13 @@ def main() -> None:
         if not app_dir.is_dir():
             log.error("App directory does not exist: %s", app_dir)
             sys.exit(1)
+        valid, missing = validate_app_generation(app_dir)
+        if not valid:
+            log.error(
+                "App directory incomplete (missing: %s) — cannot resume",
+                ", ".join(missing),
+            )
+            sys.exit(1)
 
     # ── Phase 2: Function Tasks ────────────────────────────────────────
 
@@ -1728,7 +1735,16 @@ def main() -> None:
                 results["total"],
             )
 
-            if results["pass_rate"] == 100:
+            if results["total"] == 0:
+                log.error(
+                    "Eval returned 0 tasks — likely server or task-loading failure. "
+                    "Check eval logs at %s", results_dir,
+                )
+                if iteration >= max_iterations:
+                    sys.exit(1)
+                # Fall through to audit — it may fix the underlying issue
+
+            if results["pass_rate"] == 100 and results["total"] > 0:
                 log.info("All function tasks passed!")
                 break
 
@@ -1749,10 +1765,15 @@ def main() -> None:
             )
 
             if not detect_changes(app_dir):
-                log.info(
-                    "Audit made no changes — remaining failures are agent-side"
-                )
-                break
+                if results["total"] == 0:
+                    log.warning(
+                        "Audit made no changes and eval had 0 tasks — retrying next iteration"
+                    )
+                else:
+                    log.info(
+                        "Audit made no changes — remaining failures are agent-side"
+                    )
+                    break
 
             # Re-check sanity after audit changes
             ok, output = run_sanity_check(app_dir, "function")
@@ -1838,7 +1859,16 @@ def main() -> None:
                 results["total"],
             )
 
-            if results["pass_rate"] == 100:
+            if results["total"] == 0:
+                log.error(
+                    "Eval returned 0 tasks — likely server or task-loading failure. "
+                    "Check eval logs at %s", results_dir,
+                )
+                if iteration >= max_iterations:
+                    sys.exit(1)
+                # Fall through to audit — it may fix the underlying issue
+
+            if results["pass_rate"] == 100 and results["total"] > 0:
                 log.info("All real tasks passed!")
                 break
 
@@ -1859,10 +1889,15 @@ def main() -> None:
             )
 
             if not detect_changes(app_dir):
-                log.info(
-                    "Audit made no changes — remaining failures are agent-side"
-                )
-                break
+                if results["total"] == 0:
+                    log.warning(
+                        "Audit made no changes and eval had 0 tasks — retrying next iteration"
+                    )
+                else:
+                    log.info(
+                        "Audit made no changes — remaining failures are agent-side"
+                    )
+                    break
 
             # Re-check sanity after audit changes
             ok, output = run_sanity_check(app_dir, "real")
@@ -2002,6 +2037,12 @@ def main() -> None:
                 results["passed"],
                 results["total"],
             )
+
+            if results["total"] == 0:
+                log.error(
+                    "Hardening eval returned 0 tasks — likely server or task-loading failure. "
+                    "Check eval logs at %s", results_dir,
+                )
 
             if results_dir is not None:
                 hardening_result_dirs.append(results_dir)

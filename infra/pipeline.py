@@ -2112,7 +2112,21 @@ def main() -> None:
                 failed_only=False,
                 base_port=args.base_port,
             )
+            if func_results_dir is None:
+                log.error("Phase 5 function eval crashed — retrying once")
+                func_results_dir = run_eval(
+                    app_dir,
+                    "function-tasks",
+                    args.model,
+                    args.workers,
+                    args.repetitions,
+                    tag="p5_retry",
+                    failed_only=False,
+                    base_port=args.base_port,
+                )
             func_results = parse_results(func_results_dir)
+            if func_results["total"] == 0:
+                log.error("Phase 5 function eval returned 0 tasks — eval harness failure")
             log.info(
                 "Final function task pass rate: %.1f%% (%d/%d)",
                 func_results["pass_rate"],
@@ -2134,7 +2148,21 @@ def main() -> None:
                 failed_only=False,
                 base_port=args.base_port,
             )
+            if real_results_dir is None:
+                log.error("Phase 5 real eval crashed — retrying once")
+                real_results_dir = run_eval(
+                    app_dir,
+                    "real-tasks",
+                    args.model,
+                    args.workers,
+                    args.repetitions,
+                    tag="p5_retry",
+                    failed_only=False,
+                    base_port=args.base_port,
+                )
             real_results = parse_results(real_results_dir)
+            if real_results["total"] == 0:
+                log.error("Phase 5 real eval returned 0 tasks — eval harness failure")
             log.info(
                 "Final real task pass rate: %.1f%% (%d/%d)",
                 real_results["pass_rate"],

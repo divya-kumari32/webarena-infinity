@@ -1740,9 +1740,27 @@ def main() -> None:
                     "Eval returned 0 tasks — likely server or task-loading failure. "
                     "Check eval logs at %s", results_dir,
                 )
-                if iteration >= max_iterations:
+                log.info("Retrying eval once with full suite (not failed-only)...")
+                results_dir = run_eval(
+                    app_dir,
+                    "function-tasks",
+                    args.model,
+                    args.workers,
+                    args.repetitions,
+                    tag="p2b_retry",
+                    failed_only=False,
+                    base_port=args.base_port,
+                )
+                results = parse_results(results_dir)
+                if results["total"] == 0:
+                    log.error("Retry also returned 0 tasks — exiting")
                     sys.exit(1)
-                # Fall through to audit — it may fix the underlying issue
+                log.info(
+                    "Retry succeeded: %.1f%% (%d/%d)",
+                    results["pass_rate"],
+                    results["passed"],
+                    results["total"],
+                )
 
             if results["pass_rate"] == 100 and results["total"] > 0:
                 log.info("All function tasks passed!")
@@ -1864,9 +1882,27 @@ def main() -> None:
                     "Eval returned 0 tasks — likely server or task-loading failure. "
                     "Check eval logs at %s", results_dir,
                 )
-                if iteration >= max_iterations:
+                log.info("Retrying eval once with full suite (not failed-only)...")
+                results_dir = run_eval(
+                    app_dir,
+                    "real-tasks",
+                    args.model,
+                    args.workers,
+                    args.repetitions,
+                    tag="p3b_retry",
+                    failed_only=False,
+                    base_port=args.base_port,
+                )
+                results = parse_results(results_dir)
+                if results["total"] == 0:
+                    log.error("Retry also returned 0 tasks — exiting")
                     sys.exit(1)
-                # Fall through to audit — it may fix the underlying issue
+                log.info(
+                    "Retry succeeded: %.1f%% (%d/%d)",
+                    results["pass_rate"],
+                    results["passed"],
+                    results["total"],
+                )
 
             if results["pass_rate"] == 100 and results["total"] > 0:
                 log.info("All real tasks passed!")
@@ -2043,6 +2079,7 @@ def main() -> None:
                     "Hardening eval returned 0 tasks — likely server or task-loading failure. "
                     "Check eval logs at %s", results_dir,
                 )
+                sys.exit(1)
 
             if results_dir is not None:
                 hardening_result_dirs.append(results_dir)
@@ -2127,6 +2164,7 @@ def main() -> None:
             func_results = parse_results(func_results_dir)
             if func_results["total"] == 0:
                 log.error("Phase 5 function eval returned 0 tasks — eval harness failure")
+                sys.exit(1)
             log.info(
                 "Final function task pass rate: %.1f%% (%d/%d)",
                 func_results["pass_rate"],
@@ -2163,6 +2201,7 @@ def main() -> None:
             real_results = parse_results(real_results_dir)
             if real_results["total"] == 0:
                 log.error("Phase 5 real eval returned 0 tasks — eval harness failure")
+                sys.exit(1)
             log.info(
                 "Final real task pass rate: %.1f%% (%d/%d)",
                 real_results["pass_rate"],

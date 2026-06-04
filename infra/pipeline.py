@@ -46,7 +46,7 @@ import time
 from datetime import datetime
 from pathlib import Path
 
-GLOBAL_TIMEOUT_SECONDS = 40 * 3600  # 40 hours
+GLOBAL_TIMEOUT_SECONDS = 48 * 3600  # 48 hours
 
 # ---------------------------------------------------------------------------
 # Paths
@@ -2230,6 +2230,21 @@ def main() -> None:
             log.info("Results browsable at: %s", url)
         else:
             log.warning("S3 upload failed — results remain local only")
+
+    # ── Consistency check: remove orphaned verifier .py files ────────────
+    # If a hardening round was reverted (sanity check failed twice), git
+    # checkout restores real-tasks.json but leaves newly created .py files
+    # on disk since they were never tracked. Clean them up here as a final
+    # safety pass so the real-tasks/ dir matches real-tasks.json exactly.
+    real_tasks_json = app_dir / "real-tasks.json"
+    real_tasks_dir = app_dir / "real-tasks"
+    if real_tasks_json.exists() and real_tasks_dir.is_dir():
+        json_ids = load_task_ids(real_tasks_json)
+        for py_file in sorted(real_tasks_dir.glob("task_h*.py")):
+            tid = py_file.stem
+            if tid not in json_ids:
+                log.warning("Removing orphaned verifier not in real-tasks.json: %s", py_file.name)
+                py_file.unlink()
 
     log.info("=" * 60)
     log.info("Pipeline complete for: %s", args.app_name)

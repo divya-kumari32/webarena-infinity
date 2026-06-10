@@ -1053,12 +1053,12 @@ def snapshot_phase(app_dir: Path, phase: str) -> None:
         log.warning("snapshot_phase: /output not mounted — skipping snapshot for %s", phase)
         return
     exp_name = app_dir.name
-    snapshot_path = output_dir / f"{exp_name}-phase-snapshot-{phase}.tar.gz"
-    tmp_path = output_dir / f"{exp_name}-phase-snapshot-{phase}.tar.gz.tmp"
+    snapshot_path = output_dir / f"{exp_name}-phase-snapshot-{phase}.tar"
+    tmp_path = output_dir / f"{exp_name}-phase-snapshot-{phase}.tar.tmp"
     try:
         log.info("Snapshotting app dir after %s → %s", phase, snapshot_path)
         subprocess.run(
-            ["tar", "-czf", str(tmp_path), "-C", str(app_dir.parent), app_dir.name],
+            ["tar", "-cf", str(tmp_path), "-C", str(app_dir.parent), app_dir.name],
             check=True,
             timeout=300,
         )

@@ -1046,6 +1046,30 @@ def _state_file_path(app_name: str) -> Path:
     return REPO_DIR / "logs" / app_name / "pipeline_state.json"
 
 
+def snapshot_phase(app_dir: Path, phase: str) -> None:
+    """Tar the app directory to /output as a phase snapshot, replacing the previous one."""
+    output_dir = Path("/output")
+    if not output_dir.is_dir():
+        log.warning("snapshot_phase: /output not mounted — skipping snapshot for %s", phase)
+        return
+    exp_name = app_dir.name
+    snapshot_path = output_dir / f"{exp_name}-phase-snapshot-{phase}.tar.gz"
+    tmp_path = output_dir / f"{exp_name}-phase-snapshot-{phase}.tar.gz.tmp"
+    try:
+        log.info("Snapshotting app dir after %s → %s", phase, snapshot_path)
+        subprocess.run(
+            ["tar", "-czf", str(tmp_path), "-C", str(app_dir.parent), app_dir.name],
+            check=True,
+            timeout=300,
+        )
+        tmp_path.replace(snapshot_path)
+        log.info("Snapshot saved: %s (%.1f MB)", snapshot_path.name, snapshot_path.stat().st_size / 1e6)
+    except Exception as exc:
+        log.warning("snapshot_phase failed for %s: %s", phase, exc)
+        if tmp_path.exists():
+            tmp_path.unlink(missing_ok=True)
+
+
 def save_state(
     app_name: str,
     step: str,
@@ -1646,6 +1670,7 @@ def main() -> None:
                 sys.exit(1)
 
         log.info("Phase 1 complete: app generated")
+        snapshot_phase(app_dir, "phase_1")
     else:
         log.info("Phase 1: Skipped")
         if not app_dir.is_dir():
@@ -1704,6 +1729,7 @@ def main() -> None:
             )
 
         commit_checkpoint(app_dir, f"Generate function tasks: {args.app_name}", push=args.push_enabled)
+        snapshot_phase(app_dir, "phase_2a")
 
     # 2b: Eval → Audit loop
     if should_run("phase_2b"):
@@ -1801,6 +1827,8 @@ def main() -> None:
                 push=args.push_enabled,
             )
 
+        snapshot_phase(app_dir, "phase_2b")
+
     # ── Phase 3: Real Tasks ────────────────────────────────────────────
 
     # 3a: Generate real tasks (once, up to 3 attempts)
@@ -1846,6 +1874,7 @@ def main() -> None:
             )
 
         commit_checkpoint(app_dir, f"Generate real tasks: {args.app_name}", push=args.push_enabled)
+        snapshot_phase(app_dir, "phase_3a")
 
     # 3b: Eval → Audit loop
     if should_run("phase_3b"):
@@ -1942,6 +1971,8 @@ def main() -> None:
                 f"Real task audit iter {iteration}: {args.app_name}",
                 push=args.push_enabled,
             )
+
+        snapshot_phase(app_dir, "phase_3b")
 
     # ── Phase 4: Task Hardening ───────────────────────────────────────
 
@@ -2043,6 +2074,7 @@ def main() -> None:
                     f"Hardening round {round_num}: {args.app_name}",
                     push=args.push_enabled,
                 )
+                snapshot_phase(app_dir, f"phase_4a_round_{round_num}")
 
             # --- 4b: Eval new tasks from this round only ---
             round_ids = new_ids if not skip_4a else set()
@@ -2127,6 +2159,8 @@ def main() -> None:
 
                 hardening_result_dirs.clear()
 
+            snapshot_phase(app_dir, f"phase_4b_round_{round_num}")
+
         log.info("Phase 4 complete")
 
     # ── Phase 5: Final Regression Eval ───────────────────────────────
@@ -2210,6 +2244,7 @@ def main() -> None:
             )
 
         log.info("Phase 5 complete")
+        snapshot_phase(app_dir, "phase_5")
 
     # ── Done ───────────────────────────────────────────────────────────
 

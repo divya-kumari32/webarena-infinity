@@ -422,11 +422,6 @@ _OPENCODE_DOC_MAP: dict[str, list[str]] = {
         "docs/verifier-sanity-check.md",
         "docs/environment-protocol.md",
     ],
-    "generate-app": [
-        "docs/web-app-design-guide.md",
-        "docs/web-app-data-guide.md",
-        "docs/environment-protocol.md",
-    ],
     "harden-tasks": [
         "docs/task-hardening-guide.md",
     ],
@@ -452,6 +447,19 @@ def _inline_docs_for_opencode(prompt_name: str) -> str:
         "The following documentation has been inlined so you do NOT need to "
         "read these files from disk. Use the content below directly:\n\n"
         + "\n".join(sections) + "\n"
+    )
+
+
+def _inline_claude_md() -> str:
+    """Inject CLAUDE.md content into the prompt for non-Claude agents that can't read it."""
+    claude_md_path = REPO_DIR / "CLAUDE.md"
+    if not claude_md_path.is_file():
+        return ""
+    content = claude_md_path.read_text(errors="replace")
+    return (
+        "== PROJECT GUIDELINES (from CLAUDE.md) ==\n"
+        + content
+        + "\n== END PROJECT GUIDELINES ==\n\n"
     )
 
 
@@ -556,7 +564,6 @@ def run_agent(
     generation_model: str | None = None,
     app_name: str | None = None,
     prompt_prefix: str = "",
-    model_params: str | None = None,
     **template_vars: str,
 ) -> tuple[int, str, str]:
     """Load prompt template, invoke the configured agent CLI.
@@ -592,11 +599,12 @@ def run_agent(
         if prompt_name != "generate-app":
             inlined_docs = _inline_docs_for_opencode(prompt_name)
 
+        claude_md_ctx = _inline_claude_md()
         if prompt_name == "generate-app" and app_name:
             generate_app_ctx = _build_generate_app_context(app_name)
-            augmented_prompt = opencode_prefix + generate_app_ctx + prompt
+            augmented_prompt = opencode_prefix + generate_app_ctx + claude_md_ctx + prompt
         else:
-            augmented_prompt = opencode_prefix + inlined_docs + prompt
+            augmented_prompt = opencode_prefix + inlined_docs + claude_md_ctx + prompt
         cmd = [
             "opencode", "run",
             "--dangerously-skip-permissions",
@@ -1478,11 +1486,6 @@ def main() -> None:
         help="Model for generation agent. For opencode: e.g. litellm/coreweave/glmv5.1 "
              "(required). For claude: overrides the default model (e.g. coreweave/glmv5.1).",
     )
-    parser.add_argument(
-        "--model-params",
-        default=None,
-        help="Extra model kwargs as JSON (currently unused, reserved for future use).",
-    )
     args = parser.parse_args()
     args.push_enabled = not args.no_push
 
@@ -1520,7 +1523,13 @@ def main() -> None:
     signal.alarm(GLOBAL_TIMEOUT_SECONDS)
     log.info("Global timeout set: %d hours", GLOBAL_TIMEOUT_SECONDS // 3600)
 
-    app_dir = REPO_DIR / "apps" / args.app_name
+    _output_root = Path("/output")
+    if _output_root.is_dir():
+        app_dir = _output_root / args.app_name
+    else:
+        log.warning("/output not mounted — writing app to container rootfs (results will be lost on teardown)")
+        app_dir = REPO_DIR / "apps" / args.app_name
+    app_dir.mkdir(parents=True, exist_ok=True)
     max_iterations = args.max_iterations
 
     # Set up branch if specified
@@ -1600,7 +1609,6 @@ def main() -> None:
             timeout=10800,
             agent=args.agent,
             generation_model=args.generation_model,
-            model_params=args.model_params,
             app_name=args.app_name,
             docs_source=args.docs_path,
         )
@@ -1644,8 +1652,7 @@ def main() -> None:
                     timeout=10800,
                     agent=args.agent,
                     generation_model=args.generation_model,
-                    model_params=args.model_params,
-                    app_name=args.app_name,
+                            app_name=args.app_name,
                     prompt_prefix=retry_prefix,
                     docs_source=args.docs_path,
                 )
@@ -1698,8 +1705,7 @@ def main() -> None:
                 timeout=10800,
                 agent=args.agent,
                 generation_model=args.generation_model,
-                model_params=args.model_params,
-                app_name=args.app_name,
+                    app_name=args.app_name,
                 **{"app-name": args.app_name},
             )
             if rc == 0:
@@ -1721,15 +1727,13 @@ def main() -> None:
                 timeout=10800,
                 agent=args.agent,
                 generation_model=args.generation_model,
-                model_params=args.model_params,
-                app_name=args.app_name,
+                    app_name=args.app_name,
                 output=output[-3000:],
                 variant="function",
                 **{"app-name": args.app_name},
             )
 
         commit_checkpoint(app_dir, f"Generate function tasks: {args.app_name}", push=args.push_enabled)
-        snapshot_phase(app_dir, "phase_2a")
 
     # 2b: Eval → Audit loop
     if should_run("phase_2b"):
@@ -1803,8 +1807,7 @@ def main() -> None:
                 timeout=10800,
                 agent=args.agent,
                 generation_model=args.generation_model,
-                model_params=args.model_params,
-                app_name=args.app_name,
+                    app_name=args.app_name,
                 evaluation_result_path=str(results_dir),
             )
 
@@ -1843,8 +1846,7 @@ def main() -> None:
                 timeout=10800,
                 agent=args.agent,
                 generation_model=args.generation_model,
-                model_params=args.model_params,
-                app_name=args.app_name,
+                    app_name=args.app_name,
                 **{"app-name": args.app_name},
             )
             if rc == 0:
@@ -1866,15 +1868,13 @@ def main() -> None:
                 timeout=10800,
                 agent=args.agent,
                 generation_model=args.generation_model,
-                model_params=args.model_params,
-                app_name=args.app_name,
+                    app_name=args.app_name,
                 output=output[-3000:],
                 variant="real",
                 **{"app-name": args.app_name},
             )
 
         commit_checkpoint(app_dir, f"Generate real tasks: {args.app_name}", push=args.push_enabled)
-        snapshot_phase(app_dir, "phase_3a")
 
     # 3b: Eval → Audit loop
     if should_run("phase_3b"):
@@ -1948,8 +1948,7 @@ def main() -> None:
                 timeout=10800,
                 agent=args.agent,
                 generation_model=args.generation_model,
-                model_params=args.model_params,
-                app_name=args.app_name,
+                    app_name=args.app_name,
                 evaluation_result_path=str(results_dir),
             )
 
@@ -2021,8 +2020,7 @@ def main() -> None:
                     timeout=10800,
                     agent=args.agent,
                     generation_model=args.generation_model,
-                    model_params=args.model_params,
-                    app_name=args.app_name,
+                            app_name=args.app_name,
                     hardening_analysis=analysis,
                     results_path=str(results_root) if results_root.is_dir() else "none",
                     round_number=str(round_num),
@@ -2054,8 +2052,7 @@ def main() -> None:
                         timeout=10800,
                         agent=args.agent,
                         generation_model=args.generation_model,
-                        model_params=args.model_params,
-                        app_name=args.app_name,
+                                    app_name=args.app_name,
                         output=output[-3000:],
                         variant="real",
                         **{"app-name": args.app_name},
@@ -2074,8 +2071,6 @@ def main() -> None:
                     f"Hardening round {round_num}: {args.app_name}",
                     push=args.push_enabled,
                 )
-                snapshot_phase(app_dir, f"phase_4a_round_{round_num}")
-
             # --- 4b: Eval new tasks from this round only ---
             round_ids = new_ids if not skip_4a else set()
             task_id_filter = ",".join(sorted(round_ids)) if round_ids else None
@@ -2140,8 +2135,7 @@ def main() -> None:
                     timeout=10800,
                     agent=args.agent,
                     generation_model=args.generation_model,
-                    model_params=args.model_params,
-                    app_name=args.app_name,
+                            app_name=args.app_name,
                     evaluation_result_path=result_paths_str,
                 )
 
@@ -2159,9 +2153,8 @@ def main() -> None:
 
                 hardening_result_dirs.clear()
 
-            snapshot_phase(app_dir, f"phase_4b_round_{round_num}")
-
         log.info("Phase 4 complete")
+        snapshot_phase(app_dir, "phase_4b")
 
     # ── Phase 5: Final Regression Eval ───────────────────────────────
 

@@ -12,3 +12,5 @@ After generating the app, write `APP_DESCRIPTION.md` in the app directory with:
 - Available form controls, dropdowns, toggles, and their options
 - Seed data summary: what entities exist, their names/values
 This file will be used by a separate task-generation step.
+
+IMPORTANT: Strictly follow the structure described in Pipeline Data Flow in CLAUDE.md.

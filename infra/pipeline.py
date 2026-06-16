@@ -736,7 +736,8 @@ def run_eval(
         with open(log_path, "w") as f:
             # Tee eval output to both file and stdout (visible in pipeline log)
             proc = subprocess.Popen(
-                cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True
+                cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
+                start_new_session=True,
             )
             import time as _time
             deadline = _time.time() + eval_timeout
@@ -745,12 +746,16 @@ def run_eval(
                 sys.stdout.write(line)
                 sys.stdout.flush()
                 if _time.time() > deadline:
-                    proc.kill()
                     raise subprocess.TimeoutExpired(cmd, eval_timeout)
             proc.wait()
             result_code = proc.returncode
     except subprocess.TimeoutExpired:
         log.error("Eval timed out after %ds — returning partial results", eval_timeout)
+        import os as _os, signal as _signal
+        try:
+            _os.killpg(_os.getpgid(proc.pid), _signal.SIGKILL)
+        except (ProcessLookupError, PermissionError):
+            proc.kill()
         return find_latest_results(app_dir, task_suite)
 
     if result_code != 0:
@@ -1808,14 +1813,28 @@ def main() -> None:
                     )
                     results = parse_results(results_dir)
                     if results["total"] == 0:
-                        log.error("Retry also returned 0 tasks — exiting")
-                        sys.exit(1)
+                        ok, diag = run_health_gate(app_dir, port=args.base_port + 90)
+                        if not ok:
+                            reporter.update_activity("phase_2b: eval 0/0 — app broken; regenerating")
+                            if not app_health_gate_with_fix(app_dir, args, "phase_2b", args.base_port):
+                                code = reporter.finalize(state="FAILED", status_code="APP_BROKEN",
+                                                         diagnostic=diag)
+                                sys.exit(code)
+                        else:
+                            code = reporter.finalize(state="FAILED", status_code="EVAL_HARNESS",
+                                                     diagnostic="eval returned 0 tasks but app is healthy")
+                            sys.exit(code)
                     log.info(
                         "Retry succeeded: %.1f%% (%d/%d)",
                         results["pass_rate"],
                         results["passed"],
                         results["total"],
                     )
+
+                reporter.checkpoint(phase="phase_2b", pass_rate=results["pass_rate"])
+                reporter.update_activity(
+                    f"phase_2b: pass rate {results['pass_rate']}% "
+                    f"({results['passed']}/{results['total']})")
 
                 if results["pass_rate"] == 100 and results["total"] > 0:
                     log.info("All function tasks passed!")
@@ -1959,14 +1978,28 @@ def main() -> None:
                     )
                     results = parse_results(results_dir)
                     if results["total"] == 0:
-                        log.error("Retry also returned 0 tasks — exiting")
-                        sys.exit(1)
+                        ok, diag = run_health_gate(app_dir, port=args.base_port + 90)
+                        if not ok:
+                            reporter.update_activity("phase_3b: eval 0/0 — app broken; regenerating")
+                            if not app_health_gate_with_fix(app_dir, args, "phase_3b", args.base_port):
+                                code = reporter.finalize(state="FAILED", status_code="APP_BROKEN",
+                                                         diagnostic=diag)
+                                sys.exit(code)
+                        else:
+                            code = reporter.finalize(state="FAILED", status_code="EVAL_HARNESS",
+                                                     diagnostic="eval returned 0 tasks but app is healthy")
+                            sys.exit(code)
                     log.info(
                         "Retry succeeded: %.1f%% (%d/%d)",
                         results["pass_rate"],
                         results["passed"],
                         results["total"],
                     )
+
+                reporter.checkpoint(phase="phase_3b", pass_rate=results["pass_rate"])
+                reporter.update_activity(
+                    f"phase_3b: pass rate {results['pass_rate']}% "
+                    f"({results['passed']}/{results['total']})")
 
                 if results["pass_rate"] == 100 and results["total"] > 0:
                     log.info("All real tasks passed!")
@@ -2135,6 +2168,10 @@ def main() -> None:
                     base_port=args.base_port,
                 )
                 results = parse_results(results_dir)
+                reporter.checkpoint(phase="phase_4b", pass_rate=results["pass_rate"])
+                reporter.update_activity(
+                    f"phase_4b: pass rate {results['pass_rate']}% "
+                    f"({results['passed']}/{results['total']})")
                 log.info(
                     "Hardening round %d eval: %.1f%% (%d/%d)",
                     round_num,
@@ -2148,7 +2185,9 @@ def main() -> None:
                         "Hardening eval returned 0 tasks — likely server or task-loading failure. "
                         "Check eval logs at %s", results_dir,
                     )
-                    sys.exit(1)
+                    code = reporter.finalize(state="FAILED", status_code="EVAL_HARNESS",
+                                             diagnostic="eval returned 0 tasks")
+                    sys.exit(code)
 
                 if results_dir is not None:
                     hardening_result_dirs.append(results_dir)
@@ -2238,9 +2277,15 @@ def main() -> None:
                         base_port=args.base_port,
                     )
                 func_results = parse_results(func_results_dir)
+                reporter.checkpoint(phase="phase_5", pass_rate=func_results["pass_rate"])
+                reporter.update_activity(
+                    f"phase_5: pass rate {func_results['pass_rate']}% "
+                    f"({func_results['passed']}/{func_results['total']})")
                 if func_results["total"] == 0:
                     log.error("Phase 5 function eval returned 0 tasks — eval harness failure")
-                    sys.exit(1)
+                    code = reporter.finalize(state="FAILED", status_code="EVAL_HARNESS",
+                                             diagnostic="eval returned 0 tasks")
+                    sys.exit(code)
                 log.info(
                     "Final function task pass rate: %.1f%% (%d/%d)",
                     func_results["pass_rate"],
@@ -2275,9 +2320,15 @@ def main() -> None:
                         base_port=args.base_port,
                     )
                 real_results = parse_results(real_results_dir)
+                reporter.checkpoint(phase="phase_5", pass_rate=real_results["pass_rate"])
+                reporter.update_activity(
+                    f"phase_5: pass rate {real_results['pass_rate']}% "
+                    f"({real_results['passed']}/{real_results['total']})")
                 if real_results["total"] == 0:
                     log.error("Phase 5 real eval returned 0 tasks — eval harness failure")
-                    sys.exit(1)
+                    code = reporter.finalize(state="FAILED", status_code="EVAL_HARNESS",
+                                             diagnostic="eval returned 0 tasks")
+                    sys.exit(code)
                 log.info(
                     "Final real task pass rate: %.1f%% (%d/%d)",
                     real_results["pass_rate"],

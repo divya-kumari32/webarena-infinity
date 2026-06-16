@@ -409,8 +409,6 @@ CMD ["python", "server.py"]
 """
 
 
-_REFERENCE_APPS = {"gmail", "gmail-reproduced", "linear-account-settings"}
-
 _OPENCODE_DOC_MAP: dict[str, list[str]] = {
     "generate-function-tests": [
         "docs/function-task-design-guide.md",
@@ -444,8 +442,8 @@ def _inline_docs_for_opencode(prompt_name: str) -> str:
     if not sections:
         return ""
     return (
-        "The following documentation has been inlined so you do NOT need to "
-        "read these files from disk. Use the content below directly:\n\n"
+        "The following documentation is inlined for convenience. You may also "
+        "read any file in the repository if it would help:\n\n"
         + "\n".join(sections) + "\n"
     )
 
@@ -461,53 +459,6 @@ def _inline_claude_md() -> str:
         + content
         + "\n== END PROJECT GUIDELINES ==\n\n"
     )
-
-
-def generate_claudeignore(app_name: str, docs_path: str) -> None:
-    """Write a .claudeignore that hides irrelevant apps/docs.
-
-    Keeps: the target app, its docs, reference apps, and shared resources.
-    Hides everything else so the agent doesn't waste time exploring.
-    """
-    ignore_path = REPO_DIR / ".claudeignore"
-    apps_dir = REPO_DIR / "apps"
-    if not apps_dir.is_dir():
-        return
-
-    docs_parts = Path(docs_path).parts
-    docs_parent = docs_parts[1] if len(docs_parts) > 1 else ""
-    docs_product = docs_parts[2] if len(docs_parts) > 2 else ""
-
-    lines = [
-        "# Auto-generated — hides irrelevant apps for: " + app_name,
-        "",
-    ]
-
-    for entry in sorted(apps_dir.iterdir()):
-        if not entry.is_dir():
-            continue
-        name = entry.name
-        if name == app_name:
-            continue
-        if name in _REFERENCE_APPS:
-            continue
-        if name == docs_parent:
-            continue
-        if name == "user-manuals":
-            continue
-        lines.append(f"apps/{name}/")
-
-    if docs_parent and (apps_dir / docs_parent).is_dir():
-        for product_dir in sorted((apps_dir / docs_parent).iterdir()):
-            if not product_dir.is_dir():
-                continue
-            if product_dir.name == docs_product:
-                continue
-            lines.append(f"apps/{docs_parent}/{product_dir.name}/")
-
-    lines.append("")
-    ignore_path.write_text("\n".join(lines))
-    log.info("Generated .claudeignore (%d entries)", len(lines) - 3)
 
 
 def validate_app_generation(app_dir: Path) -> tuple[bool, list[str]]:
@@ -625,24 +576,6 @@ def run_agent(
         ]
         if generation_model:
             cmd.extend(["--model", generation_model])
-            cmd.extend([
-                "--append-system-prompt",
-                "PREPARATION — read these before writing any code:\n"
-                "- Read docs/web-app-design-guide.md, docs/environment-protocol.md, and "
-                "docs/verifier-sanity-check.md to understand the required patterns.\n"
-                "- Read at least 2 reference apps per module (e.g. both apps/linear-account-settings/js/data.js "
-                "and apps/gitlab-plan-and-track/js/data.js) before writing your own.\n"
-                "- Plan your file structure and cross-module contracts before writing.\n"
-                "- Budget at most 10 minutes total for reading docs, reference apps, and planning — "
-                "then start writing.\n\n"
-                "SPEED RULES — follow these to avoid wasting time:\n"
-                "- Do NOT spawn subagents or Explore agents. Do everything yourself.\n"
-                "- Do NOT recursively list directories. Read specific files by path.\n"
-                "- Write each file in ONE tool call. Never write a file in multiple parts.\n"
-                "- For data.js: 25 records per main entity is enough. Use compact JS.\n"
-                "- Do NOT read your own files back after writing them. Trust your output.\n"
-                "- Minimize tool calls. Prefer Write over Edit for new files.\n",
-            ])
         cmd.append(prompt)
 
     agent_label = f"{agent}" + (f"/{generation_model}" if generation_model else "")
@@ -1538,8 +1471,8 @@ def main() -> None:
     if args.branch:
         setup_branch(args.branch)
 
-    # Generate .claudeignore to focus agent on this app only
-    generate_claudeignore(args.app_name, args.docs_path)
+    # NOTE: .claudeignore generation removed — the model is allowed to look at
+    # all folders without restriction. References live in CLAUDE.md if needed.
 
     # ── Rerun-from handling ───────────────────────────────────────────
 

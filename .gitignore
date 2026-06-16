@@ -26,3 +26,13 @@ infra/logs/
 # Local tool/IDE config
 .claude/
 .vscode/
+
+# macOS junk
+.DS_Store
+
+# Bsub job scripts — kept locally and scp'd to the cluster, never pushed
+*.bsub
+
+# Local-only / backup apps (not pushed)
+apps/gmail-reproduced/
+apps/gmail-glm5-gptoss-backup/

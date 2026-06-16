@@ -46,6 +46,20 @@ import time
 from datetime import datetime
 from pathlib import Path
 
+# infra/ is on sys.path when pipeline.py runs as a script (consistent with the
+# existing `from upload_results import ...` pattern used inside main()).
+from app_health import run_health_gate
+from recovery import classify_error, backoff_seconds, MAX_ATTEMPTS, deployments
+from status import StatusReporter, EXIT_CODES
+from cleanup_results import free_gb
+
+# Tunables (config-driven; safe defaults)
+GEN_REGEN_BUDGET = 3
+MIN_FREE_GB = 5.0
+DEPLOYMENT_CONFIG: dict = {}   # populate EVAL_DEPLOYMENTS / GEN_DEPLOYMENTS to enable fallback
+
+reporter = None   # set in main(); type: StatusReporter | None
+
 GLOBAL_TIMEOUT_SECONDS = 48 * 3600  # 48 hours
 
 # ---------------------------------------------------------------------------
@@ -1312,6 +1326,63 @@ def build_hardening_analysis(app_dir: Path) -> str:
 
 
 # ---------------------------------------------------------------------------
+# Hardening helpers: disk guard + model-driven app health gate
+# ---------------------------------------------------------------------------
+
+
+def disk_guard(app_dir: Path, phase: str) -> None:
+    """Read-only disk check. NEVER deletes (preserves crash-recovery backups).
+
+    If free space is below MIN_FREE_GB, finalize a DISK_FULL status and exit cleanly.
+    """
+    target = Path("/output") if Path("/output").is_dir() else app_dir
+    gb = free_gb(target)
+    if gb < MIN_FREE_GB:
+        msg = f"Disk near-full on {target}: {gb:.1f} GiB free (< {MIN_FREE_GB})"
+        log.error(msg)
+        if reporter:
+            reporter.update_activity(f"{phase}: ABORTING — {msg}")
+            code = reporter.finalize(state="FAILED", status_code="DISK_FULL", diagnostic=msg)
+        else:
+            code = EXIT_CODES["DISK_FULL"]
+        sys.exit(code)
+
+
+def app_health_gate_with_fix(app_dir: Path, args, phase: str, base_port: int) -> bool:
+    """Run the health gate; on failure, have the MODEL fix it (bounded). Returns True if healthy.
+
+    The pipeline never edits app files — only re-invokes the model with diagnostics.
+    """
+    health_port = base_port + 90   # avoid eval worker ports
+    for attempt in range(1, GEN_REGEN_BUDGET + 1):
+        ok, diag = run_health_gate(app_dir, port=health_port)
+        if ok:
+            if reporter:
+                reporter.update_activity(f"{phase}: health gate PASSED")
+            return True
+        log.warning("Health gate failed (attempt %d/%d): %s", attempt, GEN_REGEN_BUDGET, diag)
+        if reporter:
+            reporter.update_activity(f"{phase}: health gate FAILED — {diag[:120]}")
+            reporter.checkpoint(attempt_key=f"{phase}_regen")
+        if attempt == GEN_REGEN_BUDGET:
+            break
+        if reporter:
+            reporter.update_activity(
+                f"{phase}: asking model to fix app (attempt {attempt + 1}/{GEN_REGEN_BUDGET})")
+        run_agent(
+            "fix-app-health",
+            cwd=REPO_DIR,
+            timeout=10800,
+            agent=args.agent,
+            generation_model=args.generation_model,
+            app_name=args.app_name,
+            diagnostics=diag,
+            **{"app-name": args.app_name},
+        )
+    return False
+
+
+# ---------------------------------------------------------------------------
 # Main pipeline
 # ---------------------------------------------------------------------------
 
@@ -1427,793 +1498,843 @@ def main() -> None:
     args.push_enabled = not args.no_push
 
     # Set up logging
-    global log
+    global log, reporter
     log = setup_logging(args.app_name)
 
-    log.info("=" * 60)
-    log.info("Pipeline starting for: %s", args.app_name)
-    log.info("  docs-path:       %s", args.docs_path)
-    log.info("  model:           %s", args.model)
-    log.info("  workers:         %d", args.workers)
-    log.info("  repetitions:     %d", args.repetitions)
-    log.info("  max-iterations:  %d", args.max_iterations)
-    log.info("  rerun-from:      %s", args.rerun_from or "(full run)")
-    log.info("  hardening-rounds:%d", args.hardening_rounds)
-    log.info("  tasks-per-round: %d", args.tasks_per_round)
-    log.info("  branch:          %s", args.branch or "(current)")
-    log.info("  push:            %s", args.push_enabled)
-    log.info("  s3-bucket:       %s", args.s3_bucket or "(disabled)")
-    log.info("  resume:          %s", args.resume)
-    log.info("  agent:           %s", args.agent)
-    log.info("  generation-model:%s", args.generation_model or "(default)")
-    log.info("=" * 60)
+    _out = Path("/output") / args.app_name if Path("/output").is_dir() else None
+    reporter = StatusReporter(env=args.app_name,
+                              log_dir=REPO_DIR / "logs" / args.app_name,
+                              output_dir=_out)
+    reporter.update_activity("Pipeline starting")
 
-    if args.agent == "opencode" and not args.generation_model:
-        log.error("--generation-model is required when --agent=%s", args.agent)
-        sys.exit(1)
+    try:
+        log.info("=" * 60)
+        log.info("Pipeline starting for: %s", args.app_name)
+        log.info("  docs-path:       %s", args.docs_path)
+        log.info("  model:           %s", args.model)
+        log.info("  workers:         %d", args.workers)
+        log.info("  repetitions:     %d", args.repetitions)
+        log.info("  max-iterations:  %d", args.max_iterations)
+        log.info("  rerun-from:      %s", args.rerun_from or "(full run)")
+        log.info("  hardening-rounds:%d", args.hardening_rounds)
+        log.info("  tasks-per-round: %d", args.tasks_per_round)
+        log.info("  branch:          %s", args.branch or "(current)")
+        log.info("  push:            %s", args.push_enabled)
+        log.info("  s3-bucket:       %s", args.s3_bucket or "(disabled)")
+        log.info("  resume:          %s", args.resume)
+        log.info("  agent:           %s", args.agent)
+        log.info("  generation-model:%s", args.generation_model or "(default)")
+        log.info("=" * 60)
 
-    def _global_timeout_handler(signum, frame):
-        log.error("GLOBAL TIMEOUT: pipeline exceeded %d hours — aborting", GLOBAL_TIMEOUT_SECONDS // 3600)
-        sys.exit(2)
-
-    signal.signal(signal.SIGALRM, _global_timeout_handler)
-    signal.alarm(GLOBAL_TIMEOUT_SECONDS)
-    log.info("Global timeout set: %d hours", GLOBAL_TIMEOUT_SECONDS // 3600)
-
-    _output_root = Path("/output")
-    app_dir = REPO_DIR / "apps" / args.app_name
-    app_dir.mkdir(parents=True, exist_ok=True)
-    if not _output_root.is_dir():
-        log.warning("/output not mounted — results will be lost on container teardown")
-    max_iterations = args.max_iterations
-
-    # Set up branch if specified
-    if args.branch:
-        setup_branch(args.branch)
-
-    # NOTE: .claudeignore generation removed — the model is allowed to look at
-    # all folders without restriction. References live in CLAUDE.md if needed.
-
-    # ── Rerun-from handling ───────────────────────────────────────────
-
-    if args.resume and args.rerun_from:
-        log.error("--resume and --rerun-from are mutually exclusive")
-        sys.exit(1)
-
-    resume_phase: str | None = None
-    resume_iter: int = 0
-    start_phase: str | None = None
-
-    if args.rerun_from:
-        start_phase = args.rerun_from
-        log.info("Rerunning from %s — cleaning artifacts", start_phase)
-        clean_artifacts(app_dir, start_phase)
-
-    if args.resume:
-        state = load_state(args.app_name)
-        if state is None:
-            log.error(
-                "--resume specified but no state file found for %s", args.app_name
-            )
+        if args.agent == "opencode" and not args.generation_model:
+            log.error("--generation-model is required when --agent=%s", args.agent)
             sys.exit(1)
 
-        resume_phase = state["step"]
-        resume_iter = state.get("iteration", 0)
-        start_phase = resume_phase
-        log.info(
-            "Resuming from step=%s, iteration=%d (last_good_commit=%s)",
-            resume_phase,
-            resume_iter,
-            state.get("last_good_commit", "unknown"),
-        )
+        def _global_timeout_handler(signum, frame):
+            log.error("GLOBAL TIMEOUT: pipeline exceeded %d hours — aborting", GLOBAL_TIMEOUT_SECONDS // 3600)
+            sys.exit(2)
 
-        # Warn if pipeline args differ from original run
-        saved_args = state.get("pipeline_args", {})
-        for key in ("model", "workers", "repetitions"):
-            saved_val = saved_args.get(key)
-            current_val = getattr(args, key, None)
-            if saved_val is not None and saved_val != current_val:
-                log.warning(
-                    "Arg mismatch: saved %s=%s, current %s=%s",
-                    key,
-                    saved_val,
-                    key,
-                    current_val,
-                )
+        signal.signal(signal.SIGALRM, _global_timeout_handler)
+        signal.alarm(GLOBAL_TIMEOUT_SECONDS)
+        log.info("Global timeout set: %d hours", GLOBAL_TIMEOUT_SECONDS // 3600)
 
-        # Discard any partial changes from the crashed run
-        log.info("Resetting working tree to HEAD")
-        git("reset", "--hard", "HEAD")
-
-    def should_run(phase: str) -> bool:
-        """Return True if this phase should run given start_phase."""
-        if start_phase is None:
-            return True
-        return PHASE_ORDER.get(phase, 0) >= PHASE_ORDER.get(start_phase, 0)
-
-    # ── Phase 1: Generate App ──────────────────────────────────────────
-
-    if should_run("phase_1"):
-        log.info("Phase 1: Generating web app")
-        save_state(args.app_name, "phase_1", args=args)
+        _output_root = Path("/output")
+        app_dir = REPO_DIR / "apps" / args.app_name
         app_dir.mkdir(parents=True, exist_ok=True)
+        if not _output_root.is_dir():
+            log.warning("/output not mounted — results will be lost on container teardown")
+        max_iterations = args.max_iterations
 
-        rc, stdout, stderr = run_agent(
-            "generate-app",
-            cwd=REPO_DIR,
-            timeout=10800,
-            agent=args.agent,
-            generation_model=args.generation_model,
-            app_name=args.app_name,
-            docs_source=args.docs_path,
-        )
-        if rc != 0:
-            log.warning("Phase 1 agent exited with rc=%d — checking if files were generated anyway", rc)
-            valid_early, missing_early = validate_app_generation(app_dir)
-            if valid_early:
-                log.info(
-                    "Phase 1: all required files present despite rc=%d (likely timeout). Continuing.",
-                    rc,
-                )
-                commit_checkpoint(app_dir, f"Generate app (timeout-recovered): {args.app_name}", push=args.push_enabled)
-            else:
+        # Set up branch if specified
+        if args.branch:
+            setup_branch(args.branch)
+
+        # NOTE: .claudeignore generation removed — the model is allowed to look at
+        # all folders without restriction. References live in CLAUDE.md if needed.
+
+        # ── Rerun-from handling ───────────────────────────────────────────
+
+        if args.resume and args.rerun_from:
+            log.error("--resume and --rerun-from are mutually exclusive")
+            sys.exit(1)
+
+        resume_phase: str | None = None
+        resume_iter: int = 0
+        start_phase: str | None = None
+
+        if args.rerun_from:
+            start_phase = args.rerun_from
+            log.info("Rerunning from %s — cleaning artifacts", start_phase)
+            clean_artifacts(app_dir, start_phase)
+
+        if args.resume:
+            state = load_state(args.app_name)
+            if state is None:
                 log.error(
-                    "Phase 1 FAILED: rc=%d and missing files: %s", rc, ", ".join(missing_early)
+                    "--resume specified but no state file found for %s", args.app_name
                 )
                 sys.exit(1)
-        else:
-            commit_checkpoint(app_dir, f"Generate app: {args.app_name}", push=args.push_enabled)
 
-        # Validate generated app structure
-        valid, missing = validate_app_generation(app_dir)
-        if not valid:
-            log.warning(
-                "Phase 1 validation FAILED — missing files: %s", ", ".join(missing)
+            resume_phase = state["step"]
+            resume_iter = state.get("iteration", 0)
+            start_phase = resume_phase
+            log.info(
+                "Resuming from step=%s, iteration=%d (last_good_commit=%s)",
+                resume_phase,
+                resume_iter,
+                state.get("last_good_commit", "unknown"),
             )
-            if args.agent == "opencode":
-                log.info("Retrying Phase 1 with error context for %s", args.agent)
-                missing_str = "\n".join(f"  - {m}" for m in missing)
-                retry_prefix = (
-                    f"CRITICAL ERROR: Your previous attempt to generate the app was "
-                    f"incomplete. The following required files are MISSING from "
-                    f"apps/{args.app_name}/:\n{missing_str}\n\n"
-                    f"You MUST create ALL missing files now using write_file. "
-                    f"Do NOT recreate files that already exist — only create the "
-                    f"missing ones listed above.\n\n"
-                )
-                rc2, _, _ = run_agent(
-                    "generate-app",
-                    cwd=REPO_DIR,
-                    timeout=10800,
-                    agent=args.agent,
-                    generation_model=args.generation_model,
-                            app_name=args.app_name,
-                    prompt_prefix=retry_prefix,
-                    docs_source=args.docs_path,
-                )
-                valid2, missing2 = validate_app_generation(app_dir)
-                if not valid2:
+
+            # Warn if pipeline args differ from original run
+            saved_args = state.get("pipeline_args", {})
+            for key in ("model", "workers", "repetitions"):
+                saved_val = saved_args.get(key)
+                current_val = getattr(args, key, None)
+                if saved_val is not None and saved_val != current_val:
+                    log.warning(
+                        "Arg mismatch: saved %s=%s, current %s=%s",
+                        key,
+                        saved_val,
+                        key,
+                        current_val,
+                    )
+
+            # Discard any partial changes from the crashed run
+            log.info("Resetting working tree to HEAD")
+            git("reset", "--hard", "HEAD")
+
+        def should_run(phase: str) -> bool:
+            """Return True if this phase should run given start_phase."""
+            if start_phase is None:
+                return True
+            return PHASE_ORDER.get(phase, 0) >= PHASE_ORDER.get(start_phase, 0)
+
+        # ── Phase 1: Generate App ──────────────────────────────────────────
+
+        if should_run("phase_1"):
+            log.info("Phase 1: Generating web app")
+            disk_guard(app_dir, "phase_1")
+            reporter.update_activity("Phase 1: generating app")
+            save_state(args.app_name, "phase_1", args=args)
+            app_dir.mkdir(parents=True, exist_ok=True)
+
+            rc, stdout, stderr = run_agent(
+                "generate-app",
+                cwd=REPO_DIR,
+                timeout=10800,
+                agent=args.agent,
+                generation_model=args.generation_model,
+                app_name=args.app_name,
+                docs_source=args.docs_path,
+            )
+            if rc != 0:
+                log.warning("Phase 1 agent exited with rc=%d — checking if files were generated anyway", rc)
+                valid_early, missing_early = validate_app_generation(app_dir)
+                if valid_early:
+                    log.info(
+                        "Phase 1: all required files present despite rc=%d (likely timeout). Continuing.",
+                        rc,
+                    )
+                    commit_checkpoint(app_dir, f"Generate app (timeout-recovered): {args.app_name}", push=args.push_enabled)
+                else:
                     log.error(
-                        "Phase 1 FAILED after retry. Still missing: %s",
-                        ", ".join(missing2),
+                        "Phase 1 FAILED: rc=%d and missing files: %s", rc, ", ".join(missing_early)
                     )
                     sys.exit(1)
-                commit_checkpoint(
-                    app_dir,
-                    f"Generate app (retry fix): {args.app_name}",
-                    push=args.push_enabled,
-                )
-                log.info("Phase 1 retry succeeded — missing files created")
             else:
+                commit_checkpoint(app_dir, f"Generate app: {args.app_name}", push=args.push_enabled)
+
+            # Validate generated app structure
+            valid, missing = validate_app_generation(app_dir)
+            if not valid:
+                log.warning(
+                    "Phase 1 validation FAILED — missing files: %s", ", ".join(missing)
+                )
+                if args.agent == "opencode":
+                    log.info("Retrying Phase 1 with error context for %s", args.agent)
+                    missing_str = "\n".join(f"  - {m}" for m in missing)
+                    retry_prefix = (
+                        f"CRITICAL ERROR: Your previous attempt to generate the app was "
+                        f"incomplete. The following required files are MISSING from "
+                        f"apps/{args.app_name}/:\n{missing_str}\n\n"
+                        f"You MUST create ALL missing files now using write_file. "
+                        f"Do NOT recreate files that already exist — only create the "
+                        f"missing ones listed above.\n\n"
+                    )
+                    rc2, _, _ = run_agent(
+                        "generate-app",
+                        cwd=REPO_DIR,
+                        timeout=10800,
+                        agent=args.agent,
+                        generation_model=args.generation_model,
+                                app_name=args.app_name,
+                        prompt_prefix=retry_prefix,
+                        docs_source=args.docs_path,
+                    )
+                    valid2, missing2 = validate_app_generation(app_dir)
+                    if not valid2:
+                        log.error(
+                            "Phase 1 FAILED after retry. Still missing: %s",
+                            ", ".join(missing2),
+                        )
+                        sys.exit(1)
+                    commit_checkpoint(
+                        app_dir,
+                        f"Generate app (retry fix): {args.app_name}",
+                        push=args.push_enabled,
+                    )
+                    log.info("Phase 1 retry succeeded — missing files created")
+                else:
+                    log.error(
+                        "Phase 1 validation failed (missing: %s). Fix manually or rerun.",
+                        ", ".join(missing),
+                    )
+                    sys.exit(1)
+
+            if not app_health_gate_with_fix(app_dir, args, "phase_1", args.base_port):
+                code = reporter.finalize(state="FAILED", status_code="APP_BROKEN",
+                                         diagnostic="health gate failed after regenerate budget")
+                sys.exit(code)
+
+            log.info("Phase 1 complete: app generated")
+            sync_to_output(app_dir, "phase_1")
+        else:
+            log.info("Phase 1: Skipped")
+            if not app_dir.is_dir():
+                log.error("App directory does not exist: %s", app_dir)
+                sys.exit(1)
+            valid, missing = validate_app_generation(app_dir)
+            if not valid:
                 log.error(
-                    "Phase 1 validation failed (missing: %s). Fix manually or rerun.",
+                    "App directory incomplete (missing: %s) — cannot resume",
                     ", ".join(missing),
                 )
                 sys.exit(1)
 
-        log.info("Phase 1 complete: app generated")
-        sync_to_output(app_dir, "phase_1")
-    else:
-        log.info("Phase 1: Skipped")
-        if not app_dir.is_dir():
-            log.error("App directory does not exist: %s", app_dir)
-            sys.exit(1)
-        valid, missing = validate_app_generation(app_dir)
-        if not valid:
-            log.error(
-                "App directory incomplete (missing: %s) — cannot resume",
-                ", ".join(missing),
-            )
-            sys.exit(1)
+        # ── Phase 2: Function Tasks ────────────────────────────────────────
 
-    # ── Phase 2: Function Tasks ────────────────────────────────────────
-
-    # 2a: Generate function tasks (once, up to 3 attempts)
-    if should_run("phase_2a"):
-        log.info("Phase 2a: Generating function tasks")
-        save_state(args.app_name, "phase_2a", args=args)
-        phase_2a_success = False
-        for _attempt_2a in range(1, 4):
-            rc, stdout, stderr = run_agent(
-                "generate-function-tests",
-                cwd=REPO_DIR,
-                timeout=10800,
-                agent=args.agent,
-                generation_model=args.generation_model,
-                    app_name=args.app_name,
-                **{"app-name": args.app_name},
-            )
-            if rc == 0:
-                phase_2a_success = True
-                break
-            log.warning(
-                "Phase 2a attempt %d/3 FAILED (rc=%d)", _attempt_2a, rc
-            )
-        if not phase_2a_success:
-            log.error("Phase 2a FAILED after 3 attempts — aborting")
-            sys.exit(1)
-
-        ok, output = run_sanity_check(app_dir, "function")
-        if not ok:
-            log.info("Sanity check failed after function task generation — fixing")
-            run_agent(
-                "fix-sanity-check",
-                cwd=REPO_DIR,
-                timeout=10800,
-                agent=args.agent,
-                generation_model=args.generation_model,
-                    app_name=args.app_name,
-                output=output[-3000:],
-                variant="function",
-                **{"app-name": args.app_name},
-            )
-
-        commit_checkpoint(app_dir, f"Generate function tasks: {args.app_name}", push=args.push_enabled)
-        sync_to_output(app_dir, "phase_2a")
-
-    # 2b: Eval → Audit loop
-    if should_run("phase_2b"):
-        start_iter = resume_iter if resume_phase == "phase_2b" else 1
-        for iteration in range(start_iter, max_iterations + 1):
-            log.info(
-                "Phase 2b: Function task iteration %d/%d",
-                iteration,
-                max_iterations,
-            )
-            save_state(args.app_name, "phase_2b", iteration=iteration, args=args)
-
-            results_dir = run_eval(
-                app_dir,
-                "function-tasks",
-                args.model,
-                args.workers,
-                args.repetitions,
-                resume=(args.resume and iteration == start_iter),
-                tag="p2b",
-                failed_only=(iteration > 1),
-                base_port=args.base_port,
-            )
-            results = parse_results(results_dir)
-            log.info(
-                "Function task pass rate: %.1f%% (%d/%d)",
-                results["pass_rate"],
-                results["passed"],
-                results["total"],
-            )
-
-            if results["total"] == 0:
-                log.error(
-                    "Eval returned 0 tasks — likely server or task-loading failure. "
-                    "Check eval logs at %s", results_dir,
+        # 2a: Generate function tasks (once, up to 3 attempts)
+        if should_run("phase_2a"):
+            log.info("Phase 2a: Generating function tasks")
+            disk_guard(app_dir, "phase_2a")
+            reporter.update_activity("Phase 2a: generating function tasks")
+            save_state(args.app_name, "phase_2a", args=args)
+            phase_2a_success = False
+            for _attempt_2a in range(1, 4):
+                rc, stdout, stderr = run_agent(
+                    "generate-function-tests",
+                    cwd=REPO_DIR,
+                    timeout=10800,
+                    agent=args.agent,
+                    generation_model=args.generation_model,
+                        app_name=args.app_name,
+                    **{"app-name": args.app_name},
                 )
-                log.info("Retrying eval once with full suite (not failed-only)...")
+                if rc == 0:
+                    phase_2a_success = True
+                    break
+                log.warning(
+                    "Phase 2a attempt %d/3 FAILED (rc=%d)", _attempt_2a, rc
+                )
+            if not phase_2a_success:
+                log.error("Phase 2a FAILED after 3 attempts — aborting")
+                sys.exit(1)
+
+            ok, output = run_sanity_check(app_dir, "function")
+            if not ok:
+                log.info("Sanity check failed after function task generation — fixing")
+                run_agent(
+                    "fix-sanity-check",
+                    cwd=REPO_DIR,
+                    timeout=10800,
+                    agent=args.agent,
+                    generation_model=args.generation_model,
+                        app_name=args.app_name,
+                    output=output[-3000:],
+                    variant="function",
+                    **{"app-name": args.app_name},
+                )
+
+            commit_checkpoint(app_dir, f"Generate function tasks: {args.app_name}", push=args.push_enabled)
+            sync_to_output(app_dir, "phase_2a")
+
+        # 2b: Eval → Audit loop
+        if should_run("phase_2b"):
+            start_iter = resume_iter if resume_phase == "phase_2b" else 1
+            for iteration in range(start_iter, max_iterations + 1):
+                log.info(
+                    "Phase 2b: Function task iteration %d/%d",
+                    iteration,
+                    max_iterations,
+                )
+                disk_guard(app_dir, "phase_2b")
+                reporter.update_activity("Phase 2b: evaluating function tasks")
+                save_state(args.app_name, "phase_2b", iteration=iteration, args=args)
+
                 results_dir = run_eval(
                     app_dir,
                     "function-tasks",
                     args.model,
                     args.workers,
                     args.repetitions,
-                    tag="p2b_retry",
-                    failed_only=False,
+                    resume=(args.resume and iteration == start_iter),
+                    tag="p2b",
+                    failed_only=(iteration > 1),
                     base_port=args.base_port,
                 )
                 results = parse_results(results_dir)
-                if results["total"] == 0:
-                    log.error("Retry also returned 0 tasks — exiting")
-                    sys.exit(1)
                 log.info(
-                    "Retry succeeded: %.1f%% (%d/%d)",
+                    "Function task pass rate: %.1f%% (%d/%d)",
                     results["pass_rate"],
                     results["passed"],
                     results["total"],
                 )
 
-            if results["pass_rate"] == 100 and results["total"] > 0:
-                log.info("All function tasks passed!")
-                break
-
-            if results_dir is None:
-                log.warning("No results directory — skipping audit")
-                break
-
-            log.info("Running audit on function task failures")
-            run_agent(
-                "audit-function-tests",
-                cwd=REPO_DIR,
-                timeout=10800,
-                agent=args.agent,
-                generation_model=args.generation_model,
-                    app_name=args.app_name,
-                evaluation_result_path=str(results_dir),
-            )
-
-            if not detect_changes(app_dir):
                 if results["total"] == 0:
-                    log.warning(
-                        "Audit made no changes and eval had 0 tasks — retrying next iteration"
+                    log.error(
+                        "Eval returned 0 tasks — likely server or task-loading failure. "
+                        "Check eval logs at %s", results_dir,
                     )
-                else:
+                    log.info("Retrying eval once with full suite (not failed-only)...")
+                    results_dir = run_eval(
+                        app_dir,
+                        "function-tasks",
+                        args.model,
+                        args.workers,
+                        args.repetitions,
+                        tag="p2b_retry",
+                        failed_only=False,
+                        base_port=args.base_port,
+                    )
+                    results = parse_results(results_dir)
+                    if results["total"] == 0:
+                        log.error("Retry also returned 0 tasks — exiting")
+                        sys.exit(1)
                     log.info(
-                        "Audit made no changes — remaining failures are agent-side"
+                        "Retry succeeded: %.1f%% (%d/%d)",
+                        results["pass_rate"],
+                        results["passed"],
+                        results["total"],
                     )
+
+                if results["pass_rate"] == 100 and results["total"] > 0:
+                    log.info("All function tasks passed!")
                     break
 
-            # Re-check sanity after audit changes
-            ok, output = run_sanity_check(app_dir, "function")
-            commit_checkpoint(
-                app_dir,
-                f"Function task audit iter {iteration}: {args.app_name}",
-                push=args.push_enabled,
-            )
+                if results_dir is None:
+                    log.warning("No results directory — skipping audit")
+                    break
 
-        sync_to_output(app_dir, "phase_2b")
-
-    # ── Phase 3: Real Tasks ────────────────────────────────────────────
-
-    # 3a: Generate real tasks (once, up to 3 attempts)
-    if should_run("phase_3a"):
-        log.info("Phase 3a: Generating real tasks")
-        save_state(args.app_name, "phase_3a", args=args)
-        phase_3a_success = False
-        for _attempt_3a in range(1, 4):
-            rc, stdout, stderr = run_agent(
-                "generate-real-tasks",
-                cwd=REPO_DIR,
-                timeout=10800,
-                agent=args.agent,
-                generation_model=args.generation_model,
-                    app_name=args.app_name,
-                **{"app-name": args.app_name},
-            )
-            if rc == 0:
-                phase_3a_success = True
-                break
-            log.warning(
-                "Phase 3a attempt %d/3 FAILED (rc=%d)", _attempt_3a, rc
-            )
-        if not phase_3a_success:
-            log.error("Phase 3a FAILED after 3 attempts — aborting")
-            sys.exit(1)
-
-        ok, output = run_sanity_check(app_dir, "real")
-        if not ok:
-            log.info("Sanity check failed after real task generation — fixing")
-            run_agent(
-                "fix-sanity-check",
-                cwd=REPO_DIR,
-                timeout=10800,
-                agent=args.agent,
-                generation_model=args.generation_model,
-                    app_name=args.app_name,
-                output=output[-3000:],
-                variant="real",
-                **{"app-name": args.app_name},
-            )
-
-        commit_checkpoint(app_dir, f"Generate real tasks: {args.app_name}", push=args.push_enabled)
-        sync_to_output(app_dir, "phase_3a")
-
-    # 3b: Eval → Audit loop
-    if should_run("phase_3b"):
-        start_iter = resume_iter if resume_phase == "phase_3b" else 1
-        for iteration in range(start_iter, max_iterations + 1):
-            log.info(
-                "Phase 3b: Real task iteration %d/%d",
-                iteration,
-                max_iterations,
-            )
-            save_state(args.app_name, "phase_3b", iteration=iteration, args=args)
-
-            results_dir = run_eval(
-                app_dir,
-                "real-tasks",
-                args.model,
-                args.workers,
-                args.repetitions,
-                resume=(args.resume and iteration == start_iter),
-                tag="p3b",
-                failed_only=(iteration > 1),
-                base_port=args.base_port,
-            )
-            results = parse_results(results_dir)
-            log.info(
-                "Real task pass rate: %.1f%% (%d/%d)",
-                results["pass_rate"],
-                results["passed"],
-                results["total"],
-            )
-
-            if results["total"] == 0:
-                log.error(
-                    "Eval returned 0 tasks — likely server or task-loading failure. "
-                    "Check eval logs at %s", results_dir,
+                log.info("Running audit on function task failures")
+                run_agent(
+                    "audit-function-tests",
+                    cwd=REPO_DIR,
+                    timeout=10800,
+                    agent=args.agent,
+                    generation_model=args.generation_model,
+                        app_name=args.app_name,
+                    evaluation_result_path=str(results_dir),
                 )
-                log.info("Retrying eval once with full suite (not failed-only)...")
+
+                if not detect_changes(app_dir):
+                    if results["total"] == 0:
+                        log.warning(
+                            "Audit made no changes and eval had 0 tasks — retrying next iteration"
+                        )
+                    else:
+                        log.info(
+                            "Audit made no changes — remaining failures are agent-side"
+                        )
+                        break
+
+                # Re-check sanity after audit changes
+                ok, output = run_sanity_check(app_dir, "function")
+                commit_checkpoint(
+                    app_dir,
+                    f"Function task audit iter {iteration}: {args.app_name}",
+                    push=args.push_enabled,
+                )
+
+                if not app_health_gate_with_fix(app_dir, args, "phase_2b", args.base_port):
+                    code = reporter.finalize(state="FAILED", status_code="APP_BROKEN",
+                                             diagnostic="app broke after audit")
+                    sys.exit(code)
+
+            sync_to_output(app_dir, "phase_2b")
+
+        # ── Phase 3: Real Tasks ────────────────────────────────────────────
+
+        # 3a: Generate real tasks (once, up to 3 attempts)
+        if should_run("phase_3a"):
+            log.info("Phase 3a: Generating real tasks")
+            disk_guard(app_dir, "phase_3a")
+            reporter.update_activity("Phase 3a: generating real tasks")
+            save_state(args.app_name, "phase_3a", args=args)
+            phase_3a_success = False
+            for _attempt_3a in range(1, 4):
+                rc, stdout, stderr = run_agent(
+                    "generate-real-tasks",
+                    cwd=REPO_DIR,
+                    timeout=10800,
+                    agent=args.agent,
+                    generation_model=args.generation_model,
+                        app_name=args.app_name,
+                    **{"app-name": args.app_name},
+                )
+                if rc == 0:
+                    phase_3a_success = True
+                    break
+                log.warning(
+                    "Phase 3a attempt %d/3 FAILED (rc=%d)", _attempt_3a, rc
+                )
+            if not phase_3a_success:
+                log.error("Phase 3a FAILED after 3 attempts — aborting")
+                sys.exit(1)
+
+            ok, output = run_sanity_check(app_dir, "real")
+            if not ok:
+                log.info("Sanity check failed after real task generation — fixing")
+                run_agent(
+                    "fix-sanity-check",
+                    cwd=REPO_DIR,
+                    timeout=10800,
+                    agent=args.agent,
+                    generation_model=args.generation_model,
+                        app_name=args.app_name,
+                    output=output[-3000:],
+                    variant="real",
+                    **{"app-name": args.app_name},
+                )
+
+            commit_checkpoint(app_dir, f"Generate real tasks: {args.app_name}", push=args.push_enabled)
+            sync_to_output(app_dir, "phase_3a")
+
+        # 3b: Eval → Audit loop
+        if should_run("phase_3b"):
+            start_iter = resume_iter if resume_phase == "phase_3b" else 1
+            for iteration in range(start_iter, max_iterations + 1):
+                log.info(
+                    "Phase 3b: Real task iteration %d/%d",
+                    iteration,
+                    max_iterations,
+                )
+                disk_guard(app_dir, "phase_3b")
+                reporter.update_activity("Phase 3b: evaluating real tasks")
+                save_state(args.app_name, "phase_3b", iteration=iteration, args=args)
+
                 results_dir = run_eval(
                     app_dir,
                     "real-tasks",
                     args.model,
                     args.workers,
                     args.repetitions,
-                    tag="p3b_retry",
-                    failed_only=False,
+                    resume=(args.resume and iteration == start_iter),
+                    tag="p3b",
+                    failed_only=(iteration > 1),
                     base_port=args.base_port,
                 )
                 results = parse_results(results_dir)
-                if results["total"] == 0:
-                    log.error("Retry also returned 0 tasks — exiting")
-                    sys.exit(1)
                 log.info(
-                    "Retry succeeded: %.1f%% (%d/%d)",
+                    "Real task pass rate: %.1f%% (%d/%d)",
                     results["pass_rate"],
                     results["passed"],
                     results["total"],
                 )
 
-            if results["pass_rate"] == 100 and results["total"] > 0:
-                log.info("All real tasks passed!")
-                break
-
-            if results_dir is None:
-                log.warning("No results directory — skipping audit")
-                break
-
-            log.info("Running audit on real task failures")
-            run_agent(
-                "audit-real-tasks",
-                cwd=REPO_DIR,
-                timeout=10800,
-                agent=args.agent,
-                generation_model=args.generation_model,
-                    app_name=args.app_name,
-                evaluation_result_path=str(results_dir),
-            )
-
-            if not detect_changes(app_dir):
                 if results["total"] == 0:
-                    log.warning(
-                        "Audit made no changes and eval had 0 tasks — retrying next iteration"
-                    )
-                else:
-                    log.info(
-                        "Audit made no changes — remaining failures are agent-side"
-                    )
-                    break
-
-            # Re-check sanity after audit changes
-            ok, output = run_sanity_check(app_dir, "real")
-            commit_checkpoint(
-                app_dir,
-                f"Real task audit iter {iteration}: {args.app_name}",
-                push=args.push_enabled,
-            )
-
-        sync_to_output(app_dir, "phase_3b")
-
-    # ── Phase 4: Task Hardening ───────────────────────────────────────
-
-    if should_run("phase_4a") or should_run("phase_4b"):
-        log.info(
-            "Phase 4: Task hardening (%d rounds, audit every %s)",
-            args.hardening_rounds,
-            args.audit_every or "never",
-        )
-
-        # Determine starting round on resume
-        hardening_start_round = 1
-        if resume_phase in ("phase_4a", "phase_4b") and resume_iter > 0:
-            hardening_start_round = max(1, resume_iter // 100)
-
-        # Collect result dirs from each round for batched auditing
-        hardening_result_dirs: list[Path] = []
-
-        for round_num in range(hardening_start_round, args.hardening_rounds + 1):
-            log.info(
-                "Phase 4: Hardening round %d/%d",
-                round_num,
-                args.hardening_rounds,
-            )
-
-            # --- 4a: Analyze + Generate ---
-            skip_4a = start_phase == "phase_4b" and round_num == hardening_start_round
-            if not skip_4a:
-                save_state(
-                    args.app_name,
-                    "phase_4a",
-                    iteration=round_num * 100,
-                    args=args,
-                )
-
-                # Snapshot current task IDs before generation
-                known_ids = load_task_ids(app_dir / "real-tasks.json")
-
-                # Build analysis from most comprehensive eval results
-                analysis = build_hardening_analysis(app_dir)
-                results_root = app_dir / "results"
-
-                rc, stdout, stderr = run_agent(
-                    "harden-tasks",
-                    cwd=REPO_DIR,
-                    timeout=10800,
-                    agent=args.agent,
-                    generation_model=args.generation_model,
-                            app_name=args.app_name,
-                    hardening_analysis=analysis,
-                    results_path=str(results_root) if results_root.is_dir() else "none",
-                    round_number=str(round_num),
-                    tasks_per_round=str(args.tasks_per_round),
-                    **{"app-name": args.app_name},
-                )
-                if rc != 0:
                     log.error(
-                        "Phase 4a FAILED: task hardening generation returned rc=%d",
-                        rc,
+                        "Eval returned 0 tasks — likely server or task-loading failure. "
+                        "Check eval logs at %s", results_dir,
                     )
+                    log.info("Retrying eval once with full suite (not failed-only)...")
+                    results_dir = run_eval(
+                        app_dir,
+                        "real-tasks",
+                        args.model,
+                        args.workers,
+                        args.repetitions,
+                        tag="p3b_retry",
+                        failed_only=False,
+                        base_port=args.base_port,
+                    )
+                    results = parse_results(results_dir)
+                    if results["total"] == 0:
+                        log.error("Retry also returned 0 tasks — exiting")
+                        sys.exit(1)
+                    log.info(
+                        "Retry succeeded: %.1f%% (%d/%d)",
+                        results["pass_rate"],
+                        results["passed"],
+                        results["total"],
+                    )
+
+                if results["pass_rate"] == 100 and results["total"] > 0:
+                    log.info("All real tasks passed!")
                     break
 
-                # Identify newly added task IDs
-                new_ids = get_new_task_ids(app_dir / "real-tasks.json", known_ids)
-                if not new_ids:
-                    log.info("No new tasks generated — stopping hardening")
+                if results_dir is None:
+                    log.warning("No results directory — skipping audit")
                     break
 
-                log.info("Generated %d new tasks: %s", len(new_ids), sorted(new_ids))
-
-                # Sanity check
-                ok, output = run_sanity_check(app_dir, "real")
-                if not ok:
-                    log.info("Sanity check failed after hardening generation — fixing")
-                    run_agent(
-                        "fix-sanity-check",
-                        cwd=REPO_DIR,
-                        timeout=10800,
-                        agent=args.agent,
-                        generation_model=args.generation_model,
-                                    app_name=args.app_name,
-                        output=output[-3000:],
-                        variant="real",
-                        **{"app-name": args.app_name},
-                    )
-                    ok2, _ = run_sanity_check(app_dir, "real")
-                    if not ok2:
-                        log.error(
-                            "Sanity check still failing after fix — reverting round %d",
-                            round_num,
-                        )
-                        git("checkout", "--", str(app_dir))
-                        break
-
-                commit_checkpoint(
-                    app_dir,
-                    f"Hardening round {round_num}: {args.app_name}",
-                    push=args.push_enabled,
-                )
-            # --- 4b: Eval new tasks from this round only ---
-            round_ids = new_ids if not skip_4a else set()
-            task_id_filter = ",".join(sorted(round_ids)) if round_ids else None
-            save_state(
-                args.app_name,
-                "phase_4b",
-                iteration=round_num * 100 + 1,
-                args=args,
-            )
-
-            results_dir = run_eval(
-                app_dir,
-                "real-tasks",
-                args.model,
-                args.workers,
-                args.repetitions,
-                task_id_filter=task_id_filter,
-                tag=f"p4b_r{round_num}",
-                failed_only=False,
-                base_port=args.base_port,
-            )
-            results = parse_results(results_dir)
-            log.info(
-                "Hardening round %d eval: %.1f%% (%d/%d)",
-                round_num,
-                results["pass_rate"],
-                results["passed"],
-                results["total"],
-            )
-
-            if results["total"] == 0:
-                log.error(
-                    "Hardening eval returned 0 tasks — likely server or task-loading failure. "
-                    "Check eval logs at %s", results_dir,
-                )
-                sys.exit(1)
-
-            if results_dir is not None:
-                hardening_result_dirs.append(results_dir)
-
-            # --- Audit if this is an audit round ---
-            is_last_round = round_num == args.hardening_rounds
-            if args.audit_every > 0:
-                is_audit_round = round_num % args.audit_every == 0 or is_last_round
-            else:
-                # Default: audit only after the final round
-                is_audit_round = is_last_round
-
-            if is_audit_round and hardening_result_dirs:
-                # Audit uses existing results from all hardening rounds — no re-eval
-                result_paths_str = "\n".join(
-                    f"  - {d}" for d in hardening_result_dirs
-                )
-                log.info(
-                    "Running audit on %d hardening eval result dirs",
-                    len(hardening_result_dirs),
-                )
-
+                log.info("Running audit on real task failures")
                 run_agent(
                     "audit-real-tasks",
                     cwd=REPO_DIR,
                     timeout=10800,
                     agent=args.agent,
                     generation_model=args.generation_model,
-                            app_name=args.app_name,
-                    evaluation_result_path=result_paths_str,
+                        app_name=args.app_name,
+                    evaluation_result_path=str(results_dir),
                 )
 
-                if detect_changes(app_dir):
+                if not detect_changes(app_dir):
+                    if results["total"] == 0:
+                        log.warning(
+                            "Audit made no changes and eval had 0 tasks — retrying next iteration"
+                        )
+                    else:
+                        log.info(
+                            "Audit made no changes — remaining failures are agent-side"
+                        )
+                        break
+
+                # Re-check sanity after audit changes
+                ok, output = run_sanity_check(app_dir, "real")
+                commit_checkpoint(
+                    app_dir,
+                    f"Real task audit iter {iteration}: {args.app_name}",
+                    push=args.push_enabled,
+                )
+
+                if not app_health_gate_with_fix(app_dir, args, "phase_3b", args.base_port):
+                    code = reporter.finalize(state="FAILED", status_code="APP_BROKEN",
+                                             diagnostic="app broke after audit")
+                    sys.exit(code)
+
+            sync_to_output(app_dir, "phase_3b")
+
+        # ── Phase 4: Task Hardening ───────────────────────────────────────
+
+        if should_run("phase_4a") or should_run("phase_4b"):
+            log.info(
+                "Phase 4: Task hardening (%d rounds, audit every %s)",
+                args.hardening_rounds,
+                args.audit_every or "never",
+            )
+            disk_guard(app_dir, "phase_4b")
+            reporter.update_activity("Phase 4: task hardening")
+
+            # Determine starting round on resume
+            hardening_start_round = 1
+            if resume_phase in ("phase_4a", "phase_4b") and resume_iter > 0:
+                hardening_start_round = max(1, resume_iter // 100)
+
+            # Collect result dirs from each round for batched auditing
+            hardening_result_dirs: list[Path] = []
+
+            for round_num in range(hardening_start_round, args.hardening_rounds + 1):
+                log.info(
+                    "Phase 4: Hardening round %d/%d",
+                    round_num,
+                    args.hardening_rounds,
+                )
+
+                # --- 4a: Analyze + Generate ---
+                skip_4a = start_phase == "phase_4b" and round_num == hardening_start_round
+                if not skip_4a:
+                    save_state(
+                        args.app_name,
+                        "phase_4a",
+                        iteration=round_num * 100,
+                        args=args,
+                    )
+
+                    # Snapshot current task IDs before generation
+                    known_ids = load_task_ids(app_dir / "real-tasks.json")
+
+                    # Build analysis from most comprehensive eval results
+                    analysis = build_hardening_analysis(app_dir)
+                    results_root = app_dir / "results"
+
+                    rc, stdout, stderr = run_agent(
+                        "harden-tasks",
+                        cwd=REPO_DIR,
+                        timeout=10800,
+                        agent=args.agent,
+                        generation_model=args.generation_model,
+                                app_name=args.app_name,
+                        hardening_analysis=analysis,
+                        results_path=str(results_root) if results_root.is_dir() else "none",
+                        round_number=str(round_num),
+                        tasks_per_round=str(args.tasks_per_round),
+                        **{"app-name": args.app_name},
+                    )
+                    if rc != 0:
+                        log.error(
+                            "Phase 4a FAILED: task hardening generation returned rc=%d",
+                            rc,
+                        )
+                        break
+
+                    # Identify newly added task IDs
+                    new_ids = get_new_task_ids(app_dir / "real-tasks.json", known_ids)
+                    if not new_ids:
+                        log.info("No new tasks generated — stopping hardening")
+                        break
+
+                    log.info("Generated %d new tasks: %s", len(new_ids), sorted(new_ids))
+
+                    # Sanity check
                     ok, output = run_sanity_check(app_dir, "real")
+                    if not ok:
+                        log.info("Sanity check failed after hardening generation — fixing")
+                        run_agent(
+                            "fix-sanity-check",
+                            cwd=REPO_DIR,
+                            timeout=10800,
+                            agent=args.agent,
+                            generation_model=args.generation_model,
+                                        app_name=args.app_name,
+                            output=output[-3000:],
+                            variant="real",
+                            **{"app-name": args.app_name},
+                        )
+                        ok2, _ = run_sanity_check(app_dir, "real")
+                        if not ok2:
+                            log.error(
+                                "Sanity check still failing after fix — reverting round %d",
+                                round_num,
+                            )
+                            git("checkout", "--", str(app_dir))
+                            break
+
                     commit_checkpoint(
                         app_dir,
-                        f"Hardening audit (after round {round_num}): {args.app_name}",
+                        f"Hardening round {round_num}: {args.app_name}",
                         push=args.push_enabled,
                     )
+                # --- 4b: Eval new tasks from this round only ---
+                round_ids = new_ids if not skip_4a else set()
+                task_id_filter = ",".join(sorted(round_ids)) if round_ids else None
+                save_state(
+                    args.app_name,
+                    "phase_4b",
+                    iteration=round_num * 100 + 1,
+                    args=args,
+                )
+
+                results_dir = run_eval(
+                    app_dir,
+                    "real-tasks",
+                    args.model,
+                    args.workers,
+                    args.repetitions,
+                    task_id_filter=task_id_filter,
+                    tag=f"p4b_r{round_num}",
+                    failed_only=False,
+                    base_port=args.base_port,
+                )
+                results = parse_results(results_dir)
+                log.info(
+                    "Hardening round %d eval: %.1f%% (%d/%d)",
+                    round_num,
+                    results["pass_rate"],
+                    results["passed"],
+                    results["total"],
+                )
+
+                if results["total"] == 0:
+                    log.error(
+                        "Hardening eval returned 0 tasks — likely server or task-loading failure. "
+                        "Check eval logs at %s", results_dir,
+                    )
+                    sys.exit(1)
+
+                if results_dir is not None:
+                    hardening_result_dirs.append(results_dir)
+
+                # --- Audit if this is an audit round ---
+                is_last_round = round_num == args.hardening_rounds
+                if args.audit_every > 0:
+                    is_audit_round = round_num % args.audit_every == 0 or is_last_round
                 else:
+                    # Default: audit only after the final round
+                    is_audit_round = is_last_round
+
+                if is_audit_round and hardening_result_dirs:
+                    # Audit uses existing results from all hardening rounds — no re-eval
+                    result_paths_str = "\n".join(
+                        f"  - {d}" for d in hardening_result_dirs
+                    )
                     log.info(
-                        "Audit made no changes — remaining failures are agent-side"
+                        "Running audit on %d hardening eval result dirs",
+                        len(hardening_result_dirs),
                     )
 
-                hardening_result_dirs.clear()
+                    run_agent(
+                        "audit-real-tasks",
+                        cwd=REPO_DIR,
+                        timeout=10800,
+                        agent=args.agent,
+                        generation_model=args.generation_model,
+                                app_name=args.app_name,
+                        evaluation_result_path=result_paths_str,
+                    )
 
-        log.info("Phase 4 complete")
-        sync_to_output(app_dir, "phase_4b")
+                    if detect_changes(app_dir):
+                        ok, output = run_sanity_check(app_dir, "real")
+                        commit_checkpoint(
+                            app_dir,
+                            f"Hardening audit (after round {round_num}): {args.app_name}",
+                            push=args.push_enabled,
+                        )
 
-    # ── Phase 5: Final Regression Eval ───────────────────────────────
+                        if not app_health_gate_with_fix(app_dir, args, "phase_4b", args.base_port):
+                            code = reporter.finalize(state="FAILED", status_code="APP_BROKEN",
+                                                     diagnostic="app broke after audit")
+                            sys.exit(code)
+                    else:
+                        log.info(
+                            "Audit made no changes — remaining failures are agent-side"
+                        )
 
-    if should_run("phase_5"):
-        log.info("Phase 5: Final regression eval (full suite)")
-        save_state(args.app_name, "phase_5", args=args)
+                    hardening_result_dirs.clear()
 
-        # Eval function tasks if they exist
-        func_tasks_file = app_dir / "function-tasks.json"
-        if func_tasks_file.exists():
-            log.info("Phase 5: Evaluating function tasks")
-            func_results_dir = run_eval(
-                app_dir,
-                "function-tasks",
-                args.model,
-                args.workers,
-                args.repetitions,
-                tag="p5",
-                failed_only=False,
-                base_port=args.base_port,
-            )
-            if func_results_dir is None:
-                log.error("Phase 5 function eval crashed — retrying once")
+            log.info("Phase 4 complete")
+            sync_to_output(app_dir, "phase_4b")
+
+        # ── Phase 5: Final Regression Eval ───────────────────────────────
+
+        if should_run("phase_5"):
+            log.info("Phase 5: Final regression eval (full suite)")
+            disk_guard(app_dir, "phase_5")
+            reporter.update_activity("Phase 5: final regression eval")
+            save_state(args.app_name, "phase_5", args=args)
+
+            # Eval function tasks if they exist
+            func_tasks_file = app_dir / "function-tasks.json"
+            if func_tasks_file.exists():
+                log.info("Phase 5: Evaluating function tasks")
                 func_results_dir = run_eval(
                     app_dir,
                     "function-tasks",
                     args.model,
                     args.workers,
                     args.repetitions,
-                    tag="p5_retry",
+                    tag="p5",
                     failed_only=False,
                     base_port=args.base_port,
                 )
-            func_results = parse_results(func_results_dir)
-            if func_results["total"] == 0:
-                log.error("Phase 5 function eval returned 0 tasks — eval harness failure")
-                sys.exit(1)
-            log.info(
-                "Final function task pass rate: %.1f%% (%d/%d)",
-                func_results["pass_rate"],
-                func_results["passed"],
-                func_results["total"],
-            )
+                if func_results_dir is None:
+                    log.error("Phase 5 function eval crashed — retrying once")
+                    func_results_dir = run_eval(
+                        app_dir,
+                        "function-tasks",
+                        args.model,
+                        args.workers,
+                        args.repetitions,
+                        tag="p5_retry",
+                        failed_only=False,
+                        base_port=args.base_port,
+                    )
+                func_results = parse_results(func_results_dir)
+                if func_results["total"] == 0:
+                    log.error("Phase 5 function eval returned 0 tasks — eval harness failure")
+                    sys.exit(1)
+                log.info(
+                    "Final function task pass rate: %.1f%% (%d/%d)",
+                    func_results["pass_rate"],
+                    func_results["passed"],
+                    func_results["total"],
+                )
 
-        # Eval all real tasks (original + hardening)
-        tasks_file = app_dir / "real-tasks.json"
-        if tasks_file.exists():
-            log.info("Phase 5: Evaluating real tasks (full suite)")
-            real_results_dir = run_eval(
-                app_dir,
-                "real-tasks",
-                args.model,
-                args.workers,
-                args.repetitions,
-                tag="p5",
-                failed_only=False,
-                base_port=args.base_port,
-            )
-            if real_results_dir is None:
-                log.error("Phase 5 real eval crashed — retrying once")
+            # Eval all real tasks (original + hardening)
+            tasks_file = app_dir / "real-tasks.json"
+            if tasks_file.exists():
+                log.info("Phase 5: Evaluating real tasks (full suite)")
                 real_results_dir = run_eval(
                     app_dir,
                     "real-tasks",
                     args.model,
                     args.workers,
                     args.repetitions,
-                    tag="p5_retry",
+                    tag="p5",
                     failed_only=False,
                     base_port=args.base_port,
                 )
-            real_results = parse_results(real_results_dir)
-            if real_results["total"] == 0:
-                log.error("Phase 5 real eval returned 0 tasks — eval harness failure")
-                sys.exit(1)
-            log.info(
-                "Final real task pass rate: %.1f%% (%d/%d)",
-                real_results["pass_rate"],
-                real_results["passed"],
-                real_results["total"],
-            )
+                if real_results_dir is None:
+                    log.error("Phase 5 real eval crashed — retrying once")
+                    real_results_dir = run_eval(
+                        app_dir,
+                        "real-tasks",
+                        args.model,
+                        args.workers,
+                        args.repetitions,
+                        tag="p5_retry",
+                        failed_only=False,
+                        base_port=args.base_port,
+                    )
+                real_results = parse_results(real_results_dir)
+                if real_results["total"] == 0:
+                    log.error("Phase 5 real eval returned 0 tasks — eval harness failure")
+                    sys.exit(1)
+                log.info(
+                    "Final real task pass rate: %.1f%% (%d/%d)",
+                    real_results["pass_rate"],
+                    real_results["passed"],
+                    real_results["total"],
+                )
 
-        log.info("Phase 5 complete")
-        sync_to_output(app_dir, "phase_5")
+            log.info("Phase 5 complete")
+            sync_to_output(app_dir, "phase_5")
 
-    # ── Done ───────────────────────────────────────────────────────────
+        # ── Done ───────────────────────────────────────────────────────────
 
-    save_state(args.app_name, "done", args=args)
-    clear_state(args.app_name)
+        save_state(args.app_name, "done", args=args)
+        clear_state(args.app_name)
 
-    # ── Upload results to S3 ─────────────────────────────────────────
-    if args.s3_bucket:
-        log.info("Uploading results to S3 bucket: %s", args.s3_bucket)
-        # upload_results.py lives in the same directory as this script
-        sys.path.insert(0, str(SCRIPT_DIR))
-        from upload_results import upload_results as _upload_results
+        # ── Upload results to S3 ─────────────────────────────────────────
+        if args.s3_bucket:
+            log.info("Uploading results to S3 bucket: %s", args.s3_bucket)
+            # upload_results.py lives in the same directory as this script
+            sys.path.insert(0, str(SCRIPT_DIR))
+            from upload_results import upload_results as _upload_results
 
-        success = _upload_results(app_dir, args.s3_bucket, args.app_name)
-        if success:
-            region = os.environ.get("AWS_REGION", "us-east-1")
-            url = f"http://{args.s3_bucket}.s3-website-{region}.amazonaws.com/{args.app_name}/"
-            log.info("Results browsable at: %s", url)
-        else:
-            log.warning("S3 upload failed — results remain local only")
+            success = _upload_results(app_dir, args.s3_bucket, args.app_name)
+            if success:
+                region = os.environ.get("AWS_REGION", "us-east-1")
+                url = f"http://{args.s3_bucket}.s3-website-{region}.amazonaws.com/{args.app_name}/"
+                log.info("Results browsable at: %s", url)
+            else:
+                log.warning("S3 upload failed — results remain local only")
 
-    # ── Consistency check: remove orphaned verifier .py files ────────────
-    # If a hardening round was reverted (sanity check failed twice), git
-    # checkout restores real-tasks.json but leaves newly created .py files
-    # on disk since they were never tracked. Clean them up here as a final
-    # safety pass so the real-tasks/ dir matches real-tasks.json exactly.
-    real_tasks_json = app_dir / "real-tasks.json"
-    real_tasks_dir = app_dir / "real-tasks"
-    if real_tasks_json.exists() and real_tasks_dir.is_dir():
-        json_ids = load_task_ids(real_tasks_json)
-        for py_file in sorted(real_tasks_dir.glob("task_h*.py")):
-            tid = py_file.stem
-            if tid not in json_ids:
-                log.warning("Removing orphaned verifier not in real-tasks.json: %s", py_file.name)
-                py_file.unlink()
+        # ── Consistency check: remove orphaned verifier .py files ────────────
+        # If a hardening round was reverted (sanity check failed twice), git
+        # checkout restores real-tasks.json but leaves newly created .py files
+        # on disk since they were never tracked. Clean them up here as a final
+        # safety pass so the real-tasks/ dir matches real-tasks.json exactly.
+        real_tasks_json = app_dir / "real-tasks.json"
+        real_tasks_dir = app_dir / "real-tasks"
+        if real_tasks_json.exists() and real_tasks_dir.is_dir():
+            json_ids = load_task_ids(real_tasks_json)
+            for py_file in sorted(real_tasks_dir.glob("task_h*.py")):
+                tid = py_file.stem
+                if tid not in json_ids:
+                    log.warning("Removing orphaned verifier not in real-tasks.json: %s", py_file.name)
+                    py_file.unlink()
 
-    log.info("=" * 60)
-    log.info("Pipeline complete for: %s", args.app_name)
-    log.info("=" * 60)
+        reporter.finalize(state="SUCCESS", status_code="SUCCESS")
+        log.info("=" * 60)
+        log.info("Pipeline complete for: %s", args.app_name)
+        log.info("=" * 60)
+    except SystemExit:
+        raise
+    except BaseException as exc:  # noqa: BLE001 — last-resort net
+        import traceback
+        tb = traceback.format_exc()[-3000:]
+        log.error("FATAL uncaught exception: %s", exc)
+        code = reporter.finalize(state="FAILED", status_code="FATAL", diagnostic=tb)
+        sys.exit(code)
 
 
 if __name__ == "__main__":

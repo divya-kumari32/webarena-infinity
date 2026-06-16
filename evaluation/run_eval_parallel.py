@@ -79,11 +79,26 @@ def _make_qwen_agent(*, max_steps, timeout, headless, **_kw):
     return Qwen35VLAgent(max_steps=max_steps, timeout=timeout, headless=headless)
 
 
+# Per-request resilience: let the LLM client retry transient errors itself so a
+# single hiccup doesn't fail a whole task. Only pass kwargs the client supports.
+import inspect as _inspect
+
+def _chat_openai(model: str):
+    from browser_use.llm.openai.chat import ChatOpenAI
+    kwargs = {"model": model}
+    params = _inspect.signature(ChatOpenAI).parameters
+    if "max_retries" in params:
+        kwargs["max_retries"] = 6
+    if "timeout" in params:
+        kwargs["timeout"] = 120
+    return ChatOpenAI(**kwargs)
+
+
 # Agent factories: each returns an AgentRunner given common kwargs.
 # Browser-use models use partial application over their LLM factory.
 AGENT_FACTORIES = {
     "gpt": lambda **kw: _make_browser_use_agent(
-        lambda: __import__("browser_use.llm.openai.chat", fromlist=["ChatOpenAI"]).ChatOpenAI(model="gpt-4o"), **kw),
+        lambda: _chat_openai("gpt-4o"), **kw),
     "gemini-flash": lambda **kw: _make_browser_use_agent(
         lambda: __import__("browser_use.llm.google.chat", fromlist=["ChatGoogle"]).ChatGoogle(model="gemini-3-flash-preview"), **kw),
     "gemini-pro": lambda **kw: _make_browser_use_agent(
@@ -94,17 +109,17 @@ AGENT_FACTORIES = {
     "claude-cu": lambda **kw: _make_claude_cu_agent(**kw),
     "kimi": lambda **kw: _make_kimi_agent(**kw),
     "qwen": lambda **kw: _make_browser_use_agent(
-        lambda: __import__("browser_use.llm.openai.chat", fromlist=["ChatOpenAI"]).ChatOpenAI(model="coreweave/qwen3-coder-480b-a35b-instruct-maas"), **kw),
+        lambda: _chat_openai("coreweave/qwen3-coder-480b-a35b-instruct-maas"), **kw),
     "gpt-oss": lambda **kw: _make_browser_use_agent(
-        lambda: __import__("browser_use.llm.openai.chat", fromlist=["ChatOpenAI"]).ChatOpenAI(model="azure/gpt-oss-120b"), **kw),
+        lambda: _chat_openai("azure/gpt-oss-120b"), **kw),
     "dsv4pro": lambda **kw: _make_browser_use_agent(
-        lambda: __import__("browser_use.llm.openai.chat", fromlist=["ChatOpenAI"]).ChatOpenAI(model="coreweave/dsv4pro"), **kw),
+        lambda: _chat_openai("coreweave/dsv4pro"), **kw),
     "deepseek-v32": lambda **kw: _make_browser_use_agent(
-        lambda: __import__("browser_use.llm.openai.chat", fromlist=["ChatOpenAI"]).ChatOpenAI(model="coreweave/deepseek-v3.2"), **kw),
+        lambda: _chat_openai("coreweave/deepseek-v3.2"), **kw),
     "deepseek-v32-az": lambda **kw: _make_browser_use_agent(
-        lambda: __import__("browser_use.llm.openai.chat", fromlist=["ChatOpenAI"]).ChatOpenAI(model="azure/DeepSeek-V3.2"), **kw),
+        lambda: _chat_openai("azure/DeepSeek-V3.2"), **kw),
     "glmv5.1": lambda **kw: _make_browser_use_agent(
-        lambda: __import__("browser_use.llm.openai.chat", fromlist=["ChatOpenAI"]).ChatOpenAI(model="coreweave/glmv5.1"), **kw),
+        lambda: _chat_openai("coreweave/glmv5.1"), **kw),
 }
 
 # --- ANSI colors ---

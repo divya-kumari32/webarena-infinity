@@ -12,3 +12,8 @@ dependencies = [
 [project.optional-dependencies]
 dashboard = ["rich>=13.0"]
 vision = ["google-genai", "openai"]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.0",
+]

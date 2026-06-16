@@ -1067,11 +1067,16 @@ def sync_to_output(app_dir: Path, phase: str) -> None:
     dest = output_dir / app_dir.name
     try:
         log.info("Syncing app to /output after %s", phase)
-        subprocess.run(
-            ["rsync", "-a", "--delete", f"{app_dir}/", f"{dest}/"],
-            check=True,
-            timeout=300,
-        )
+        if shutil.which("rsync"):
+            subprocess.run(
+                ["rsync", "-a", "--delete", f"{app_dir}/", f"{dest}/"],
+                check=True,
+                timeout=300,
+            )
+        else:
+            if dest.exists():
+                shutil.rmtree(dest)
+            shutil.copytree(app_dir, dest)
         log.info("Synced to %s", dest)
     except Exception as exc:
         log.warning("sync_to_output failed for %s: %s", phase, exc)

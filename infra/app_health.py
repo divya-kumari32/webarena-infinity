@@ -55,39 +55,43 @@ def _endpoints(base: str) -> str | None:
 
 
 def _browser_load(app_dir: Path, port: int, base: str) -> str | None:
-    """Load index.html in a real headless browser; confirm the app's own JS PUT state.
-
-    Captures console errors / uncaught exceptions for the diagnostic.
+    """Load the app in a headless browser via browser_use — the SAME browser stack
+    the eval harness uses (see evaluation/agents.py) — and confirm the app's own JS
+    PUT state on load. Avoids a hard dependency on Playwright.
     """
-    from playwright.sync_api import sync_playwright
+    import asyncio
 
     # Reset server state so we only see what THIS load pushes.
     requests.post(f"{base}/api/reset", timeout=5)
-    console_errors: list[str] = []
-    page_errors: list[str] = []
-    with sync_playwright() as p:
-        browser = p.chromium.launch(headless=True)
-        page = browser.new_page()
-        page.on("console", lambda m: console_errors.append(m.text) if m.type == "error" else None)
-        page.on("pageerror", lambda e: page_errors.append(str(e)))
+
+    async def _load() -> None:
+        from browser_use import BrowserSession
         try:
-            page.goto(f"{base}/index.html", timeout=15000)
-        except Exception as exc:  # navigation failure
-            browser.close()
-            return f"Browser failed to load index.html: {exc}"
-        time.sleep(BROWSER_SETTLE_S)
-        browser.close()
+            from agents import _EXTRA_CHROME_ARGS  # match eval's container chrome args
+        except Exception:
+            _EXTRA_CHROME_ARGS = ["--no-sandbox", "--disable-dev-shm-usage"]
+        session = BrowserSession(headless=True, keep_alive=True, args=_EXTRA_CHROME_ARGS)
+        try:
+            await session.start()
+            page = await session.get_current_page()
+            await page.goto(base)
+            await asyncio.sleep(BROWSER_SETTLE_S)
+        finally:
+            try:
+                await session.kill()
+            except Exception:
+                pass
+
+    try:
+        asyncio.run(_load())
+    except Exception as exc:  # browser failed to launch / navigate
+        return f"Browser failed to load the app via browser_use: {exc}"
 
     r = requests.get(f"{base}/api/state", timeout=5)
     if r.status_code == 200 and r.json():
         return None  # app JS pushed state — healthy
-    detail = ""
-    if page_errors:
-        detail = " | uncaught JS errors: " + " ;; ".join(page_errors[:5])
-    elif console_errors:
-        detail = " | console errors: " + " ;; ".join(console_errors[:5])
     return ("After loading index.html the app's JS did not PUT state "
-            f"(GET /api/state returned {r.status_code})." + detail)
+            f"(GET /api/state returned {r.status_code}).")
 
 
 def run_health_gate(app_dir: Path, port: int) -> tuple[bool, str]:

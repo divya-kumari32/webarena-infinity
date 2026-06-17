@@ -7,7 +7,11 @@ requires-python = ">=3.12"
 dependencies = [
     "browser-use>=0.11.9",
     "Pillow>=10.0",
-    "requests",
+    # NOTE: `requests` is used directly by infra/app_health.py and evaluation/server.py
+    # but is intentionally NOT listed here: it's already present transitively (via
+    # browser-use) and pinned in uv.lock. Adding it as a direct dep without re-running
+    # `uv lock` desyncs pyproject from uv.lock and breaks `uv sync` in the container.
+    # If you want it declared, run `uv add requests` (updates BOTH files) and commit.
 ]
 
 [project.optional-dependencies]

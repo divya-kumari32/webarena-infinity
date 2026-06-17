@@ -46,6 +46,16 @@ import time
 from datetime import datetime
 from pathlib import Path
 
+# Re-exec under the project venv if launched with a different interpreter. The
+# hardening modules below import requests/browser_use (venv-only), but bsubs launch
+# `python infra/pipeline.py` under the system Python. This makes that work unchanged
+# (and is a no-op when already running under .venv or when no .venv exists).
+_venv_py = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))), ".venv", "bin", "python"
+)
+if os.path.exists(_venv_py) and os.path.realpath(sys.executable) != os.path.realpath(_venv_py):
+    os.execv(_venv_py, [_venv_py, *sys.argv])
+
 # infra/ is on sys.path when pipeline.py runs as a script (consistent with the
 # existing `from upload_results import ...` pattern used inside main()).
 from app_health import run_health_gate

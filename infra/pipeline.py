@@ -756,6 +756,11 @@ def run_eval(
             _os.killpg(_os.getpgid(proc.pid), _signal.SIGKILL)
         except (ProcessLookupError, PermissionError):
             proc.kill()
+        log.error("Eval timed out after %ds — treating as EVAL_HANG", eval_timeout)
+        if reporter is not None:
+            code = reporter.finalize(state="FAILED", status_code="EVAL_HANG",
+                                     diagnostic=f"eval subprocess exceeded {eval_timeout}s and was force-killed")
+            sys.exit(code)
         return find_latest_results(app_dir, task_suite)
 
     if result_code != 0:
@@ -1533,11 +1538,18 @@ def main() -> None:
 
         if args.agent == "opencode" and not args.generation_model:
             log.error("--generation-model is required when --agent=%s", args.agent)
-            sys.exit(1)
+            code = reporter.finalize(state="FAILED", status_code="FATAL",
+                                     diagnostic="--generation-model required for opencode agent")
+            sys.exit(code)
 
         def _global_timeout_handler(signum, frame):
-            log.error("GLOBAL TIMEOUT: pipeline exceeded %d hours — aborting", GLOBAL_TIMEOUT_SECONDS // 3600)
-            sys.exit(2)
+            log.error("GLOBAL TIMEOUT: pipeline exceeded %d hours — aborting",
+                      GLOBAL_TIMEOUT_SECONDS // 3600)
+            if reporter is not None:
+                code = reporter.finalize(state="FAILED", status_code="WALL_TIMEOUT",
+                                         diagnostic=f"exceeded {GLOBAL_TIMEOUT_SECONDS // 3600}h global timeout")
+                sys.exit(code)
+            sys.exit(EXIT_CODES["WALL_TIMEOUT"])
 
         signal.signal(signal.SIGALRM, _global_timeout_handler)
         signal.alarm(GLOBAL_TIMEOUT_SECONDS)
@@ -1561,7 +1573,9 @@ def main() -> None:
 
         if args.resume and args.rerun_from:
             log.error("--resume and --rerun-from are mutually exclusive")
-            sys.exit(1)
+            code = reporter.finalize(state="FAILED", status_code="FATAL",
+                                     diagnostic="--resume and --rerun-from are mutually exclusive")
+            sys.exit(code)
 
         resume_phase: str | None = None
         resume_iter: int = 0
@@ -1578,7 +1592,9 @@ def main() -> None:
                 log.error(
                     "--resume specified but no state file found for %s", args.app_name
                 )
-                sys.exit(1)
+                code = reporter.finalize(state="FAILED", status_code="FATAL",
+                                         diagnostic="--resume specified but no state file found")
+                sys.exit(code)
 
             resume_phase = state["step"]
             resume_iter = state.get("iteration", 0)
@@ -1645,7 +1661,9 @@ def main() -> None:
                     log.error(
                         "Phase 1 FAILED: rc=%d and missing files: %s", rc, ", ".join(missing_early)
                     )
-                    sys.exit(1)
+                    code = reporter.finalize(state="FAILED", status_code="APP_BROKEN",
+                                             diagnostic=f"Phase 1 rc={rc} and missing files: {', '.join(missing_early)}")
+                    sys.exit(code)
             else:
                 commit_checkpoint(app_dir, f"Generate app: {args.app_name}", push=args.push_enabled)
 
@@ -1682,7 +1700,9 @@ def main() -> None:
                             "Phase 1 FAILED after retry. Still missing: %s",
                             ", ".join(missing2),
                         )
-                        sys.exit(1)
+                        code = reporter.finalize(state="FAILED", status_code="APP_BROKEN",
+                                                 diagnostic=f"Phase 1 still missing after retry: {', '.join(missing2)}")
+                        sys.exit(code)
                     commit_checkpoint(
                         app_dir,
                         f"Generate app (retry fix): {args.app_name}",
@@ -1694,7 +1714,9 @@ def main() -> None:
                         "Phase 1 validation failed (missing: %s). Fix manually or rerun.",
                         ", ".join(missing),
                     )
-                    sys.exit(1)
+                    code = reporter.finalize(state="FAILED", status_code="APP_BROKEN",
+                                             diagnostic=f"Phase 1 validation failed, missing: {', '.join(missing)}")
+                    sys.exit(code)
 
             if not app_health_gate_with_fix(app_dir, args, "phase_1", args.base_port):
                 code = reporter.finalize(state="FAILED", status_code="APP_BROKEN",
@@ -1707,14 +1729,18 @@ def main() -> None:
             log.info("Phase 1: Skipped")
             if not app_dir.is_dir():
                 log.error("App directory does not exist: %s", app_dir)
-                sys.exit(1)
+                code = reporter.finalize(state="FAILED", status_code="APP_BROKEN",
+                                         diagnostic=f"app directory does not exist: {app_dir}")
+                sys.exit(code)
             valid, missing = validate_app_generation(app_dir)
             if not valid:
                 log.error(
                     "App directory incomplete (missing: %s) — cannot resume",
                     ", ".join(missing),
                 )
-                sys.exit(1)
+                code = reporter.finalize(state="FAILED", status_code="APP_BROKEN",
+                                         diagnostic=f"app directory incomplete, missing: {', '.join(missing)}")
+                sys.exit(code)
 
         # ── Phase 2: Function Tasks ────────────────────────────────────────
 
@@ -1743,7 +1769,9 @@ def main() -> None:
                 )
             if not phase_2a_success:
                 log.error("Phase 2a FAILED after 3 attempts — aborting")
-                sys.exit(1)
+                code = reporter.finalize(state="FAILED", status_code="TASKS_INVALID",
+                                         diagnostic="Phase 2a failed after 3 attempts")
+                sys.exit(code)
 
             ok, output = run_sanity_check(app_dir, "function")
             if not ok:
@@ -1908,7 +1936,9 @@ def main() -> None:
                 )
             if not phase_3a_success:
                 log.error("Phase 3a FAILED after 3 attempts — aborting")
-                sys.exit(1)
+                code = reporter.finalize(state="FAILED", status_code="TASKS_INVALID",
+                                         diagnostic="Phase 3a failed after 3 attempts")
+                sys.exit(code)
 
             ok, output = run_sanity_check(app_dir, "real")
             if not ok:
@@ -2181,13 +2211,16 @@ def main() -> None:
                 )
 
                 if results["total"] == 0:
-                    log.error(
-                        "Hardening eval returned 0 tasks — likely server or task-loading failure. "
-                        "Check eval logs at %s", results_dir,
-                    )
-                    code = reporter.finalize(state="FAILED", status_code="EVAL_HARNESS",
-                                             diagnostic="eval returned 0 tasks")
-                    sys.exit(code)
+                    ok, diag = run_health_gate(app_dir, port=args.base_port + 90)
+                    if not ok:
+                        reporter.update_activity("phase_4b: eval 0/0 — app broken; regenerating")
+                        if not app_health_gate_with_fix(app_dir, args, "phase_4b", args.base_port):
+                            code = reporter.finalize(state="FAILED", status_code="APP_BROKEN", diagnostic=diag)
+                            sys.exit(code)
+                    else:
+                        code = reporter.finalize(state="FAILED", status_code="EVAL_HARNESS",
+                                                 diagnostic="hardening eval returned 0 tasks but app is healthy")
+                        sys.exit(code)
 
                 if results_dir is not None:
                     hardening_result_dirs.append(results_dir)

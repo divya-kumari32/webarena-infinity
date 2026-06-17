@@ -94,17 +94,39 @@ def _chat_openai(model: str):
     return ChatOpenAI(**kwargs)
 
 
+def _chat_google(model: str):
+    from browser_use.llm.google.chat import ChatGoogle
+    kwargs = {"model": model}
+    params = _inspect.signature(ChatGoogle).parameters
+    if "max_retries" in params:
+        kwargs["max_retries"] = 6
+    if "timeout" in params:
+        kwargs["timeout"] = 120
+    return ChatGoogle(**kwargs)
+
+
+def _chat_anthropic(model: str):
+    from browser_use.llm.anthropic.chat import ChatAnthropic
+    kwargs = {"model": model}
+    params = _inspect.signature(ChatAnthropic).parameters
+    if "max_retries" in params:
+        kwargs["max_retries"] = 6
+    if "timeout" in params:
+        kwargs["timeout"] = 120
+    return ChatAnthropic(**kwargs)
+
+
 # Agent factories: each returns an AgentRunner given common kwargs.
 # Browser-use models use partial application over their LLM factory.
 AGENT_FACTORIES = {
     "gpt": lambda **kw: _make_browser_use_agent(
         lambda: _chat_openai("gpt-4o"), **kw),
     "gemini-flash": lambda **kw: _make_browser_use_agent(
-        lambda: __import__("browser_use.llm.google.chat", fromlist=["ChatGoogle"]).ChatGoogle(model="gemini-3-flash-preview"), **kw),
+        lambda: _chat_google("gemini-3-flash-preview"), **kw),
     "gemini-pro": lambda **kw: _make_browser_use_agent(
-        lambda: __import__("browser_use.llm.google.chat", fromlist=["ChatGoogle"]).ChatGoogle(model="gemini-3-pro-preview"), **kw),
+        lambda: _chat_google("gemini-3-pro-preview"), **kw),
     "claude": lambda **kw: _make_browser_use_agent(
-        lambda: __import__("browser_use.llm.anthropic.chat", fromlist=["ChatAnthropic"]).ChatAnthropic(model="claude-sonnet-4-6-20250514"), **kw),
+        lambda: _chat_anthropic("claude-sonnet-4-6-20250514"), **kw),
     "gemini-cu": lambda **kw: _make_gemini_cu_agent(**kw),
     "claude-cu": lambda **kw: _make_claude_cu_agent(**kw),
     "kimi": lambda **kw: _make_kimi_agent(**kw),

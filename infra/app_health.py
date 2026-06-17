@@ -114,6 +114,17 @@ def run_health_gate(app_dir: Path, port: int) -> tuple[bool, str]:
         ep = _endpoints(base)
         if ep:
             return False, ep[:DIAG_CAP]
+        # The endpoints check did a synthetic PUT, which the reference server.py
+        # captures as the immutable seed state (restored on /api/reset). Restart
+        # the server so the browser check sees a CLEAN slate — only the app's own
+        # JS load can populate state. Otherwise a broken-JS app would look healthy
+        # because reset would restore the synthetic seed.
+        stop_server(proc)
+        kill_port(port)
+        proc = start_server(str(app_dir), port)
+        if not wait_for_server(port, timeout=10):
+            return False, (f"server.py did not restart on :{port} for the browser "
+                           f"check")[:DIAG_CAP]
         br = _browser_load(app_dir, port, base)
         if br:
             return False, br[:DIAG_CAP]

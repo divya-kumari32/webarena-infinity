@@ -1521,7 +1521,11 @@ def main() -> None:
     global log, reporter
     log = setup_logging(args.app_name)
 
-    _out = Path("/output") / args.app_name if Path("/output").is_dir() else None
+    # Write status/activity OUTSIDE the synced app dir: sync_to_output() does
+    # `rsync --delete app_dir/ -> /output/{app}/`, which would wipe STATUS.json /
+    # activity.log if they lived in /output/{app}/. The "_status" sibling is never a
+    # sync target, and cleanup_results.py skips "_"-prefixed dirs.
+    _out = Path("/output") / "_status" / args.app_name if Path("/output").is_dir() else None
     reporter = StatusReporter(env=args.app_name,
                               log_dir=REPO_DIR / "logs" / args.app_name,
                               output_dir=_out)

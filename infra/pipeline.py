@@ -1402,6 +1402,106 @@ def app_health_gate_with_fix(app_dir: Path, args, phase: str, base_port: int) ->
     return False
 
 
+def check_task_verifier_consistency(app_dir: Path, variant: str) -> tuple[bool, str]:
+    """Verify that {variant}-tasks.json and the {variant}-tasks/ verifiers agree.
+
+    The model writes the task json and the verifier files separately, so a
+    truncated generation can leave the json listing tasks whose verifier file
+    was never written (dangling `verify` pointers) — or orphan verifier files
+    with no json entry. Either way the eval is compromised: a task with no
+    verifier can never pass. Returns (ok, diagnostic).
+    """
+    app_dir = Path(app_dir)
+    tasks_file = app_dir / f"{variant}-tasks.json"
+    verifier_dir = app_dir / f"{variant}-tasks"
+    if not tasks_file.exists():
+        return (False, f"{tasks_file.name} is missing")
+    try:
+        tasks = json.loads(tasks_file.read_text())
+    except Exception as e:  # noqa: BLE001
+        return (False, f"{tasks_file.name} is not valid JSON: {e}")
+    if not isinstance(tasks, list):
+        return (False, f"{tasks_file.name} must be a JSON array of tasks")
+
+    missing: list[str] = []          # in json, verifier file absent
+    json_ids: set[str] = set()
+    for t in tasks:
+        tid = t.get("id")
+        if not tid:
+            return (False, f"{tasks_file.name} contains a task with no 'id' field")
+        json_ids.add(tid)
+        verify_val = t.get("verify")
+        if isinstance(verify_val, str) and verify_val:
+            vpath = app_dir / verify_val
+        else:
+            vpath = verifier_dir / f"{tid}.py"
+        if not vpath.exists():
+            missing.append(f"{tid} -> {vpath.relative_to(app_dir)}")
+
+    orphans: list[str] = []          # verifier file present, no json entry
+    if verifier_dir.is_dir():
+        for f in sorted(verifier_dir.glob("*.py")):
+            if f.stem == "__init__":
+                continue
+            if f.stem not in json_ids:
+                orphans.append(f.name)
+
+    if not missing and not orphans:
+        return (True, f"{variant}: {len(json_ids)} tasks, every verifier present, no orphans")
+
+    parts = [f"{tasks_file.name} and {verifier_dir.name}/ are INCONSISTENT."]
+    if missing:
+        parts.append(
+            f"{len(missing)} task(s) in {tasks_file.name} have NO verifier file: "
+            + ", ".join(missing)
+        )
+    if orphans:
+        parts.append(
+            f"{len(orphans)} verifier file(s) have NO entry in {tasks_file.name}: "
+            + ", ".join(orphans)
+        )
+    return (False, " ".join(parts))
+
+
+def task_consistency_gate_with_fix(app_dir: Path, args, phase: str, variant: str) -> bool:
+    """Check task<->verifier consistency; on mismatch, have the MODEL reconcile it.
+
+    The model must either generate the missing verifier files or remove the
+    dangling tasks from the json — the pipeline never edits app files itself.
+    Bounded by GEN_REGEN_BUDGET. Returns True if consistent.
+    """
+    for attempt in range(1, GEN_REGEN_BUDGET + 1):
+        ok, diag = check_task_verifier_consistency(app_dir, variant)
+        if ok:
+            if reporter:
+                reporter.update_activity(f"{phase}: task/verifier consistency OK ({diag})")
+            log.info("Task/verifier consistency OK: %s", diag)
+            return True
+        log.warning("Task/verifier consistency FAILED (attempt %d/%d): %s",
+                    attempt, GEN_REGEN_BUDGET, diag)
+        if reporter:
+            reporter.update_activity(f"{phase}: consistency FAILED — {diag[:120]}")
+            reporter.checkpoint(attempt_key=f"{phase}_consistency")
+        if attempt == GEN_REGEN_BUDGET:
+            break
+        if reporter:
+            reporter.update_activity(
+                f"{phase}: asking model to reconcile tasks/verifiers "
+                f"(attempt {attempt + 1}/{GEN_REGEN_BUDGET})")
+        run_agent(
+            "fix-task-consistency",
+            cwd=REPO_DIR,
+            timeout=10800,
+            agent=args.agent,
+            generation_model=args.generation_model,
+            app_name=args.app_name,
+            diagnostics=diag,
+            variant=variant,
+            **{"app-name": args.app_name},
+        )
+    return False
+
+
 # ---------------------------------------------------------------------------
 # Main pipeline
 # ---------------------------------------------------------------------------
@@ -1802,6 +1902,13 @@ def main() -> None:
                     **{"app-name": args.app_name},
                 )
 
+            if not task_consistency_gate_with_fix(app_dir, args, "Phase 2a", "function"):
+                _, diag = check_task_verifier_consistency(app_dir, "function")
+                log.error("Phase 2a task/verifier consistency unrecoverable — aborting")
+                code = reporter.finalize(state="FAILED", status_code="TASKS_INVALID",
+                                         diagnostic=f"Phase 2a consistency: {diag}")
+                sys.exit(code)
+
             commit_checkpoint(app_dir, f"Generate function tasks: {args.app_name}", push=args.push_enabled)
             sync_to_output(app_dir, "phase_2a")
 
@@ -1969,11 +2076,28 @@ def main() -> None:
                     **{"app-name": args.app_name},
                 )
 
+            if not task_consistency_gate_with_fix(app_dir, args, "Phase 3a", "real"):
+                _, diag = check_task_verifier_consistency(app_dir, "real")
+                log.error("Phase 3a task/verifier consistency unrecoverable — aborting")
+                code = reporter.finalize(state="FAILED", status_code="TASKS_INVALID",
+                                         diagnostic=f"Phase 3a consistency: {diag}")
+                sys.exit(code)
+
             commit_checkpoint(app_dir, f"Generate real tasks: {args.app_name}", push=args.push_enabled)
             sync_to_output(app_dir, "phase_3a")
 
         # 3b: Eval → Audit loop
         if should_run("phase_3b"):
+            # Guard against a broken restore (e.g. --rerun-from phase_3b on a
+            # backup whose real-tasks.json lists tasks with no verifier file).
+            # Phase 3a's gate is skipped on resume, so re-check here.
+            if not task_consistency_gate_with_fix(app_dir, args, "Phase 3b", "real"):
+                _, diag = check_task_verifier_consistency(app_dir, "real")
+                log.error("Phase 3b task/verifier consistency unrecoverable — aborting")
+                code = reporter.finalize(state="FAILED", status_code="TASKS_INVALID",
+                                         diagnostic=f"Phase 3b consistency: {diag}")
+                sys.exit(code)
+
             start_iter = resume_iter if resume_phase == "phase_3b" else 1
             for iteration in range(start_iter, max_iterations + 1):
                 log.info(
@@ -2184,6 +2308,16 @@ def main() -> None:
                             )
                             git("checkout", "--", str(app_dir))
                             break
+
+                    if not task_consistency_gate_with_fix(
+                        app_dir, args, f"Phase 4a round {round_num}", "real"
+                    ):
+                        log.error(
+                            "Task/verifier consistency unrecoverable after hardening "
+                            "— reverting round %d", round_num,
+                        )
+                        git("checkout", "--", str(app_dir))
+                        break
 
                     commit_checkpoint(
                         app_dir,

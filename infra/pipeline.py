@@ -1502,6 +1502,19 @@ def task_consistency_gate_with_fix(app_dir: Path, args, phase: str, variant: str
     return False
 
 
+def _revert_hardening_round(app_dir: Path) -> None:
+    """Undo a partial/failed hardening round so it can't contaminate later phases.
+
+    A failed or empty Phase 4a can leave `real-tasks.json` grown with half-generated
+    tasks AND untracked orphan verifier files on disk. `git checkout` alone only reverts
+    TRACKED files (the json), leaving untracked new verifiers behind — which then inflate
+    the Phase 5 real-task suite. This restores the committed post-3b baseline (tracked
+    files) and removes untracked verifier files. results/ is gitignored, so `clean` is safe.
+    """
+    git("checkout", "--", str(app_dir))
+    git("clean", "-fd", "--", str(app_dir / "real-tasks"))
+
+
 # ---------------------------------------------------------------------------
 # Main pipeline
 # ---------------------------------------------------------------------------
@@ -2272,15 +2285,18 @@ def main() -> None:
                     )
                     if rc != 0:
                         log.error(
-                            "Phase 4a FAILED: task hardening generation returned rc=%d",
+                            "Phase 4a FAILED: task hardening generation returned rc=%d "
+                            "— reverting partial hardening artifacts",
                             rc,
                         )
+                        _revert_hardening_round(app_dir)
                         break
 
                     # Identify newly added task IDs
                     new_ids = get_new_task_ids(app_dir / "real-tasks.json", known_ids)
                     if not new_ids:
-                        log.info("No new tasks generated — stopping hardening")
+                        log.info("No new tasks generated — cleaning artifacts, stopping hardening")
+                        _revert_hardening_round(app_dir)
                         break
 
                     log.info("Generated %d new tasks: %s", len(new_ids), sorted(new_ids))
@@ -2306,7 +2322,7 @@ def main() -> None:
                                 "Sanity check still failing after fix — reverting round %d",
                                 round_num,
                             )
-                            git("checkout", "--", str(app_dir))
+                            _revert_hardening_round(app_dir)
                             break
 
                     if not task_consistency_gate_with_fix(
@@ -2316,7 +2332,7 @@ def main() -> None:
                             "Task/verifier consistency unrecoverable after hardening "
                             "— reverting round %d", round_num,
                         )
-                        git("checkout", "--", str(app_dir))
+                        _revert_hardening_round(app_dir)
                         break
 
                     commit_checkpoint(

@@ -1933,7 +1933,7 @@ def main() -> None:
                     args.repetitions,
                     resume=(args.resume and iteration == start_iter),
                     tag="p2b",
-                    failed_only=(iteration > 1),
+                    failed_only=True,
                     base_port=args.base_port,
                 )
                 results = parse_results(results_dir)
@@ -2117,7 +2117,7 @@ def main() -> None:
                     args.repetitions,
                     resume=(args.resume and iteration == start_iter),
                     tag="p3b",
-                    failed_only=(iteration > 1),
+                    failed_only=True,
                     base_port=args.base_port,
                 )
                 results = parse_results(results_dir)
